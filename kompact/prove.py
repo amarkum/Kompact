@@ -14,6 +14,7 @@ own ledger. Writes results.json and REPORT.md to --out.
 import argparse
 import json
 import os
+import shlex
 import sqlite3
 import statistics
 import subprocess
@@ -111,8 +112,8 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
             args += ["--settings", str(settings)]
         tools += sorted({"Bash(kompact:*)", f"Bash({installer.cli_name()}:*)"})
         prefix = run_dir / "kompact-shell"  # what `kompact setup` installs as ~/.kompact/bin/kompact-shell
-        prefix.write_text(installer.SHELL_PREFIX.format(py=sys.executable or "python3",
-                                                        script=Path(installer.__file__).with_name("_launch.py")))
+        prefix.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable or "python3"),
+                                                        script=shlex.quote(str(Path(installer.__file__).with_name("_launch.py")))))
         prefix.chmod(0o755)
         env[installer.PREFIX_ENV] = str(prefix)
     args += ["--allowedTools", ",".join(tools)]

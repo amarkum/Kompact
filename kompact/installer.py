@@ -3,6 +3,7 @@
 import glob
 import json
 import os
+import shlex
 import shutil
 import sys
 from pathlib import Path
@@ -46,12 +47,12 @@ def write_shim() -> Path:
     py = sys.executable or "python3"
     script = Path(__file__).with_name("_launch.py")
     sh = d / "kompact"
-    sh.write_text(f'#!/bin/sh\nexec "{py}" "{script}" "$@"\n')
+    sh.write_text(f'#!/bin/sh\nexec {shlex.quote(py)} {shlex.quote(str(script))} "$@"\n')
     sh.chmod(0o755)
     (d / "kompact.cmd").write_text(f'@"{py}" "{script}" %*\r\n')
     if os.name != "nt":
         prefix = d / "kompact-shell"
-        prefix.write_text(SHELL_PREFIX.format(py=py, script=script))
+        prefix.write_text(SHELL_PREFIX.format(py=shlex.quote(py), script=shlex.quote(str(script))))
         prefix.chmod(0o755)
     return sh
 
@@ -66,11 +67,11 @@ SHELL_PREFIX = """#!/bin/sh
 case "$1" in *snapshot-zsh-*) s=zsh ;; *) s=bash ;; esac
 command -v "$s" >/dev/null 2>&1 || s=sh
 c=${{1#* eval }}
-if [ -z "$KOMPACT_RAW" ] && [ -x "{py}" ] && [ -f "{script}" ]; then
+if [ -z "$KOMPACT_RAW" ] && [ -x {py} ] && [ -f {script} ]; then
   case "$c" in
     *test*|*build*|*lint*|*check*|*tsc*|*make*|*cargo*|*mvn*|*gradle*|*install*|*jest*|*mocha*|*mypy*|*ruff*|\\
     *pyright*|*flake8*|*vet*|*npm*|*pnpm*|*yarn*|*bun*|*uv\\ *|*pip*|*poetry*|*docker*|*golangci*|*tox*|*nox*)
-      exec "{py}" "{script}" shell "$s" "$1" ;;
+      exec {py} {script} shell "$s" "$1" ;;
   esac
 fi
 exec "$s" -c "$1"

@@ -50,7 +50,7 @@ def decide(full: str):
     if os.environ.get("KOMPACT_RAW"):
         return None, None
     cmd = user_command(full)
-    if not cmd or not filters.wrappable(cmd):
+    if not cmd or cmd.lstrip().startswith("KOMPACT_RAW=1") or not filters.wrappable(cmd):
         return None, None
     cfg = config.load(os.getcwd())
     if not cfg.get("bash") or not cfg.get("bash_wrap"):

@@ -6,6 +6,7 @@ characters to a file; these tests pin down how Kompact still compacts both."""
 import io
 import json
 import os
+import shlex
 import sqlite3
 import subprocess
 import sys
@@ -63,7 +64,7 @@ class ShellPrefixTests(unittest.TestCase):
         self.home = self.dir / "kompact-home"
         self.home.mkdir()
         self.shim = self.dir / "kompact-shell"
-        self.shim.write_text(installer.SHELL_PREFIX.format(py=sys.executable, script=ROOT / "kompact" / "_launch.py"))
+        self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable), script=shlex.quote(str(ROOT / "kompact" / "_launch.py"))))
         self.shim.chmod(0o755)
         bindir = self.dir / "bin"
         bindir.mkdir()
@@ -112,10 +113,23 @@ class ShellPrefixTests(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertIn("test_case_7 PASSED", r.stdout, env)
         # Kompact gone (plugin removed): the shim still runs every command
-        self.shim.write_text(installer.SHELL_PREFIX.format(py=sys.executable, script=self.dir / "missing.py"))
+        self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable), script=shlex.quote(str(self.dir / "missing.py"))))
         r = self.run_shim("pytest")
         self.assertEqual(r.returncode, 1)
         self.assertIn("test_case_7 PASSED", r.stdout)
+
+    def test_inline_raw_and_odd_install_paths(self):
+        r = self.run_shim("KOMPACT_RAW=1 pytest")  # the documented per-command opt-out
+        self.assertIn("test_case_7 PASSED", r.stdout)
+        odd = self.dir / 'we"ird $HOME dir'  # quotes, spaces and $ in the install path
+        odd.mkdir()
+        (odd / "kompact").symlink_to(ROOT / "kompact")
+        self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable),
+                                                           script=shlex.quote(str(odd / "kompact" / "_launch.py"))))
+        r = self.run_shim("pytest")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("[kompact: ", r.stdout)
+        self.assertNotIn("test_case_7 PASSED", r.stdout)
 
     def test_never_compact_is_respected(self):
         cfg_file = self.home / "config.json"
