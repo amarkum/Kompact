@@ -513,6 +513,7 @@ class TurnAndSetupTests(unittest.TestCase):
             self.assertEqual(config.read_file()["preset"], 4)
         finally:
             httpd.shutdown()
+            httpd.server_close()
             config.path().unlink()
 
 

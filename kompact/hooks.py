@@ -223,8 +223,7 @@ def _read(path: str) -> str:
 
 
 def _rules(cfg: dict) -> str:
-    tools = bool(cfg.get("bash") or cfg.get("read_outline") or cfg.get("graph"))
-    return rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools,
+    return rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(),
                        plain=bool(cfg.get("bash") and cfg.get("bash_plain") and cfg.get("bash_wrap")
                                   and installer.prefix_active()))
 
@@ -233,7 +232,7 @@ def subagent_start(event: dict, cfg: dict) -> None:
     """Subagents get the same prose and code rules as the main agent (no code map)."""
     if not cfg.get("subagent_rules", True):
         return
-    text = rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools=False)
+    text = rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name())
     if text:
         _emit({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": text}})
 

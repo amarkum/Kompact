@@ -79,7 +79,7 @@ def connect(root: str) -> _Conn:
     path = db_path(root)
     if path.exists():  # the graph is a cache: rebuild it when the schema changes
         try:
-            with sqlite3.connect(path) as probe:
+            with sqlite3.connect(path, factory=_Conn) as probe:
                 row = probe.execute("SELECT value FROM meta WHERE key='schema'").fetchone()
             if not row or row[0] != SCHEMA_VERSION:
                 for suffix in ("", "-wal", "-shm"):

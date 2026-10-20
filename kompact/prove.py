@@ -54,8 +54,11 @@ def _ledger(home: Path) -> dict:
     db = home / "kompact.db"
     if not db.exists():
         return {"events": 0, "saved": 0, "by_feature": {}}
-    with sqlite3.connect(db) as c:
+    c = sqlite3.connect(db)
+    try:
         rows = c.execute("SELECT feature, COUNT(*), SUM(raw_tokens - kept_tokens) FROM events GROUP BY feature").fetchall()
+    finally:
+        c.close()
     return {"events": sum(r[1] for r in rows), "saved": sum(r[2] or 0 for r in rows),
             "by_feature": {r[0]: {"count": r[1], "saved": r[2]} for r in rows}}
 

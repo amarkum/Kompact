@@ -89,6 +89,7 @@ class ShellPrefixTests(unittest.TestCase):
         self.assertLess(tokens.count(r.stdout), tokens.count(PASSING) // 20)
         # the ledger counts only what Claude Code would really have shown (~10K chars of a failed run)
         db = sqlite3.connect(self.home / "kompact.db")
+        self.addCleanup(db.close)
         raw, kept, session = db.execute("SELECT raw_tokens, kept_tokens, session FROM events").fetchone()
         self.assertEqual(session, "shell-test")
         self.assertLess(raw, tokens.count(PASSING + FAILURE) // 2)
@@ -171,12 +172,12 @@ class PlainRuleTests(unittest.TestCase):
         prefix.write_text("#!/bin/sh\n")
         old = os.environ.pop(installer.PREFIX_ENV, None)
         try:
-            self.assertNotIn("Run commands plainly", hooks._rules(cfg))
+            self.assertNotIn("Run tests, builds and linters plainly", hooks._rules(cfg))
             os.environ[installer.PREFIX_ENV] = str(prefix)
-            self.assertIn("Run commands plainly", hooks._rules(cfg))
-            self.assertNotIn("Run commands plainly", hooks._rules({**cfg, "bash_wrap": False}))
+            self.assertIn("Run tests, builds and linters plainly", hooks._rules(cfg))
+            self.assertNotIn("Run tests, builds and linters plainly", hooks._rules({**cfg, "bash_wrap": False}))
             os.environ[installer.PREFIX_ENV] = "/opt/audit/log.sh"  # someone else's prefix
-            self.assertNotIn("Run commands plainly", hooks._rules(cfg))
+            self.assertNotIn("Run tests, builds and linters plainly", hooks._rules(cfg))
         finally:
             os.environ.pop(installer.PREFIX_ENV, None)
             if old is not None:

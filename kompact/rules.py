@@ -1,7 +1,9 @@
 """Reply-style rules injected at session start (and into subagents).
 
 Two independent dials, kept deliberately short because these tokens are paid
-on every turn (caveman's rules cost ~1,160; these cost ~60-180):
+on every turn (caveman's rules cost ~1,160; these cost ~20-160). Kompact's own
+commands aren't advertised here: compacted output and outlines say how to get
+the full text, and the code map (given on first exploration) names the graph.
 
 - prose: off | lite | full | ultra   (caveman / claude-token-efficient lineage)
 - code:  normal | lean | strict      (ponytail lineage: reuse first, smallest diff)
@@ -32,30 +34,21 @@ CODE = {
 
 KEEP = "Keep code, commands, paths, errors, numbers and warnings exact; commits and docs stay normal prose."
 
-TOOLS = [
-    "Compacted Bash output: `{cli} show <id>` prints it in full. Big files open as an outline; repeat the Read for all.",
-    "Find code: `{cli} graph query \"words\"`, `{cli} symbol Name`.",
-]
+PLAIN = ("Run tests, builds and linters plainly, without | head, | tail or | grep: Kompact keeps every failure, "
+         "so one run is enough.")
 
 
-PLAIN = ("Run commands plainly; don't trim their output with | head, | tail or | grep. Kompact drops the noise and "
-         "keeps every failure, so one run is enough.")
-
-
-def build(prose: str = "lite", code: str = "lean", cli: str = "kompact", tools: bool = True,
-          plain: bool = False) -> str:
+def build(prose: str = "lite", code: str = "lean", cli: str = "kompact", plain: bool = False) -> str:
     lines = list(PROSE.get(prose, []))
     if lines:
         lines.append(KEEP)
     lines += CODE.get(code, [])
     if plain:
         lines.append(PLAIN)
-    if tools:
-        lines += TOOLS
     if not lines:
         return ""
     return "[kompact]\n" + "\n".join(f"- {ln.format(cli=cli)}" for ln in lines)
 
 
 # Back-compat for callers that look up a style by name.
-STYLES = {name: build(name, "normal", tools=name != "off") for name in PROSE}
+STYLES = {name: build(name, "normal") for name in PROSE}
