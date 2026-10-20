@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kompact"
+version = "0.1.0"
+description = "Cut the tokens Claude Code spends on noise: compact tool output, outline-first reads, terse style, and a savings estimator."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+exact = ["tiktoken>=0.7"]
+
+[project.scripts]
+kompact = "kompact.cli:main"
+
+[tool.setuptools]
+packages = ["kompact"]

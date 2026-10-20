@@ -1,0 +1,14 @@
+{
+  "name": "kompact",
+  "description": "Kompact: cut the tokens Claude Code spends on noise.",
+  "owner": {
+    "name": "Amar Kumar"
+  },
+  "plugins": [
+    {
+      "name": "kompact",
+      "source": "./",
+      "description": "Cut the tokens Claude Code spends on noise."
+    }
+  ]
+}
