@@ -178,7 +178,7 @@ What the numbers show:
 - **Short sessions pay a small fixed cost.** On 2-turn tasks whose output was already small, Kompact's rules and skill entry add about 1%. The git-history task varied with Claude's own approach in both arms.
 - **One experiment shaped the defaults.** Telling Claude not to pipe output through `tail` cost **+33%** tokens before the shell prefix existed: Claude Code truncated the failing output and Claude re-ran the commands. With the prefix, the same rule gives **−9%**. So that rule is only on while the prefix is active ([experiments](evidence/README.md)).
 
-Full report: [evidence/REPORT.md](evidence/REPORT.md). Every session's tokens, tool calls and answers: [evidence/results.json](evidence/results.json).
+Full report: [evidence/REPORT.md](evidence/REPORT.md). Every session's tokens, tool calls and answers: [evidence/results.json](evidence/results.json). To see exactly what Claude received in each arm for the same failing test run (15,617 vs 724 characters), read [evidence/EXAMPLE.md](evidence/EXAMPLE.md).
 
 ### Command output, measured directly
 

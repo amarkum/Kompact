@@ -8,6 +8,8 @@ tools, turn limit and budget cap. The two arms run interleaved, so model drift a
   installed as a plugin (hooks and the `/kompact` skill) with the shell prefix on, as `kompact setup` leaves it.
   [`results.json`](results.json) has every session: tokens by type, cost, turns, the answer, each tool
   call with its result size, and Kompact's own ledger.
+- [`EXAMPLE.md`](EXAMPLE.md) shows, side by side, what Claude received for the same failing vitest run
+  without Kompact (15,617 characters, mostly passing tests) and with it (724 characters, exit code kept).
 - [`levels/level-1`](levels/level-1/REPORT.md) and [`levels/level-5`](levels/level-5/REPORT.md) re-run the same
   27 Kompact sessions at Max quality and Max savings against the same baselines: −4% and −15% tokens,
   −6% and −11% cost, 27/27 correct at both ends (Balanced: −11% tokens, −8% cost).
