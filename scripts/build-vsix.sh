@@ -4,9 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 rm -rf vscode/python
-mkdir -p vscode/python/kompact dist
-cp kompact/*.py kompact/ui.html vscode/python/kompact/
-cp -r kompact/static vscode/python/kompact/   # fonts, logo and the usage guide the dashboard serves
+mkdir -p vscode/python/kompactor dist
+cp kompactor/*.py kompactor/ui.html vscode/python/kompactor/
+cp -r kompactor/static vscode/python/kompactor/   # fonts, logo and the usage guide the dashboard serves
 cp LICENSE vscode/LICENSE
 cd vscode
-npx --yes @vscode/vsce@3 package --no-dependencies --out ../dist/
+npx --yes @vscode/vsce@3 package --no-dependencies --allow-missing-repository --out ../dist/

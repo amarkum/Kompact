@@ -1,10 +1,10 @@
-"""Fill an isolated Kompact home with realistic demo sessions, to try the dashboard.
+"""Fill an isolated Kompactor home with realistic demo sessions, to try the dashboard.
 
-    KOMPACT_HOME=/tmp/kompact-demo python scripts/demo.py
-    KOMPACT_HOME=/tmp/kompact-demo python -m kompact ui
+    KOMPACTOR_HOME=/tmp/kompactor-demo python scripts/demo.py
+    KOMPACTOR_HOME=/tmp/kompactor-demo python -m kompactor ui
 
 Runs the real hooks on sample Python / Go / React outputs in three throwaway
-projects; nothing touches your real ~/.kompact or ~/.claude.
+projects; nothing touches your real ~/.kompactor or ~/.claude.
 """
 
 import io
@@ -16,14 +16,14 @@ import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
 
-if not os.environ.get("KOMPACT_HOME"):
-    sys.exit("Set KOMPACT_HOME to a scratch directory first (keeps demo data out of your real stats).")
+if not os.environ.get("KOMPACTOR_HOME"):
+    sys.exit("Set KOMPACTOR_HOME to a scratch directory first (keeps demo data out of your real stats).")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from kompact import hooks, samples  # noqa: E402
+from kompactor import hooks, samples  # noqa: E402
 
 random.seed(7)
-root = Path(tempfile.mkdtemp(prefix="kompact-demo-")) / "code"
+root = Path(tempfile.mkdtemp(prefix="kompactor-demo-")) / "code"
 projects = {
     "shop-api": ({"pyproject.toml": "[project]\nname='shop-api'\n"}, ["pytest", "gitlog", "gitdiff"]),
     "checkout-svc": ({"go.mod": "module example.com/checkout\n"}, ["gotest", "gitlog"]),
@@ -51,7 +51,7 @@ def vary(text):
     return "\n".join(lines + random.sample(lines, min(extra, len(lines))))
 
 
-transcript = Path(os.environ["KOMPACT_HOME"]) / "demo-transcript.jsonl"
+transcript = Path(os.environ["KOMPACTOR_HOME"]) / "demo-transcript.jsonl"
 for n, (name, (_, kinds)) in enumerate(list(projects.items()) * 2):
     cwd = str(root / name)
     session, context = f"demo-{n}", random.randint(14000, 22000)
@@ -65,4 +65,4 @@ for n, (name, (_, kinds)) in enumerate(list(projects.items()) * 2):
         transcript.write_text(json.dumps({"type": "assistant", "message": {"usage": {
             "input_tokens": 4, "cache_read_input_tokens": context, "cache_creation_input_tokens": 800}}}) + "\n")
         hook("stop", {"session_id": session, "cwd": cwd, "transcript_path": str(transcript)})
-print(f"Demo data written to {os.environ['KOMPACT_HOME']}. Now run: python -m kompact ui")
+print(f"Demo data written to {os.environ['KOMPACTOR_HOME']}. Now run: python -m kompactor ui")

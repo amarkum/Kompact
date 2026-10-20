@@ -1,6 +1,6 @@
-# Kompact — product spec
+# Kompactor — product spec
 
-Status: v0.3 · Owner: Amar Kumar · Last updated: 2026-10-20
+Status: v0.4 · Last updated: 2026-10-20
 
 ## 1. Problem
 
@@ -18,7 +18,7 @@ Existing tools each attack one layer and over-claim. Independent tests found pon
 
 ### Non-goals
 
-- Model routing or proxies that send traffic elsewhere. Kompact is local; nothing leaves the machine.
+- Model routing or proxies that send traffic elsewhere. Kompactor is local; nothing leaves the machine.
 - LLM-generated summaries of code or output (costly, non-deterministic, unverifiable).
 - An MCP server. MCP tool schemas cost tokens on every turn and agents rarely call optional tools.
 - Rewriting the user's commands (bypasses permission rules, breaks `cd`/`export`).
@@ -29,7 +29,7 @@ Existing tools each attack one layer and over-claim. Independent tests found pon
 |---|---|
 | **Automatic beats optional.** | Savings come from hooks that act on every tool call. Commands Claude may call are a bonus, never the mechanism. |
 | **Every injected token must pay for itself.** | Rules stay under ~200 tokens. No nagging prompts. The code map is budgeted and optional; outline context is one line. |
-| **Never a dead end.** | Every trimmed output has a raw copy (`kompact show <id>`). Every blocked read is "deny once, allow on retry". Every hook fails open. |
+| **Never a dead end.** | Every trimmed output has a raw copy (`kompactor show <id>`). Every blocked read is "deny once, allow on retry". Every hook fails open. |
 | **Keep what matters.** | Errors, failing tests, the user's own stack frames, summaries, diffs of real code and anything the user explicitly prints (`cat`) survive at every level. |
 | **Measure honestly.** | Savings are reversed when Claude reads the full file anyway. Estimates weight tokens by how often they would be re-sent. Claims are backed by real `claude -p` A/B runs. |
 | **Zero dependencies, fast.** | Python standard library only. Hooks run in ~50–80 ms. |
@@ -46,13 +46,13 @@ Command-aware filters for git, test runners (pytest, go test, jest, vitest, moch
 
 Claude Code hands command output to Claude in three different ways, and each needs its own hook point (all verified against Claude Code 2.1 with real sessions):
 
-| Command result | What Claude Code does | What Kompact does |
+| Command result | What Claude Code does | What Kompactor does |
 |---|---|---|
 | Succeeds, under ~30K chars | `PostToolUse` with the full output | Replaces it via `updatedToolOutput` |
 | Succeeds, over ~30K chars | Saves it to a file, gives hooks only the first 30K chars, shows Claude a 2 KB preview | Reads the saved file, compacts the whole output, drops the file reference so Claude gets the compacted text instead of the preview (plain `cat`/`head` views keep the preview) |
-| Fails (non-zero exit) | Skips `PostToolUse`. `PostToolUseFailure` can only add context. The error text is cut to its first and last ~5K chars, which usually loses the failures at the end of a test run | **Shell prefix.** `CLAUDE_CODE_SHELL_PREFIX` points at `~/.kompact/bin/kompact-shell`, which Claude Code runs as `kompact-shell '<command>'`. Finite, noisy commands (tests, builds, linters, type checks, installs) run to completion, their output is compacted, and the exit code passes through unchanged. Everything else, and everything if Kompact is missing, runs untouched. Permission rules still apply to Claude's original command, because the prefix only acts when the command runs |
+| Fails (non-zero exit) | Skips `PostToolUse`. `PostToolUseFailure` can only add context. The error text is cut to its first and last ~5K chars, which usually loses the failures at the end of a test run | **Shell prefix.** `CLAUDE_CODE_SHELL_PREFIX` points at `~/.kompactor/bin/kompactor-shell`, which Claude Code runs as `kompactor-shell '<command>'`. Finite, noisy commands (tests, builds, linters, type checks, installs) run to completion, their output is compacted, and the exit code passes through unchanged. Everything else, and everything if Kompactor is missing, runs untouched. Permission rules still apply to Claude's original command, because the prefix only acts when the command runs |
 
-Rewriting the command in `PreToolUse` was rejected after testing. Claude Code checks permissions against the rewritten command, so `pytest … | kompact filter` breaks the user's allow rules. It also refuses braces, subshells and `${PIPESTATUS}`, which are the only ways to keep the exit code through a pipe.
+Rewriting the command in `PreToolUse` was rejected after testing. Claude Code checks permissions against the rewritten command, so `pytest … | kompactor filter` breaks the user's allow rules. It also refuses braces, subshells and `${PIPESTATUS}`, which are the only ways to keep the exit code through a pipe.
 
 ### 5.2 File reads (PreToolUse · Read)
 - **Outline first:** the first full read of a large source file returns its outline (symbols with line ranges, signatures, first docstring line) plus one graph line ("imported by …; tests: …"). Repeating the read returns the file.
@@ -69,22 +69,25 @@ Two independent dials:
 - **Prose:** `off`, `lite` (answer first, no preamble or recap), `full` (short sentences, no narration between tool calls), `ultra` (telegraphic).
 - **Code:** `normal`, `lean` (ponytail-style ladder: change nothing, reuse what exists, smallest diff; check callers/tests/config; one focused test; never cut validation, security, data-loss handling or accessibility), `strict` (also proposes the smaller alternative before building and marks shortcuts).
 Never compressed: code, commands, paths, error text, numbers, negations, security warnings, commit messages and docs.
-`/kompact review` (diff bloat review), `/kompact audit` (graph-backed dead code and over-engineering), `/kompact debt` (shortcut/TODO ledger).
+`/kompactor review` (diff bloat review), `/kompactor audit` (graph-backed dead code and over-engineering), `/kompactor debt` (shortcut/TODO ledger).
 
 ### 5.5 Measurement
 - Per turn: `Stop` hook totals the turn (before › after, context smaller by …) and shows it in Claude Code, the CLI status line, the VS Code status bar and the dashboard.
-- `kompact estimate`: replays past transcripts through the current settings.
-- `kompact prove`: runs the same tasks with and without Kompact through real `claude -p` sessions and reports tokens, cost, turns and answer correctness.
+- `kompactor estimate`: replays past transcripts through the current settings.
+- `kompactor prove`: runs the same tasks with and without Kompactor through real `claude -p` sessions and reports tokens, cost, turns and answer correctness.
 
 ## 6. Settings
 
-The preset sets every value; any value can be overridden globally or per project.
+The preset sets every value, and any value can be overridden. From least to most specific:
+your level and overrides (dashboard, applies everywhere) › the repo's committed `.kompactor.json` (the team's
+level and settings for that repo) › your own choice for that project › `KOMPACTOR_<SETTING>` environment
+variables. A broken or unknown entry in `.kompactor.json` is ignored.
 
 | Setting | Type | 1 Max quality | 2 Quality | 3 Balanced | 4 Savings | 5 Max savings |
 |---|---|---|---|---|---|---|
 | Compact command output | bool | on | on | on | on | on |
 | Compact failing commands too (shell prefix) | bool | on | on | on | on | on |
-| Let Kompact trim command output (only with the shell prefix) | bool | off | on | on | on | on |
+| Let Kompactor trim command output (only with the shell prefix) | bool | off | on | on | on | on |
 | Leave outputs smaller than (tokens) | int | 1500 | 1000 | 300 | 150 | 80 |
 | Max lines kept per output | int | 600 | 400 | 200 | 120 | 80 |
 | Longest line kept (chars) | int | 2000 | 1000 | 500 | 300 | 200 |
@@ -111,28 +114,46 @@ General (not part of presets): show savings after each turn, status line, data r
 
 | Surface | What it offers |
 |---|---|
-| Dashboard (`kompact ui`, VS Code webview) | Overview (per-turn chart, where savings come from, biggest wins), Quality (level, live preview with removed lines, grouped settings), Code graph (stats, map, interactive module graph, search), Projects & languages, Setup (status, enable/disable, self-test), Guide |
+| Dashboard (`kompactor ui`, VS Code webview) | Overview (per-turn chart, where savings come from, biggest wins), Quality (level, live preview with removed lines, grouped settings), Code graph (stats, map, interactive module graph, search), Projects & languages (with team levels from `.kompactor.json`), Setup (status, enable/disable, self-test, and "Share with your team" commands for the repo this copy came from), Guide |
 | VS Code extension | One-click enable, status-bar savings, per-turn flash or notification, level picker, dashboard webview |
-| Claude Code chat | `/kompact`, `/kompact <level>`, `/kompact review`, `/kompact audit`, `/kompact debt`, `/kompact graph <question>` |
+| Claude Code chat | `/kompactor`, `/kompactor setup`, `/kompactor <level>`, `/kompactor review`, `/kompactor audit`, `/kompactor debt`, `/kompactor graph <question>` |
 | CLI | `setup`, `ui`, `presets`, `config`, `gain`, `estimate`, `prove`, `graph …`, `outline`, `symbol`, `show`, `search`, `doctor` |
 
-## 8. Quality bar
+## 8. Team use
+
+Kompactor is meant to live in an organisation's private repo; nothing is published to a public registry.
+- **Install paths:** the repo is a Claude Code plugin marketplace (`.claude-plugin/marketplace.json`), so
+  teammates add it with `/plugin marketplace add <org>/<repo>` using their own git access. It can also be
+  installed from a clone (`install.sh`, `install.ps1`) or as a VS Code extension file built from the repo
+  (`scripts/build-vsix.sh`).
+- **Rollout per project:** a committed `.claude/settings.json` can list the marketplace and enable the plugin,
+  so Claude Code offers it to everyone who opens the project.
+- **Team defaults:** a committed `.kompactor.json` sets the level and any setting for a repo (section 6).
+- **Exact commands for your repo:** the installers record where they were installed from (`.kompactor-source`,
+  credentials stripped), and a clone or plugin install reads its git remote, so the dashboard and guide show
+  the commands with your repo filled in.
+- **Name:** the tool was called Kompact. It was renamed because an unrelated PyPI package, `kompact`, installs a
+  `kompact` command, which would have been called instead of this tool on machines that have both.
+  Installing Kompactor replaces an old Kompact install's hooks, status line, shell prefix and skill, and
+  never touches entries that belong to other tools.
+
+## 9. Quality bar
 
 - Data safety tests: grep hits with percentages, coverage tables, kubectl rows, git subjects and `cat` output survive every level; failing tests and user frames survive every level.
-- Hooks: fail open, < 100 ms typical, no permission changes, idempotent install that never replaces a user's status line or shell prefix and keeps a settings backup. The shell prefix is written to user settings only (never a project's committed `.claude/settings.json`), costs nothing for commands it doesn't handle, and falls back to running the command untouched on any Kompact problem.
+- Hooks: fail open, < 100 ms typical, no permission changes, idempotent install that never replaces a user's status line or shell prefix and keeps a settings backup. The shell prefix is written to user settings only (never a project's committed `.claude/settings.json`), costs nothing for commands it doesn't handle, and falls back to running the command untouched on any Kompactor problem.
 - UI: works offline (bundled fonts), light and dark, phone width, keyboard focus, no console errors (Playwright check).
 - Evidence: real Claude Code A/B runs on Python, Go and TypeScript repos committed under `evidence/`.
 
-## 9. Competitive position
+## 10. Competitive position
 
-| | Kompact | graphify | ponytail | caveman | rtk | token-savior | context-mode |
+| | Kompactor | graphify | ponytail | caveman | rtk | token-savior | context-mode |
 |---|---|---|---|---|---|---|---|
 | Layers covered | output, reads, graph, prose, code | graph | code size | prose | shell output | reads, graph | tool output |
 | Works without Claude choosing to call it | yes (hooks) | prompts (4% followed) | rules | rules | yes | MCP (rarely called) | yes |
 | Cost of its own instructions | ~150 tokens | ~11k skill | rules + map | ~1,160 | 0 | 1.5–7k schemas | schemas |
 | Measured with real A/B | yes (`evidence/`) | corpus ÷ answer ratio | yes | yes | no | partially | no |
 
-## 10. Open questions
+## 11. Open questions
 
 - Code map default: kept at 500 tokens for Balanced until A/B evidence across more repos says otherwise.
 - `strict` code style is opt-in; it can push back on requests, which some users dislike.

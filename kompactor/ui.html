@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kompact</title>
+<title>Kompactor</title>
 <link rel="icon" href="/static/logo-mark.svg" type="image/svg+xml">
 <style>
 /* Layout: app shell — quiet sidebar, one content column; panels only where a block is a separate object. */
@@ -105,6 +105,7 @@ main { min-width: 0; padding: 26px max(16px, 3.2vw) 72px; max-width: 1200px; wid
 .btn.sm { padding: 3px 9px; font-size: 12.5px; }
 .btn:disabled { opacity: .5; cursor: default; }
 select, input[type="text"], input[type="number"], input[type="search"] { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; min-width: 0; }
+.team-note { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
 select { appearance: none; -webkit-appearance: none; background-image: var(--select-chev); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px 12px; padding-right: 30px; cursor: pointer; }
 input[type="number"] { width: 84px; font-family: var(--mono); }
 .seg { display: inline-flex; background: var(--hover); border-radius: 8px; padding: 2px; gap: 2px; max-width: 100%; overflow-x: auto; }
@@ -206,6 +207,10 @@ pre.out { margin: 0; background: var(--code); border: 1px solid var(--line-2); b
 .mark svg { width: 12px; height: 12px; stroke-width: 2.4; }
 .snip { display: flex; align-items: center; gap: 8px; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 6px 6px 12px; font: 12.5px var(--mono); overflow-x: auto; }
 .snip code { flex: 1; white-space: nowrap; }
+.snip.block { align-items: flex-start; }
+.snip.block code { white-space: pre; }
+.share-group { display: grid; gap: 6px; }
+.share-group .lbl { color: var(--ink-2); font-size: 12.5px; }
 .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(8px); background: var(--ink); color: var(--panel); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; z-index: 30; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
@@ -228,7 +233,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
   <aside class="side">
     <div class="brand">
       <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" style="fill: var(--logo-tile)"/><rect x="17" y="14" width="7.5" height="36" rx="3.75" fill="#F4F4F5"/><path d="M45 15 L29 32 L45 49" fill="none" stroke="#F5A524" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      kompact <span class="ver" id="ver"></span>
+      kompactor <span class="ver" id="ver"></span>
     </div>
     <nav class="nav" id="nav" aria-label="Sections"></nav>
     <div class="side-foot" id="sideFoot"></div>
@@ -237,7 +242,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
   <main>
     <section data-page="overview">
       <div class="page-head">
-        <div><h1>Overview</h1><p>Tokens Kompact kept out of Claude's context, turn by turn.</p></div>
+        <div><h1>Overview</h1><p>Tokens Kompactor kept out of Claude's context, turn by turn.</p></div>
         <div class="head-actions">
           <select id="range" aria-label="Time range"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="365">Last 12 months</option></select>
           <select id="projFilter" aria-label="Project"></select>
@@ -306,7 +311,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
           <div class="knob"><div class="ctl" id="langs" style="justify-content:flex-start;flex-wrap:wrap"></div></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div><h2>Projects</h2><div class="sub">Every repo used with Kompact. A project can override the global level.</div></div></div>
+          <div class="panel-h"><div><h2>Projects</h2><div class="sub">Every repo used with Kompactor. A project can override the global level.</div></div></div>
           <div class="scroll-x" id="projTable"></div>
           <div class="panel-b" style="border-top:1px solid var(--line-2)"><div class="ask"><input type="text" id="newProj" placeholder="/path/to/repo" aria-label="Project path"><button class="btn" id="addProj">Add project</button></div></div>
         </div>
@@ -323,22 +328,22 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
           <div class="scroll-x" id="testOut"><div class="empty">Not run yet.</div></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div><h2>Install on another machine</h2><div class="sub">Any one of these is enough</div></div></div>
+          <div class="panel-h"><div><h2>Share with your team</h2><div class="sub" id="shareSub">Any one of these is enough</div></div></div>
           <div class="panel-b stack" style="gap:12px" id="snips"></div>
         </div>
       </div>
     </section>
 
     <section data-page="guide" hidden>
-      <div class="page-head"><div><h1>Guide</h1><p>How Kompact works and how to use it day to day.</p></div><div class="head-actions"><a class="btn" href="/static/usage.html" target="_blank" rel="noopener" id="guideOpen"></a></div></div>
-      <iframe class="guide" id="guideFrame" title="Kompact guide"></iframe>
+      <div class="page-head"><div><h1>Guide</h1><p>How Kompactor works and how to use it day to day.</p></div><div class="head-actions"><a class="btn" href="/static/usage.html" target="_blank" rel="noopener" id="guideOpen"></a></div></div>
+      <iframe class="guide" id="guideFrame" title="Kompactor guide"></iframe>
     </section>
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-const TOKEN = "__KOMPACT_TOKEN__";
+const TOKEN = "__KOMPACTOR_TOKEN__";
 const $ = (id) => document.getElementById(id);
 const I = {
   overview: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
@@ -364,7 +369,7 @@ const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.add(
 const local = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
 async function api(path, body) {
-  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Kompact-Token": TOKEN }, body: JSON.stringify(body) });
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Kompactor-Token": TOKEN }, body: JSON.stringify(body) });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
@@ -377,7 +382,7 @@ const PAGES = [["overview", "Overview"], ["quality", "Quality vs tokens"], ["gra
 function go(page) {
   document.querySelectorAll("section[data-page]").forEach((s) => (s.hidden = s.dataset.page !== page));
   document.querySelectorAll("#nav button").forEach((b) => b.setAttribute("aria-current", b.dataset.page === page ? "page" : "false"));
-  local.set("kompact-page", page);
+  local.set("kompactor-page", page);
   if (page === "overview") requestAnimationFrame(() => turnChart(lastTurns));
   if (page === "graph") loadGraph();
   if (page === "guide") { const th = document.documentElement.dataset.theme || ""; const src = `/static/usage.html${th ? "?theme=" + th : ""}`; if ($("guideFrame").getAttribute("src") !== src) $("guideFrame").src = src; }
@@ -401,7 +406,7 @@ function renderSide() {
   $("sideFoot").querySelectorAll("[data-theme-set]").forEach((b) => (b.onclick = () => {
     const t = b.dataset.themeSet;
     if (t === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-    local.set("kompact-theme", t === "system" ? "" : t); renderSide(); turnChart(lastTurns); if (graphData) renderGraph();
+    local.set("kompactor-theme", t === "system" ? "" : t); renderSide(); turnChart(lastTurns); if (graphData) renderGraph();
   }));
 }
 
@@ -486,12 +491,12 @@ $("gStatus").onchange = async (e) => {
 $("vChart").onclick = () => { $("vChart").setAttribute("aria-pressed", true); $("vTable").setAttribute("aria-pressed", false); $("turnChart").hidden = false; $("turnTable").hidden = true; turnChart(lastTurns); };
 $("vTable").onclick = () => { $("vTable").setAttribute("aria-pressed", true); $("vChart").setAttribute("aria-pressed", false); $("turnChart").hidden = true; $("turnTable").hidden = false; };
 window.addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(() => turnChart(lastTurns), 150); });
-const FEAT = { bash: "Command output", read_outline: "Outline-first reads", read_dedupe: "Skipped re-reads", run: "kompact run" };
+const FEAT = { bash: "Command output", read_outline: "Outline-first reads", read_dedupe: "Skipped re-reads", run: "kompactor run" };
 
 function turnChart(turns) {
   lastTurns = turns || [];
   const el = $("turnChart");
-  if (!lastTurns.length) { el.innerHTML = `<div class="empty">No turns yet. Each Claude reply appears here once Kompact is enabled.</div>`; return; }
+  if (!lastTurns.length) { el.innerHTML = `<div class="empty">No turns yet. Each Claude reply appears here once Kompactor is enabled.</div>`; return; }
   if (!el.clientWidth) return;
   const W = el.clientWidth, H = W < 520 ? 190 : 240, L = 46, B = 24, T = 10, R = 6;
   const vals = lastTurns.map((t) => Math.max(0, t.raw - t.kept));
@@ -533,7 +538,7 @@ async function loadStats() {
     ["Tokens kept out of context", `<span class="good">−${fmt(st.saved)}</span>`, `${st.events} compactions · ${st.sessions} sessions`],
     ["Tool output reduced", pct(st.saved, st.raw), `${pair(st.raw, st.kept)} tokens`],
     ["Last turn", lt.saved > 0 ? "−" + fmt(lt.saved) : "0", lt.saved > 0 ? `${pair(lt.raw, lt.kept)} · −${pct(lt.saved, lt.raw)}` : "nothing to trim yet"],
-    ["Context now", tot.context ? fmt(tot.context) : "—", smaller ? `≈${smaller}% smaller than without Kompact` : "of the current session"],
+    ["Context now", tot.context ? fmt(tot.context) : "—", smaller ? `≈${smaller}% smaller than without Kompactor` : "of the current session"],
   ].map(([k, v, f]) => `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div><div class="f">${f}</div></div>`).join("");
   turnChart(st.turns);
   $("topTable").innerHTML = st.top.length ? `<table><tr><th>Command</th><th class="n">Runs</th><th class="n">Before</th><th class="n">After</th></tr>` +
@@ -559,7 +564,7 @@ $("estBtn").onclick = async () => {
 async function loadGraph(force) {
   const project = $("gProject").value;
   $("gBuild").innerHTML = `${icon("refresh")}Build graph`;
-  if (!project) { $("graphBody").innerHTML = `<div class="panel"><div class="empty">No projects yet. Start Claude Code in a repo with Kompact enabled, or add one under Projects &amp; languages.</div></div>`; return; }
+  if (!project) { $("graphBody").innerHTML = `<div class="panel"><div class="empty">No projects yet. Start Claude Code in a repo with Kompactor enabled, or add one under Projects &amp; languages.</div></div>`; return; }
   if (force) { $("gBuild").disabled = true; $("gBuild").innerHTML = `${icon("refresh")}Building…`; }
   try { graphData = force ? await api("/api/graph/build", { project }) : await api(`/api/graph?project=${encodeURIComponent(project)}`); }
   catch (e) { toast(e.message); }
@@ -584,15 +589,15 @@ function renderGraph() {
       <div class="graph-wrap"><svg id="gsvg" role="img" aria-label="Module dependency graph"></svg><div class="graph-side" id="gside"></div></div>
     </div>
     <div class="panel">
-      <div class="panel-h"><div><h2>Ask the graph</h2><div class="sub">The same answers Claude gets from <span class="mono">kompact graph</span></div></div>
+      <div class="panel-h"><div><h2>Ask the graph</h2><div class="sub">The same answers Claude gets from <span class="mono">kompactor graph</span></div></div>
         <div class="seg" role="group" aria-label="Reports"><button data-a="report">Report</button><button data-a="unused">Unused code</button><button data-a="debt">Debt</button></div></div>
       <div class="panel-b stack" style="gap:10px">
         <div class="ask"><input type="search" id="gq" placeholder="Words, a file or a symbol, e.g. session cookie" aria-label="Graph question"><button class="btn" data-a="query">${icon("search")}Find code</button><button class="btn" data-a="impact">Impact</button><button class="btn" data-a="explain">Explain</button></div>
         <pre class="out" id="gout">Search by topic, or pick a report.</pre>
       </div>
     </div>`;
-  $("gAux").checked = local.get("kompact-graph-aux") === "1";
-  $("gAux").onchange = () => { local.set("kompact-graph-aux", $("gAux").checked ? "1" : "0"); drawGraph(g); };
+  $("gAux").checked = local.get("kompactor-graph-aux") === "1";
+  $("gAux").onchange = () => { local.set("kompactor-graph-aux", $("gAux").checked ? "1" : "0"); drawGraph(g); };
   requestAnimationFrame(() => drawGraph(g));
   document.querySelectorAll("#graphBody [data-a]").forEach((b) => (b.onclick = () => askGraph(b.dataset.a)));
   $("gq").onkeydown = (e) => { if (e.key === "Enter") askGraph("query"); };
@@ -679,11 +684,12 @@ const setMode = (m) => { cfg.languages.mode = m; if (m === "manual" && !cfg.lang
 $("lAuto").onclick = () => setMode("auto"); $("lManual").onclick = () => setMode("manual");
 function renderProjects() {
   const rows = S.projects;
-  if (!rows.length) { $("projTable").innerHTML = `<div class="empty">No projects yet. They appear after the first Claude Code session with Kompact enabled.</div>`; return; }
-  const opts = (cur) => `<option value="">Global (${esc(S.presets[cfg.preset].name)})</option>` + [1, 2, 3, 4, 5].map((i) => `<option value="${i}" ${cur === i ? "selected" : ""}>${i} · ${esc(S.presets[i].name)}</option>`).join("");
-  $("projTable").innerHTML = `<table><tr><th>Project</th><th>Languages</th><th>Level</th></tr>` + rows.map((p, i) => `<tr><td><div style="font-weight:500">${esc(short(p.path))}</div><div class="mono" style="font-size:11.5px;color:var(--ink-3)">${esc(p.path)}</div></td>
+  if (!rows.length) { $("projTable").innerHTML = `<div class="empty">No projects yet. They appear after the first Claude Code session with Kompactor enabled.</div>`; return; }
+  const opts = (cur, team) => (team && team.preset ? `<option value="">Team (${team.preset} · ${esc(S.presets[team.preset].name)})</option>` : `<option value="">Global (${esc(S.presets[cfg.preset].name)})</option>`) + [1, 2, 3, 4, 5].map((i) => `<option value="${i}" ${cur === i ? "selected" : ""}>${i} · ${esc(S.presets[i].name)}</option>`).join("");
+  const teamNote = (t) => t && (t.preset || t.overrides) ? `<div class="team-note">Team settings from <span class="mono">.kompactor.json</span>${t.overrides ? ` · ${Object.keys(t.overrides).length} setting${Object.keys(t.overrides).length > 1 ? "s" : ""}` : ""}</div>` : "";
+  $("projTable").innerHTML = `<table><tr><th>Project</th><th>Languages</th><th>Level</th></tr>` + rows.map((p, i) => `<tr><td><div style="font-weight:500">${esc(short(p.path))}</div><div class="mono" style="font-size:11.5px;color:var(--ink-3)">${esc(p.path)}</div>${teamNote(p.team)}</td>
     <td>${p.detected.length ? p.detected.map((l) => `<span class="chip">${esc(S.languages[l] || l)}</span>`).join(" ") : `<span style="color:var(--ink-3)">—</span>`}</td>
-    <td><select data-i="${i}" aria-label="Level for ${esc(p.path)}">${opts(p.override ? p.override.preset : null)}</select></td></tr>`).join("") + `</table>`;
+    <td><select data-i="${i}" aria-label="Level for ${esc(p.path)}">${opts(p.override ? p.override.preset : null, p.team)}</select></td></tr>`).join("") + `</table>`;
   $("projTable").querySelectorAll("select").forEach((sel) => (sel.onchange = () => { const p = rows[+sel.dataset.i]; p.override = sel.value ? { preset: +sel.value, overrides: {} } : null; save({ project: { path: p.path, override: p.override } }, "Project saved"); }));
 }
 $("addProj").onclick = () => { const path = $("newProj").value.trim(); if (!path) return; S.projects.unshift({ path, detected: [], override: null }); $("newProj").value = ""; renderProjects(); fillProjectSelects(); save({ project: { path, override: { preset: cfg.preset, overrides: {} } } }, "Project added"); };
@@ -695,23 +701,32 @@ function renderSetup() {
   const item = (state, title, detail) => `<div class="check">${mk(state)}<div><div class="t">${title}</div><div class="d">${detail}</div></div></div>`;
   const total = Object.keys(st.hooks || {}).length, missing = Object.entries(st.hooks || {}).filter(([, v]) => !v).map(([k]) => k);
   $("checks").innerHTML =
-    item(hooksOk ? "ok" : "no", "Kompact hooks", st.plugin_enabled ? "Active through the Kompact plugin." : st.hooks_installed ? `All ${total} hooks installed in <span class="mono">${esc(st.settings_file)}</span>` : `${missing.length < total ? `Missing: ${esc(missing.join(", "))}. ` : ""}Enable adds them to <span class="mono">${esc(st.settings_file)}</span> and keeps a backup.`) +
+    item(hooksOk ? "ok" : "no", "Kompactor hooks", st.plugin_enabled ? "Active through the Kompactor plugin." : st.hooks_installed ? `All ${total} hooks installed in <span class="mono">${esc(st.settings_file)}</span>` : `${missing.length < total ? `Missing: ${esc(missing.join(", "))}. ` : ""}Enable adds them to <span class="mono">${esc(st.settings_file)}</span> and keeps a backup.`) +
     item(st.claude_cli ? "ok" : "no", "Claude Code CLI", st.claude_cli ? `<span class="mono">${esc(st.claude_cli)}</span>` : "Not on PATH. That's fine if you only use VS Code.") +
-    item(st.vscode_extension || st.cursor_extension ? "ok" : "no", "Claude Code for VS Code", esc(st.vscode_extension || st.cursor_extension || "Not detected. Kompact works with it as soon as it's installed: both read the same settings.")) +
-    item(st.statusline === "kompact" ? "ok" : st.statusline === "other" ? "warn" : "no", "Status line", st.statusline === "kompact" ? "Shows running savings in the CLI." : st.statusline === "other" ? "You already have a status line; Kompact leaves it alone." : "Off.") +
-    item(st.shell_prefix === "kompact" ? "ok" : st.shell_prefix === "none" ? "no" : "warn", "Shell prefix", {
-      kompact: "Failing tests and builds are compacted too. Set as <span class=\"mono\">CLAUDE_CODE_SHELL_PREFIX</span>.",
-      other: "Another tool already sets <span class=\"mono\">CLAUDE_CODE_SHELL_PREFIX</span>; Kompact leaves it alone, so only commands that succeed are compacted.",
+    item(st.vscode_extension || st.cursor_extension ? "ok" : "no", "Claude Code for VS Code", esc(st.vscode_extension || st.cursor_extension || "Not detected. Kompactor works with it as soon as it's installed: both read the same settings.")) +
+    item(st.statusline === "kompactor" ? "ok" : st.statusline === "other" ? "warn" : "no", "Status line", st.statusline === "kompactor" ? "Shows running savings in the CLI." : st.statusline === "other" ? "You already have a status line; Kompactor leaves it alone." : "Off.") +
+    item(st.shell_prefix === "kompactor" ? "ok" : st.shell_prefix === "none" ? "no" : "warn", "Shell prefix", {
+      kompactor: "Failing tests and builds are compacted too. Set as <span class=\"mono\">CLAUDE_CODE_SHELL_PREFIX</span>.",
+      other: "Another tool already sets <span class=\"mono\">CLAUDE_CODE_SHELL_PREFIX</span>; Kompactor leaves it alone, so only commands that succeed are compacted.",
       missing: "Its script is missing. Click Reinstall.",
       none: "Off. Only commands that succeed are compacted. Enable sets it (macOS and Linux)."}[st.shell_prefix] || "");
-  $("enableBtn").innerHTML = `${icon("check")}${st.plugin_enabled ? "Finish setup" : st.hooks_installed ? "Reinstall" : "Enable Kompact"}`;
-  $("enableBtn").disabled = st.plugin_enabled && ["kompact", "other"].includes(st.shell_prefix);  // plugins can't set the prefix themselves
+  $("enableBtn").innerHTML = `${icon("check")}${st.plugin_enabled ? "Finish setup" : st.hooks_installed ? "Reinstall" : "Enable Kompactor"}`;
+  $("enableBtn").disabled = st.plugin_enabled && ["kompactor", "other"].includes(st.shell_prefix);  // plugins can't set the prefix themselves
   $("disableBtn").disabled = !st.hooks_installed;
   $("testBtn").innerHTML = `${icon("play")}Run self-test`;
-  const snip = (label, code) => `<div><div style="color:var(--ink-2);font-size:12.5px;margin-bottom:5px">${label}</div><div class="snip"><code>${esc(code)}</code><button class="btn sm ghost" data-copy="${esc(code)}" aria-label="Copy">${icon("copy")}</button></div></div>`;
-  $("snips").innerHTML = snip("VS Code: install the extension file, then click Enable", `code --install-extension kompact-${S.version}.vsix`) +
-    snip("Terminal (macOS / Linux), from a clone", "git clone https://github.com/amarkum/Kompact && ./Kompact/install.sh") +
-    snip("Claude Code plugin", "/plugin marketplace add amarkum/Kompact");
+  const src = st.source || {}, repo = src.repo || "your-org/kompactor";
+  const m = src.marketplace || repo, clone = src.clone || `https://github.com/${repo}.git`, dir = src.dir || "kompactor";
+  $("shareSub").innerHTML = src.repo ? `Commands for <span class="mono">${esc(src.repo)}</span>, the repo this copy came from. Teammates need read access to it.`
+    : `Replace <span class="mono">your-org/kompactor</span> with your team's private repo. Teammates need read access to it.`;
+  const code = (c, block) => `<div class="snip${block ? " block" : ""}"><code>${esc(c)}</code><button class="btn sm ghost" data-copy="${esc(c)}" aria-label="Copy">${icon("copy")}</button></div>`;
+  const group = (label, ...codes) => `<div class="share-group"><div class="lbl">${label}</div>${codes.join("")}</div>`;
+  const teamSettings = JSON.stringify({ extraKnownMarketplaces: { kompactor: { source: m.includes("://") ? { source: "git", url: clone } : { source: "github", repo: m }, autoUpdate: true } }, enabledPlugins: { "kompactor@kompactor": true } }, null, 2);
+  $("snips").innerHTML =
+    group("Claude Code plugin: run these in any Claude Code session, one at a time", code(`/plugin marketplace add ${m}`), code("/plugin install kompactor@kompactor"), code("/kompactor setup")) +
+    group(`Everyone on a project: commit this as <span class="mono">.claude/settings.json</span>; Claude Code turns the plugin on once a teammate trusts the folder, then they run <span class="mono">/kompactor setup</span>`, code(teamSettings, true)) +
+    group("pip, pipx or uv, straight from the repo", code(`pipx install "git+${clone}"`), code("kompactor setup")) +
+    group("Terminal (macOS, Linux), from a clone", code(`git clone ${clone} && ./${dir}/install.sh`)) +
+    group(`VS Code: install the <span class="mono">.vsix</span> from <span class="mono">dist/</span> in the repo, then click Enable`, code(`code --install-extension kompactor-${S.version}.vsix`));
   $("snips").querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied"); } catch (e) { toast("Select the text to copy it"); } }));
 }
 async function setup(action) {
@@ -736,7 +751,7 @@ function fillProjectSelects() {
   $("projFilter").innerHTML = `<option value="">All projects</option>` + opts;
   const keep = $("gProject").value; $("gProject").innerHTML = opts; if (keep) $("gProject").value = keep;
 }
-(function theme() { const t = local.get("kompact-theme"); if (t) document.documentElement.dataset.theme = t; })();
+(function theme() { const t = local.get("kompactor-theme"); if (t) document.documentElement.dataset.theme = t; })();
 async function boot() {
   S = await api("/api/state"); cfg = S.config;
   $("ver").textContent = "v" + S.version;
@@ -748,11 +763,11 @@ async function boot() {
   fillProjectSelects();
   renderSide(); renderLevels(); renderKnobs(); renderLangs(); renderProjects(); renderSetup();
   runPreview(); loadStats();
-  const start = location.hash.slice(1) || local.get("kompact-page") || (S.setup.hooks_installed || S.setup.plugin_enabled ? "overview" : "setup");
+  const start = location.hash.slice(1) || local.get("kompactor-page") || (S.setup.hooks_installed || S.setup.plugin_enabled ? "overview" : "setup");
   go(PAGES.some(([p]) => p === start) ? start : "overview");
   setInterval(loadStats, 5000);
 }
-boot().catch((e) => { document.querySelector("main").innerHTML = `<div class="panel"><div class="empty">Couldn't load Kompact: ${esc(e.message)}</div></div>`; });
+boot().catch((e) => { document.querySelector("main").innerHTML = `<div class="panel"><div class="empty">Couldn't load Kompactor: ${esc(e.message)}</div></div>`; });
 </script>
 </body>
 </html>

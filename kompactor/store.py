@@ -1,5 +1,5 @@
 """Local SQLite store: savings ledger, per-turn summaries, stashed raw outputs
-(FTS5), and the Read tracker. Lives in ~/.kompact (override with KOMPACT_HOME)."""
+(FTS5), and the Read tracker. Lives in ~/.kompactor (override with KOMPACTOR_HOME)."""
 
 import json
 import os
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS turns (
 
 
 def home() -> Path:
-    p = Path(os.environ.get("KOMPACT_HOME", Path.home() / ".kompact"))
+    p = Path(os.environ.get("KOMPACTOR_HOME", Path.home() / ".kompactor"))
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -51,7 +51,7 @@ class _Conn(sqlite3.Connection):
 
 
 def connect() -> _Conn:
-    db = sqlite3.connect(home() / "kompact.db", timeout=10, factory=_Conn)
+    db = sqlite3.connect(home() / "kompactor.db", timeout=10, factory=_Conn)
     db.execute("PRAGMA journal_mode=WAL")  # concurrent hooks + dashboard without lock errors
     db.execute("PRAGMA synchronous=NORMAL")
     db.executescript(SCHEMA)
@@ -174,7 +174,7 @@ STASH_MAX_CHARS = 2_000_000
 
 def stash(cmd: str, output: str) -> int:
     if len(output) > STASH_MAX_CHARS:
-        output = output[:STASH_MAX_CHARS] + f"\n[kompact: stash truncated at {STASH_MAX_CHARS} chars]"
+        output = output[:STASH_MAX_CHARS] + f"\n[kompactor: stash truncated at {STASH_MAX_CHARS} chars]"
     with connect() as db:
         cur = db.execute("INSERT INTO stash (ts, cmd, output) VALUES (?,?,?)", (time.time(), cmd, output))
         rowid = cur.lastrowid

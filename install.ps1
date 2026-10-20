@@ -1,11 +1,13 @@
-# Kompact one-line installer (Windows PowerShell):
-#   irm https://raw.githubusercontent.com/amarkum/Kompact/main/install.ps1 | iex
-# Downloads Kompact to %USERPROFILE%\.kompact\app (no pip needed), enables it for
+# Kompactor installer (Windows PowerShell). From a clone of your team's repo:
+#   .\install.ps1
+# Or without a clone (set the repo; a token is needed while the repo is private):
+#   $env:KOMPACTOR_REPO = "your-org/kompactor"; $env:GITHUB_TOKEN = "..."; .\install.ps1
+# Copies Kompactor to %USERPROFILE%\.kompactor\app (no pip needed), enables it for
 # Claude Code (CLI + VS Code extension) and opens the dashboard.
 $ErrorActionPreference = "Stop"
-$Repo = if ($env:KOMPACT_REPO) { $env:KOMPACT_REPO } else { "amarkum/Kompact" }
-$Ref = if ($env:KOMPACT_REF) { $env:KOMPACT_REF } else { "main" }
-$Dest = Join-Path $HOME ".kompact\app"
+$Repo = $env:KOMPACTOR_REPO
+$Ref = if ($env:KOMPACTOR_REF) { $env:KOMPACTOR_REF } else { "main" }
+$Dest = Join-Path $HOME ".kompactor\app"
 
 $Py = $null
 foreach ($c in @(@("py", "-3"), @("python"), @("python3"))) {
@@ -15,18 +17,21 @@ foreach ($c in @(@("py", "-3"), @("python"), @("python3"))) {
     if ($ok -eq "True") { $Py = (& $exe @pre -c "import sys; print(sys.executable)").Trim(); break }
   } catch { }
 }
-if (-not $Py) { throw "Kompact needs Python 3.9 or newer (https://www.python.org/downloads/)." }
+if (-not $Py) { throw "Kompactor needs Python 3.9 or newer (https://www.python.org/downloads/)." }
 
-$Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("kompact-" + [guid]::NewGuid())
+$Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("kompactor-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
-if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "kompact\_launch.py"))) {
+if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "kompactor\_launch.py"))) {
   # Run from a checkout (git clone ... ; .\install.ps1): install that copy
-  Write-Host "Installing Kompact from $PSScriptRoot..."
+  $Origin = try { (& git -C $PSScriptRoot remote get-url origin 2>$null) } catch { "" }
+  Write-Host "Installing Kompactor from $PSScriptRoot..."
   Copy-Item -Recurse -Path $PSScriptRoot -Destination (Join-Path $Tmp "src")
   Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $Tmp "src\.git")
 } else {
-  Write-Host "Downloading Kompact ($Repo@$Ref)..."
-  $Zip = Join-Path $Tmp "kompact.zip"
+  if (-not $Repo) { throw "Run .\install.ps1 from a clone of your Kompactor repo, or set `$env:KOMPACTOR_REPO = 'your-org/kompactor'." }
+  $Origin = "https://github.com/$Repo"
+  Write-Host "Downloading Kompactor ($Repo@$Ref)..."
+  $Zip = Join-Path $Tmp "kompactor.zip"
   if ($env:GITHUB_TOKEN) {
     Invoke-WebRequest -Uri "https://api.github.com/repos/$Repo/zipball/$Ref" -OutFile $Zip -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
   } else {
@@ -39,10 +44,12 @@ $Src = Get-ChildItem -Path $Tmp -Directory | Select-Object -First 1
 if (Test-Path $Dest) { Remove-Item -Recurse -Force $Dest }
 New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null
 Move-Item -Path $Src.FullName -Destination $Dest
+# so the dashboard can show teammates the exact install commands for your repo (credentials stripped)
+if ($Origin) { Set-Content -Path (Join-Path $Dest ".kompactor-source") -Value ($Origin -replace '^(https?://)[^/@]*@', '$1') }
 Remove-Item -Recurse -Force $Tmp
 
-$Shim = Join-Path $HOME ".kompact\kompact.cmd"
-Set-Content -Path $Shim -Value "@`"$Py`" `"$Dest\kompact\_launch.py`" %*"
-Write-Host "Command shim: $Shim (add $HOME\.kompact to PATH to type 'kompact')"
+$Shim = Join-Path $HOME ".kompactor\kompactor.cmd"
+Set-Content -Path $Shim -Value "@`"$Py`" `"$Dest\kompactor\_launch.py`" %*"
+Write-Host "Command shim: $Shim (add $HOME\.kompactor to PATH to type 'kompactor')"
 
-& $Py "$Dest\kompact\_launch.py" setup
+& $Py "$Dest\kompactor\_launch.py" setup

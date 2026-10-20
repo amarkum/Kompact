@@ -178,7 +178,7 @@ def cap(lines, max_lines: int, head: int, tail: int, stash_id=None):
         return lines
     middle = lines[head:len(lines) - tail]
     keep = [ln for ln in middle if IMPORTANT.search(ln)][:30]
-    ref = f"; full output: kompact show {stash_id}" if stash_id else ""
+    ref = f"; full output: kompactor show {stash_id}" if stash_id else ""
     note = f"… {len(middle) - len(keep)} lines omitted{ref} …"
     return lines[:head] + [note] + keep + (["… (end of omitted section) …"] if keep else []) + lines[-tail:]
 
@@ -426,7 +426,7 @@ def f_test(lines, opts):
         # green run: the summary at the bottom is what matters
         kept = [f"… {len(kept) - 25} lines of passing-run output omitted …"] + kept[-25:]
     if dropped:
-        kept.append(f"[kompact: {dropped} passing-test lines hidden]")
+        kept.append(f"[kompactor: {dropped} passing-test lines hidden]")
     return kept
 
 
@@ -519,10 +519,12 @@ def compress(cmd: str, output: str, exit_code: int = 0, stash_id=None, opts=None
     kind = classify(cmd)
     lines = clean(output)
     m = o["bash_max_lines"]
-    if kind == "view":  # Claude asked to see this file: keep it verbatim, only cap huge ones
-        m *= 2
+    if kind == "view" or _piped(cmd):
+        # Claude asked for exactly this: a file, or output it shaped itself with a pipe or a format flag
+        # (counts, lists, JSON). Keep it verbatim; only cap huge ones, never below 400 lines.
+        m = max(m * 2, 400)
         return "\n".join(cap(lines, m, head=m // 2, tail=m // 3, stash_id=stash_id))
-    if kind in FILTERS and not _piped(cmd):
+    if kind in FILTERS:
         lines = FILTERS[kind](lines, o)
     if o["trim_stack_frames"] and kind != "git_diff":
         lines = trim_frames(lines, langs.library_frame_re(o["languages"]))

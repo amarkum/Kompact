@@ -1,13 +1,13 @@
-"""A/B proof: run the same Claude Code tasks with and without Kompact.
+"""A/B proof: run the same Claude Code tasks with and without Kompactor.
 
-    kompact prove --tasks bench/tasks.json --repos /path/to/checkouts [--reps 1] [--preset 3]
+    kompactor prove --tasks bench/tasks.json --repos /path/to/checkouts [--reps 1] [--preset 3]
 
 Each task runs through headless `claude -p` in both conditions with identical
-prompts, tools, turn limits and budget caps. The only difference is Kompact's
+prompts, tools, turn limits and budget caps. The only difference is Kompactor's
 hooks, passed with --settings. Every run gets a fresh session id and its own
-Kompact data folder, so no state leaks between runs. Recorded per run: tokens
+Kompactor data folder, so no state leaks between runs. Recorded per run: tokens
 (input + cache writes + cache reads + output, as Claude Code bills them), cost,
-turns, wall time, whether the answer contains the expected facts, and Kompact's
+turns, wall time, whether the answer contains the expected facts, and Kompactor's
 own ledger. Writes results.json and REPORT.md to --out.
 """
 
@@ -52,7 +52,7 @@ def _setup(repo: Path, steps, undo=False):
 
 
 def _ledger(home: Path) -> dict:
-    db = home / "kompact.db"
+    db = home / "kompactor.db"
     if not db.exists():
         return {"events": 0, "saved": 0, "by_feature": {}}
     c = sqlite3.connect(db)
@@ -86,23 +86,23 @@ def _tool_trace(session_id: str) -> list:
                 text = c if isinstance(c, str) else json.dumps(c)
                 name, arg = uses[b["tool_use_id"]]
                 out.append({"tool": name, "arg": str(arg)[:160], "result_chars": len(text),
-                            "kompact": "[kompact" in text})
+                            "kompactor": "[kompactor" in text})
     return out
 
 
 def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, model=None, budget=1.0,
              overrides=None) -> dict:
     run_dir = work / f"{task['id']}-{condition}-{uuid.uuid4().hex[:6]}"
-    home = run_dir / "kompact"
+    home = run_dir / "kompactor"
     home.mkdir(parents=True)
-    env = dict(os.environ, KOMPACT_HOME=str(home))
+    env = dict(os.environ, KOMPACTOR_HOME=str(home))
     env.pop(installer.PREFIX_ENV, None)
     env.pop("CLAUDE_CODE_SESSION_ID", None)  # when run from inside Claude Code; each run has its own session
     tools = list(task["tools"])
     session_id = str(uuid.uuid4())
     args = ["claude", "-p", task["prompt"], "--output-format", "json", "--max-turns", str(task.get("max_turns", 10)),
             "--session-id", session_id, "--max-budget-usd", str(budget), "--strict-mcp-config"]
-    if condition == "kompact":
+    if condition == "kompactor":
         (home / "config.json").write_text(json.dumps({"preset": preset, "overrides": overrides or {}}))
         if (PLUGIN_ROOT / ".claude-plugin" / "plugin.json").exists():  # exactly what a plugin user gets: hooks + skill
             args += ["--plugin-dir", str(PLUGIN_ROOT)]
@@ -110,8 +110,8 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
             settings = run_dir / "settings.json"
             settings.write_text(json.dumps(hook_settings()))
             args += ["--settings", str(settings)]
-        tools += sorted({"Bash(kompact:*)", f"Bash({installer.cli_name()}:*)"})
-        prefix = run_dir / "kompact-shell"  # what `kompact setup` installs as ~/.kompact/bin/kompact-shell
+        tools += sorted({"Bash(kompactor:*)", f"Bash({installer.cli_name()}:*)"})
+        prefix = run_dir / "kompactor-shell"  # what `kompactor setup` installs as ~/.kompactor/bin/kompactor-shell
         prefix.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable or "python3"),
                                                         script=shlex.quote(str(Path(installer.__file__).with_name("_launch.py")))))
         prefix.chmod(0o755)
@@ -147,16 +147,16 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
             "cost": data.get("total_cost_usd", 0) or 0, "turns": data.get("num_turns", 0), "wall_s": round(wall, 1),
             "correct": not missing and not data.get("is_error"), "missing": missing, "error": bool(data.get("is_error")),
             "subtype": data.get("subtype", ""), "models": sorted(by_model), "answer": answer[:1500],
-            "tools": _tool_trace(session_id), "kompact": _ledger(home) if condition == "kompact" else None}
+            "tools": _tool_trace(session_id), "kompactor": _ledger(home) if condition == "kompactor" else None}
 
 
 def summarize(results: list) -> dict:
     out = {}
     for r in results:
-        out.setdefault(r["task"], {"lang": r["lang"], "baseline": [], "kompact": []})[r["condition"]].append(r)
+        out.setdefault(r["task"], {"lang": r["lang"], "baseline": [], "kompactor": []})[r["condition"]].append(r)
     rows = []
     for task, d in out.items():
-        b, k = d["baseline"], d["kompact"]
+        b, k = d["baseline"], d["kompactor"]
         if not b or not k:
             continue
         mean = lambda rs, f: statistics.mean(f(r) for r in rs)  # noqa: E731
@@ -171,8 +171,8 @@ def summarize(results: list) -> dict:
             "base_turns": mean(b, lambda r: r["turns"]), "k_turns": mean(k, lambda r: r["turns"]),
             "base_output": mean(b, lambda r: r["tokens"]["output"]), "k_output": mean(k, lambda r: r["tokens"]["output"]),
             "base_correct": sum(r["correct"] for r in b), "k_correct": sum(r["correct"] for r in k),
-            "k_saved_ledger": mean(k, lambda r: (r["kompact"] or {}).get("saved", 0)),
-            "k_events": mean(k, lambda r: (r["kompact"] or {}).get("events", 0)),
+            "k_saved_ledger": mean(k, lambda r: (r["kompactor"] or {}).get("saved", 0)),
+            "k_events": mean(k, lambda r: (r["kompactor"] or {}).get("events", 0)),
         })
     return {"rows": rows}
 
@@ -190,17 +190,17 @@ def report_md(results: list, meta: dict) -> str:
     ob = sum(r["base_output"] for r in rows)
     ok = sum(r["k_output"] for r in rows)
     lines = [
-        "# Kompact A/B evidence",
+        "# Kompactor A/B evidence",
         "",
         f"Real headless Claude Code sessions (`claude -p`, Claude Code {meta.get('claude_version', '?')}, "
-        f"model {', '.join(meta.get('models', [])) or 'default'}), Kompact {meta['kompact_version']} at level "
+        f"model {', '.join(meta.get('models', [])) or 'default'}), Kompactor {meta['kompactor_version']} at level "
         f"{meta['preset']} ({config.PRESETS[meta['preset']]['name']}). {meta['reps']} run(s) per task and condition; "
         f"same prompt, tools, turn limit and budget cap in both conditions. Generated {meta['date']}.",
         "",
         f"**Total across {len(rows)} tasks: {tb:,.0f} › {tk:,.0f} tokens ({_pct(tb, tk)}), "
         f"cost ${cb:.2f} › ${ck:.2f} ({_pct(cb, ck)}), output tokens {_pct(ob, ok)}. "
         f"Correct answers: {sum(r['base_correct'] for r in rows)}/{sum(r['runs'] for r in rows)} without, "
-        f"{sum(r['k_correct'] for r in rows)}/{sum(r['runs'] for r in rows)} with Kompact.**",
+        f"{sum(r['k_correct'] for r in rows)}/{sum(r['runs'] for r in rows)} with Kompactor.**",
         "",
         "| Task | Lang | Tokens without (min–max) | Tokens with (min–max) | Δ tokens | Cost without | Cost with | Δ cost "
         "| Tool output chars | Turns | Correct |",
@@ -214,17 +214,17 @@ def report_md(results: list, meta: dict) -> str:
                      f"{r['k_tool_chars'] / 1000:.1f}k | {r['base_turns']:.1f} › {r['k_turns']:.1f} | "
                      f"{r['base_correct']}/{r['runs']} › {r['k_correct']}/{r['runs']} |")
     lines += ["", "Tokens = input + cache writes + cache reads + output, summed over every API call in the session "
-              "(what Claude Code bills). Δ is relative to the run without Kompact. Correct means the final answer "
+              "(what Claude Code bills). Δ is relative to the run without Kompactor. Correct means the final answer "
               "contained every expected fact (see `bench/tasks.json`).", "",
               "## What happened in each run", "",
-              "Tool calls Claude made (from the session transcript), result size, and what Kompact changed.", ""]
+              "Tool calls Claude made (from the session transcript), result size, and what Kompactor changed.", ""]
     for r in sorted(results, key=lambda r: (r["task"], r["condition"])):
-        calls = "; ".join(f"{t['tool']} {t['arg'][:60]} ({t['result_chars']:,} chars{', compacted' if t['kompact'] else ''})"
+        calls = "; ".join(f"{t['tool']} {t['arg'][:60]} ({t['result_chars']:,} chars{', compacted' if t['kompactor'] else ''})"
                           for t in r.get("tools", [])[:6]) or "no tool calls"
         led = ""
-        if r["condition"] == "kompact" and r["kompact"]:
-            led = " · Kompact: " + (", ".join(f"{f} ×{v['count']} (−{v['saved']:,} tokens)"
-                                              for f, v in r["kompact"]["by_feature"].items()) or "nothing to compact")
+        if r["condition"] == "kompactor" and r["kompactor"]:
+            led = " · Kompactor: " + (", ".join(f"{f} ×{v['count']} (−{v['saved']:,} tokens)"
+                                              for f, v in r["kompactor"]["by_feature"].items()) or "nothing to compact")
         lines.append(f"- **{r['task']} · {r['condition']}** ({r['tokens']['total']:,} tokens, {r['turns']} turns): "
                      f"{calls}{led}")
     lines += ["", "## Answers", ""]
@@ -236,7 +236,7 @@ def report_md(results: list, meta: dict) -> str:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="kompact prove", description=__doc__.split("\n\n")[0])
+    ap = argparse.ArgumentParser(prog="kompactor prove", description=__doc__.split("\n\n")[0])
     ap.add_argument("--tasks", required=True)
     ap.add_argument("--repos", required=True, help="folder containing the task repos")
     ap.add_argument("--out", default="evidence")
@@ -246,8 +246,9 @@ def main(argv=None) -> int:
     ap.add_argument("--model")
     ap.add_argument("--budget", type=float, default=1.0, help="max USD per run (passed to claude)")
     ap.add_argument("--parallel", type=int, default=1, help="tasks to run at the same time")
+    ap.add_argument("--report", action="store_true", help="rewrite REPORT.md from the saved results, run nothing")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
-                    help="override a Kompact setting for the runs, e.g. --set bash_plain=true")
+                    help="override a Kompactor setting for the runs, e.g. --set bash_plain=true")
     a = ap.parse_args(argv)
     tasks = json.loads(Path(a.tasks).read_text())["tasks"]
     overrides = {}
@@ -263,6 +264,18 @@ def main(argv=None) -> int:
     work.mkdir(exist_ok=True)
     results_file = out / "results.json"
     results = json.loads(results_file.read_text())["results"] if results_file.exists() else []
+    for r in results:  # runs recorded before the rename from Kompact
+        if "kompact" in r:
+            r.setdefault("kompactor", r.pop("kompact"))
+        for t in r.get("tools", []):
+            if "kompact" in t:
+                t.setdefault("kompactor", t.pop("kompact"))
+    if a.report:
+        meta = json.loads(results_file.read_text()).get("meta", {}) if results_file.exists() else {}
+        results_file.write_text(json.dumps({"meta": meta, "results": results}, indent=1))
+        (out / "REPORT.md").write_text(report_md(results, meta))
+        print((out / "REPORT.md").read_text().split("\n\n|")[0])
+        return 0
     claude_version = subprocess.run(["claude", "--version"], capture_output=True, text=True).stdout.strip()
     lock = threading.Lock()
     have = {}
@@ -275,7 +288,7 @@ def main(argv=None) -> int:
             _setup(repo, task.get("setup"))
         try:
             for rep in range(a.reps):
-                for condition in ("baseline", "kompact"):  # interleaved so drift affects both equally
+                for condition in ("baseline", "kompactor"):  # interleaved so drift affects both equally
                     if have.get((task["id"], condition), 0) > rep:
                         continue
                     r = run_once(task, repo, condition, work, a.preset, a.model, a.budget, overrides)
@@ -291,7 +304,7 @@ def main(argv=None) -> int:
 
     with ThreadPoolExecutor(max_workers=max(1, a.parallel)) as pool:
         list(pool.map(do_task, tasks))
-    meta = {"kompact_version": __version__, "preset": a.preset, "overrides": overrides, "reps": a.reps,
+    meta = {"kompactor_version": __version__, "preset": a.preset, "overrides": overrides, "reps": a.reps,
             "claude_version": claude_version,
             "models": sorted({m for r in results for m in r.get("models", [])}), "date": time.strftime("%Y-%m-%d")}
     results_file.write_text(json.dumps({"meta": meta, "results": results}, indent=1))

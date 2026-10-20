@@ -1,14 +1,14 @@
 {
-  "name": "kompact",
-  "description": "Kompact: cut the tokens Claude Code spends on noise.",
+  "name": "kompactor",
+  "description": "Kompactor: cut the tokens Claude Code spends on noise.",
   "owner": {
-    "name": "Amar Kumar"
+    "name": "Kompactor"
   },
   "plugins": [
     {
-      "name": "kompact",
+      "name": "kompactor",
       "source": "./",
-      "description": "Cut the tokens Claude Code spends on noise."
+      "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first file reads, a local code graph, terse reply and lean-code rules, and per-turn savings."
     }
   ]
 }

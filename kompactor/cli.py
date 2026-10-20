@@ -1,4 +1,4 @@
-"""kompact command line."""
+"""kompactor command line."""
 
 import argparse
 import json
@@ -41,7 +41,7 @@ def cmd_run(a):
     store.record("run", r, k, cmd)
     print(out)
     if r > k:
-        print(f"[kompact: {r}›{k} tokens; full output: kompact show {sid}]", file=sys.stderr)
+        print(f"[kompactor: {r}›{k} tokens; full output: kompactor show {sid}]", file=sys.stderr)
     return p.returncode
 
 
@@ -76,7 +76,7 @@ def cmd_search(a):
         for n, ln in hits[:a.max]:
             print(f"  {n}: {ln[:200]}")
         if len(hits) > a.max:
-            print(f"  … +{len(hits) - a.max} more (kompact show {sid})")
+            print(f"  … +{len(hits) - a.max} more (kompactor show {sid})")
     return 0
 
 
@@ -111,7 +111,7 @@ def cmd_graph(a):
         graph.build(root, quiet=False, full=a.full)
         return 0
     if a.action in ("query", "callers", "deps", "impact") and not a.args:
-        print(f"usage: kompact graph {a.action} <{'words' if a.action == 'query' else 'name or path'}>", file=sys.stderr)
+        print(f"usage: kompactor graph {a.action} <{'words' if a.action == 'query' else 'name or path'}>", file=sys.stderr)
         return 2
     try:
         if a.action == "report":
@@ -126,7 +126,7 @@ def cmd_graph(a):
             print(graph.impact_text(root, a.args[0], a.budget or 1200))
         elif a.action == "path":
             if len(a.args) != 2:
-                print("usage: kompact graph path <from> <to>", file=sys.stderr)
+                print("usage: kompactor graph path <from> <to>", file=sys.stderr)
                 return 2
             print(graph.path_text(root, a.args[0], a.args[1]))
         elif a.action == "map":
@@ -157,19 +157,19 @@ def cmd_gain(a):
         top = db.execute("SELECT detail, raw_tokens, kept_tokens FROM events WHERE feature='bash' "
                          "ORDER BY raw_tokens - kept_tokens DESC LIMIT 8").fetchall()
     if not rows:
-        print("No savings recorded yet. Install the hooks (`kompact install`) and use Claude Code, "
-              "or run `kompact estimate` to see what Kompact would have saved on your past sessions.")
+        print("No savings recorded yet. Install the hooks (`kompactor install`) and use Claude Code, "
+              "or run `kompactor estimate` to see what Kompactor would have saved on your past sessions.")
         return 0
     tr = sum(r[2] for r in rows)
     tk = sum(r[3] for r in rows)
-    print("Kompact live savings  (tool output entering Claude's context)\n")
+    print("Kompactor live savings  (tool output entering Claude's context)\n")
     print(f"  {'feature':<14}{'events':>8}{'before':>10}{'after':>10}{'saved':>9}")
     for f, n, r, k in rows:
         print(f"  {f:<14}{n:>8}{_fmt(r):>10}{_fmt(k):>10}{_pct(r - k, r):>9}")
     print(f"  {'TOTAL':<14}{sum(r[1] for r in rows):>8}{_fmt(tr):>10}{_fmt(tk):>10}{_pct(tr - tk, tr):>9}")
     print(f"\n  {_bar((tr - tk) / tr if tr else 0)}  {_fmt(tr - tk)} tokens kept out of context")
     print("  (each one is also re-sent on every later turn until compaction, so billed savings are larger;"
-          " see `kompact estimate`)")
+          " see `kompactor estimate`)")
     if top:
         print("\n  biggest wins:")
         for d, r, k in top:
@@ -188,7 +188,7 @@ def cmd_estimate(a):
         return 0
     tool, billed, cost = s["tool_tokens"], s["billed"], s["cost"]
     st_cost = s.get("style_cost", 0)
-    print(f"Kompact estimate — replayed {int(s['sessions'])} sessions, {int(s['calls'])} API calls\n")
+    print(f"Kompactor estimate — replayed {int(s['sessions'])} sessions, {int(s['calls'])} API calls\n")
     print(f"  Tool output in context      {_fmt(tool):>8} tokens  (" +
           ", ".join(f"{k} {_pct(v, tool).strip()}" for k, v in sorted(s['tool_by_name'].items(), key=lambda x: -x[1])[:4])
           + ")")
@@ -207,7 +207,7 @@ def cmd_estimate(a):
         print("\n  biggest single wins (tokens before › after, Bash):")
         for _, cmd, r, k in sorted(s["top_cmds"], reverse=True)[:6]:
             print(f"    {_fmt(r):>6} › {_fmt(k):<6} {cmd}")
-    print("\n  Method: Bash/Read results replayed through Kompact's filters; savings weighted by how many later API"
+    print("\n  Method: Bash/Read results replayed through Kompactor's filters; savings weighted by how many later API"
           "\n  calls would re-send them (cache reads at 0.1×, writes 1.25×, output 5× input price). Read-outline"
           f"\n  assumes {int(estimate.OUTLINE_FOLLOWUP * 100)}% of the file is still read afterwards. Output-style savings are an assumption,"
           "\n  not measured.")
@@ -220,18 +220,18 @@ def cmd_estimate(a):
 def cmd_install(a):
     target = installer.install("project" if a.project else "user", statusline=not a.no_statusline,
                                uninstall=a.uninstall, shell_prefix=not a.no_shell_prefix)
-    print(f"{'Removed' if a.uninstall else 'Installed'} Kompact hooks in {target}")
+    print(f"{'Removed' if a.uninstall else 'Installed'} Kompactor hooks in {target}")
     if not a.uninstall:
-        print("New Claude Code sessions (CLI and VS Code) will use them. Settings: `kompact ui`.")
+        print("New Claude Code sessions (CLI and VS Code) will use them. Settings: `kompactor ui`.")
         _prefix_note(installer.status())
     return 0
 
 
 def _prefix_note(st):
-    note = {"kompact": "Shell prefix: on (failing tests and builds are compacted too)",
+    note = {"kompactor": "Shell prefix: on (failing tests and builds are compacted too)",
             "other": "Shell prefix: another tool already sets CLAUDE_CODE_SHELL_PREFIX, so failing commands are "
                      "not compacted",
-            "missing": "Shell prefix: its script is missing; run `kompact setup` again",
+            "missing": "Shell prefix: its script is missing; run `kompactor setup` again",
             "none": "Shell prefix: off (only commands that succeed are compacted)"}[st["shell_prefix"]]
     print(f"  {note}")
 
@@ -240,7 +240,7 @@ def cmd_setup(a):
     """One-step setup: enable hooks for CLI + VS Code, then open the dashboard."""
     target = installer.install(statusline=config.read_file()["general"].get("statusline", True))
     st = installer.status()
-    print("✓ Kompact plugin is enabled; hooks are active." if st["plugin_enabled"] else f"✓ Hooks installed in {target}")
+    print("✓ Kompactor plugin is enabled; hooks are active." if st["plugin_enabled"] else f"✓ Hooks installed in {target}")
     print(f"  Claude Code CLI:   {'found' if st['claude_cli'] else 'not found'}")
     print(f"  VS Code extension: {st['vscode_extension'] or 'not found'} (uses the same settings)")
     _prefix_note(st)
@@ -269,7 +269,7 @@ def cmd_statusline(a):
     name = config.PRESETS[cfg["preset"]]["name"]
     tot = store.session_totals(sid) if sid else {}
     if tot.get("saved", 0) > 0:
-        parts = [f"Kompact −{hooks._fmt(tot['saved'])}"]
+        parts = [f"Kompactor −{hooks._fmt(tot['saved'])}"]
         if tot["context"] and tot["in_context_saved"] > 0:
             parts.append(f"ctx −{100 * tot['in_context_saved'] / (tot['context'] + tot['in_context_saved']):.0f}%")
         if tot["last_turn_saved"] > 0:
@@ -277,7 +277,7 @@ def cmd_statusline(a):
         parts.append(name)
         print(" · ".join(parts))
     else:
-        print(f"Kompact · {name}")
+        print(f"Kompactor · {name}")
     return 0
 
 
@@ -292,7 +292,7 @@ def cmd_config(a):
     print(f"preset {eff['preset']} · {config.PRESETS[eff['preset']]['name']}   languages: {', '.join(eff['languages']) or '-'}")
     for k in config.KNOBS:
         print(f"  {k:<20} {eff[k]}")
-    print(f"(edit in the dashboard: kompact ui · file: {config.path()})")
+    print(f"(edit in the dashboard: kompactor ui · file: {config.path()})")
     return 0
 
 
@@ -307,12 +307,12 @@ def cmd_presets(a):
     for p, v in presets.items():
         mark = "●" if p == data["preset"] else " "
         print(f" {mark} {p} {v['name']:<12} ≈{savings[p]:>2}% on samples  {v['blurb']}")
-    print("Change with `kompact config preset N` or in the dashboard (`kompact ui`).")
+    print("Change with `kompactor config preset N` or in the dashboard (`kompactor ui`).")
     return 0
 
 
 def cmd_doctor(a):
-    print(f"kompact {__version__}  python {sys.version.split()[0]}  home {store.home()}")
+    print(f"kompactor {__version__}  python {sys.version.split()[0]}  home {store.home()}")
     print(f"tokenizer: {'tiktoken' if tokens._ENC else 'heuristic (pip install tiktoken for exact counts)'}")
     with store.connect() as db:
         print(f"sqlite fts5: {'yes' if db.fts else 'no (search falls back to LIKE)'}")
@@ -330,11 +330,11 @@ def main(argv=None):
     if argv[:1] == ["prove"]:  # has its own parser
         from . import prove
         return prove.main(argv[1:])
-    ap = argparse.ArgumentParser(prog="kompact", description="Cut the tokens Claude Code spends on noise.")
+    ap = argparse.ArgumentParser(prog="kompactor", description="Cut the tokens Claude Code spends on noise.")
     ap.add_argument("--version", action="version", version=__version__)
     sp = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sp.add_parser("estimate", help="replay past Claude Code sessions and show % Kompact would save")
+    p = sp.add_parser("estimate", help="replay past Claude Code sessions and show % Kompactor would save")
     p.add_argument("--root", help="transcripts dir (default ~/.claude/projects)")
     p.add_argument("--project", help="only this project folder under the root")
     p.add_argument("--limit", type=int, help="only the N most recent transcripts")
@@ -355,7 +355,7 @@ def main(argv=None):
     p.add_argument("--no-browser", action="store_true")
     p.set_defaults(fn=cmd_ui)
 
-    p = sp.add_parser("install", help="add Kompact hooks to Claude Code settings")
+    p = sp.add_parser("install", help="add Kompactor hooks to Claude Code settings")
     p.add_argument("--project", action="store_true", help="write .claude/settings.json instead of ~/.claude")
     p.add_argument("--uninstall", action="store_true")
     p.add_argument("--no-statusline", action="store_true")
@@ -401,7 +401,7 @@ def main(argv=None):
     p.add_argument("--max", type=int, default=15)
     p.set_defaults(fn=cmd_search)
 
-    p = sp.add_parser("config", help="show or set config (kompact config preset 4); easier: kompact ui")
+    p = sp.add_parser("config", help="show or set config (kompactor config preset 4); easier: kompactor ui")
     p.add_argument("key", nargs="?")
     p.add_argument("value", nargs="?")
     p.set_defaults(fn=cmd_config)
@@ -417,10 +417,10 @@ def main(argv=None):
 
     p = sp.add_parser("debt", help="ledger of shortcut:/FIXME/HACK/TODO comments")
     p.add_argument("--root")
-    p.set_defaults(fn=lambda a: print(__import__("kompact.graph", fromlist=["graph"]).debt_text(
+    p.set_defaults(fn=lambda a: print(__import__("kompactor.graph", fromlist=["graph"]).debt_text(
         config.project_root(a.root or os.getcwd()) or os.getcwd())) or 0)
 
-    sp.add_parser("prove", help="A/B test: run real Claude Code tasks with and without Kompact (see --help)")
+    sp.add_parser("prove", help="A/B test: run real Claude Code tasks with and without Kompactor (see --help)")
 
     p = sp.add_parser("presets", help="list quality-vs-tokens levels")
     p.add_argument("--json", action="store_true")

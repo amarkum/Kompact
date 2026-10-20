@@ -1,12 +1,13 @@
-"""Shell prefix (kompact-shell) and oversized-output handling.
+"""Shell prefix (kompactor-shell) and oversized-output handling.
 
 Claude Code skips PostToolUse when a command fails and saves outputs over ~30K
-characters to a file; these tests pin down how Kompact still compacts both."""
+characters to a file; these tests pin down how Kompactor still compacts both."""
 
 import io
 import json
 import os
 import shlex
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -18,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from kompact import filters, hooks, installer, shellwrap, tokens  # noqa: E402
+from kompactor import filters, hooks, installer, shellwrap, tokens  # noqa: E402
 
 PASSING = "".join(f"tests/test_mod.py::test_case_{i} PASSED{' ' * 30}[{i // 5:3d}%]\n" for i in range(500))
 FAILURE = ("=================================== FAILURES ===================================\n"
@@ -61,10 +62,10 @@ class ShellPrefixTests(unittest.TestCase):
 
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp())
-        self.home = self.dir / "kompact-home"
+        self.home = self.dir / "kompactor-home"
         self.home.mkdir()
-        self.shim = self.dir / "kompact-shell"
-        self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable), script=shlex.quote(str(ROOT / "kompact" / "_launch.py"))))
+        self.shim = self.dir / "kompactor-shell"
+        self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable), script=shlex.quote(str(ROOT / "kompactor" / "_launch.py"))))
         self.shim.chmod(0o755)
         bindir = self.dir / "bin"
         bindir.mkdir()
@@ -72,7 +73,7 @@ class ShellPrefixTests(unittest.TestCase):
         fake = bindir / "pytest"  # prints a long passing run, then a failure; exits 1
         fake.write_text(f"#!/bin/sh\ncat '{self.dir / 'out.txt'}'\necho 'warning on stderr' >&2\nexit 1\n")
         fake.chmod(0o755)
-        self.env = dict(os.environ, PATH=f"{bindir}:{os.environ['PATH']}", KOMPACT_HOME=str(self.home),
+        self.env = dict(os.environ, PATH=f"{bindir}:{os.environ['PATH']}", KOMPACTOR_HOME=str(self.home),
                         CLAUDE_CODE_SESSION_ID="shell-test")
 
     def run_shim(self, cmd, **env):
@@ -86,10 +87,10 @@ class ShellPrefixTests(unittest.TestCase):
         self.assertIn("E   RuntimeError: Install Flask with the 'async' extra", r.stdout)
         self.assertIn("warning on stderr", r.stdout)  # stderr is merged, as Claude Code does
         self.assertNotIn("test_case_7 PASSED", r.stdout)
-        self.assertIn("[kompact: ", r.stdout)
+        self.assertIn("[kompactor: ", r.stdout)
         self.assertLess(tokens.count(r.stdout), tokens.count(PASSING) // 20)
         # the ledger counts only what Claude Code would really have shown (~10K chars of a failed run)
-        db = sqlite3.connect(self.home / "kompact.db")
+        db = sqlite3.connect(self.home / "kompactor.db")
         self.addCleanup(db.close)
         raw, kept, session = db.execute("SELECT raw_tokens, kept_tokens, session FROM events").fetchone()
         self.assertEqual(session, "shell-test")
@@ -108,27 +109,27 @@ class ShellPrefixTests(unittest.TestCase):
         self.assertEqual((self.dir / "cwd").read_text().strip(), str(self.dir.resolve()))  # cwd tracking intact
 
     def test_switches_and_fallbacks(self):
-        for env in ({"KOMPACT_RAW": "1"}, {"KOMPACT_BASH_WRAP": "0"}, {"KOMPACT_BASH": "0"}):
+        for env in ({"KOMPACTOR_RAW": "1"}, {"KOMPACTOR_BASH_WRAP": "0"}, {"KOMPACTOR_BASH": "0"}):
             r = self.run_shim("pytest", **env)
             self.assertEqual(r.returncode, 1)
             self.assertIn("test_case_7 PASSED", r.stdout, env)
-        # Kompact gone (plugin removed): the shim still runs every command
+        # Kompactor gone (plugin removed): the shim still runs every command
         self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable), script=shlex.quote(str(self.dir / "missing.py"))))
         r = self.run_shim("pytest")
         self.assertEqual(r.returncode, 1)
         self.assertIn("test_case_7 PASSED", r.stdout)
 
     def test_inline_raw_and_odd_install_paths(self):
-        r = self.run_shim("KOMPACT_RAW=1 pytest")  # the documented per-command opt-out
+        r = self.run_shim("KOMPACTOR_RAW=1 pytest")  # the documented per-command opt-out
         self.assertIn("test_case_7 PASSED", r.stdout)
         odd = self.dir / 'we"ird $HOME dir'  # quotes, spaces and $ in the install path
         odd.mkdir()
-        (odd / "kompact").symlink_to(ROOT / "kompact")
+        (odd / "kompactor").symlink_to(ROOT / "kompactor")
         self.shim.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable),
-                                                           script=shlex.quote(str(odd / "kompact" / "_launch.py"))))
+                                                           script=shlex.quote(str(odd / "kompactor" / "_launch.py"))))
         r = self.run_shim("pytest")
         self.assertEqual(r.returncode, 1)
-        self.assertIn("[kompact: ", r.stdout)
+        self.assertIn("[kompactor: ", r.stdout)
         self.assertNotIn("test_case_7 PASSED", r.stdout)
 
     def test_never_compact_is_respected(self):
@@ -182,7 +183,7 @@ class PlainRuleTests(unittest.TestCase):
 
     def test_plain_rule_only_with_active_prefix(self):
         cfg = {"bash": True, "bash_plain": True, "bash_wrap": True, "style": "lite", "code_style": "lean"}
-        prefix = Path(tempfile.mkdtemp(), "kompact-shell")
+        prefix = Path(tempfile.mkdtemp(), "kompactor-shell")
         prefix.write_text("#!/bin/sh\n")
         old = os.environ.pop(installer.PREFIX_ENV, None)
         try:
@@ -199,6 +200,54 @@ class PlainRuleTests(unittest.TestCase):
 
 
 class InstallerPrefixTests(unittest.TestCase):
+    def test_upgrade_from_kompact_replaces_old_entries_only(self):
+        home = tempfile.mkdtemp()
+        old = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        try:
+            p = Path(home, ".claude", "settings.json")
+            p.parent.mkdir()
+            legacy = '"/usr/bin/python3" "/opt/Kompact/kompact/_launch.py"'
+            other = {"hooks": [{"type": "command", "command": "kompact proxy --hook"}]}  # an unrelated tool
+            p.write_text(json.dumps({
+                "statusLine": {"type": "command", "command": f"{legacy} statusline"},
+                "env": {installer.PREFIX_ENV: f"{home}/.kompact/bin/kompact-shell"},
+                "hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [
+                    {"type": "command", "command": f"{legacy} hook post-bash"}]}, other]}}))
+            skill = Path(home, ".claude", "skills", "kompact", "SKILL.md")
+            skill.parent.mkdir(parents=True)
+            skill.write_text("---\nname: kompact\n---\nKompact token saver.\n")
+            installer.install()
+            d = json.loads(p.read_text())
+            cmds = [h["command"] for e in d["hooks"]["PostToolUse"] for h in e["hooks"]]
+            self.assertNotIn(f"{legacy} hook post-bash", cmds)
+            self.assertIn("kompact proxy --hook", cmds)  # someone else's hook is kept
+            self.assertEqual(sum("hook post-bash" in c for c in cmds), 1)
+            self.assertIn("kompactor", d["statusLine"]["command"])
+            self.assertTrue(d["env"][installer.PREFIX_ENV].endswith("kompactor-shell"))
+            self.assertFalse(skill.exists())
+            self.assertTrue(Path(home, ".claude", "skills", "kompactor", "SKILL.md").exists())
+        finally:
+            os.environ["HOME"] = old
+
+    def test_session_start_keeps_the_launcher_current(self):
+        home = tempfile.mkdtemp()
+        old = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        try:
+            shim = installer.write_shim(only_if_changed=True)
+            self.assertTrue(os.access(shim, os.X_OK))
+            self.assertEqual(installer.cli_name() if not shutil.which("kompactor") else "~/.kompactor/bin/kompactor",
+                             "~/.kompactor/bin/kompactor")
+            before = shim.stat().st_mtime_ns
+            installer.write_shim(only_if_changed=True)  # unchanged: not rewritten
+            self.assertEqual(shim.stat().st_mtime_ns, before)
+            shim.write_text("#!/bin/sh\nexec /old/python /old/kompactor/_launch.py \"$@\"\n")  # stale copy
+            installer.write_shim(only_if_changed=True)
+            self.assertIn(str(ROOT / "kompactor" / "_launch.py"), shim.read_text())
+        finally:
+            os.environ["HOME"] = old
+
     def test_prefix_set_kept_foreign_and_removed(self):
         home = tempfile.mkdtemp()
         old = os.environ.get("HOME")
@@ -210,9 +259,9 @@ class InstallerPrefixTests(unittest.TestCase):
             installer.install()
             d = json.loads(p.read_text())
             prefix = d["env"][installer.PREFIX_ENV]
-            self.assertTrue(prefix.endswith("kompact-shell"))
+            self.assertTrue(prefix.endswith("kompactor-shell"))
             self.assertTrue(os.access(prefix, os.X_OK))
-            self.assertEqual(installer.status()["shell_prefix"], "kompact")
+            self.assertEqual(installer.status()["shell_prefix"], "kompactor")
             installer.install(uninstall=True)
             self.assertEqual(json.loads(p.read_text())["env"], {"FOO": "1"})
             p.write_text(json.dumps({"env": {installer.PREFIX_ENV: "/opt/audit/log.sh"}}))

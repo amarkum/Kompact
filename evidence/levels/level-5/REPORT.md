@@ -1,81 +1,81 @@
-# Kompact A/B evidence
+# Kompactor A/B evidence
 
-Real headless Claude Code sessions (`claude -p`, Claude Code 2.1.304 (Claude Code), model claude-haiku-5-5, claude-sonnet-5-5), Kompact 0.3.0 at level 5 (Max savings). 3 run(s) per task and condition; same prompt, tools, turn limit and budget cap in both conditions. Generated 2026-10-20.
+Real headless Claude Code sessions (`claude -p`, Claude Code 2.1.304 (Claude Code), model claude-haiku-5-5, claude-sonnet-5-5), Kompactor 0.4.0 at level 5 (Max savings). 3 run(s) per task and condition; same prompt, tools, turn limit and budget cap in both conditions. Generated 2026-10-20.
 
-**Total across 9 tasks: 900,157 › 765,219 tokens (-15%), cost $0.46 › $0.41 (-11%), output tokens -25%. Correct answers: 27/27 without, 27/27 with Kompact.**
+**Total across 9 tasks: 900,157 › 790,637 tokens (-12%), cost $0.46 › $0.41 (-10%), output tokens -22%. Correct answers: 27/27 without, 27/27 with Kompactor.**
 
 | Task | Lang | Tokens without (min–max) | Tokens with (min–max) | Δ tokens | Cost without | Cost with | Δ cost | Tool output chars | Turns | Correct |
 |---|---|---:|---:|---:|---:|---:|---:|---|---|---|
-| py-failing-tests | python | 76,012 (76k–76k) | 76,220 (76k–76k) | +0% | $0.047 | $0.044 | -5% | 3.4k › 2.7k | 2.0 › 2.0 | 3/3 › 3/3 |
-| py-locate-code | python | 138,161 (113k–151k) | 102,533 (76k–116k) | -26% | $0.059 | $0.053 | -11% | 4.1k › 2.4k | 3.7 › 2.7 | 3/3 › 3/3 |
-| go-locate-code | go | 99,916 (75k–114k) | 75,835 (76k–76k) | -24% | $0.046 | $0.042 | -9% | 2.1k › 0.3k | 2.7 › 2.0 | 3/3 › 3/3 |
-| ts-locate-code | typescript | 112,730 (112k–114k) | 89,540 (76k–116k) | -21% | $0.051 | $0.048 | -4% | 1.7k › 0.9k | 3.0 › 2.7 | 3/3 › 3/3 |
-| go-failing-test | go | 113,703 (113k–114k) | 75,830 (76k–76k) | -33% | $0.054 | $0.043 | -20% | 2.5k › 1.6k | 3.3 › 2.0 | 3/3 › 3/3 |
-| ts-typecheck | typescript | 71,974 (72k–72k) | 72,605 (73k–73k) | +1% | $0.039 | $0.038 | -1% | 0.2k › 0.2k | 2.0 › 2.0 | 3/3 › 3/3 |
-| react-impact | react | 75,284 (75k–76k) | 76,037 (76k–76k) | +1% | $0.044 | $0.044 | +0% | 1.3k › 0.9k | 2.0 › 2.0 | 3/3 › 3/3 |
-| py-git-history | python | 131,215 (107k–144k) | 108,456 (108k–109k) | -17% | $0.052 | $0.049 | -6% | 1.0k › 0.7k | 3.7 › 3.0 | 3/3 › 3/3 |
-| react-failing-test | react | 81,162 (81k–81k) | 88,162 (75k–114k) | +9% | $0.066 | $0.044 | -34% | 15.6k › 0.9k | 2.0 › 2.3 | 3/3 › 3/3 |
+| py-failing-tests | python | 76,012 (76k–76k) | 76,276 (76k–76k) | +0% | $0.047 | $0.044 | -5% | 3.4k › 2.8k | 2.0 › 2.0 | 3/3 › 3/3 |
+| py-locate-code | python | 138,161 (113k–151k) | 89,576 (76k–116k) | -35% | $0.059 | $0.049 | -17% | 4.1k › 1.7k | 3.7 › 2.3 | 3/3 › 3/3 |
+| go-locate-code | go | 99,916 (75k–114k) | 76,037 (76k–76k) | -24% | $0.046 | $0.043 | -8% | 2.1k › 0.5k | 2.7 › 2.0 | 3/3 › 3/3 |
+| ts-locate-code | typescript | 112,730 (112k–114k) | 89,283 (76k–116k) | -21% | $0.051 | $0.047 | -8% | 1.7k › 0.8k | 3.0 › 2.3 | 3/3 › 3/3 |
+| go-failing-test | go | 113,703 (113k–114k) | 89,016 (76k–115k) | -22% | $0.054 | $0.048 | -11% | 2.5k › 1.8k | 3.3 › 2.3 | 3/3 › 3/3 |
+| ts-typecheck | typescript | 71,974 (72k–72k) | 72,620 (73k–73k) | +1% | $0.039 | $0.038 | -2% | 0.2k › 0.2k | 2.0 › 2.0 | 3/3 › 3/3 |
+| react-impact | react | 75,284 (75k–76k) | 75,846 (76k–76k) | +1% | $0.044 | $0.044 | -1% | 1.3k › 0.5k | 2.0 › 2.0 | 3/3 › 3/3 |
+| py-git-history | python | 131,215 (107k–144k) | 133,844 (112k–145k) | +2% | $0.052 | $0.057 | +11% | 1.0k › 2.7k | 3.7 › 3.7 | 3/3 › 3/3 |
+| react-failing-test | react | 81,162 (81k–81k) | 88,140 (75k–114k) | +9% | $0.066 | $0.044 | -34% | 15.6k › 0.9k | 2.0 › 2.3 | 3/3 › 3/3 |
 
-Tokens = input + cache writes + cache reads + output, summed over every API call in the session (what Claude Code bills). Δ is relative to the run without Kompact. Correct means the final answer contained every expected fact (see `bench/tasks.json`).
+Tokens = input + cache writes + cache reads + output, summed over every API call in the session (what Claude Code bills). Δ is relative to the run without Kompactor. Correct means the final answer contained every expected fact (see `bench/tasks.json`).
 
 ## What happened in each run
 
-Tool calls Claude made (from the session transcript), result size, and what Kompact changed.
+Tool calls Claude made (from the session transcript), result size, and what Kompactor changed.
 
 - **go-failing-test · baseline** (112,859 tokens, 3 turns): Bash go test -v ./... 2>&1 | grep -E "^(--- FAIL|FAIL|panic|\s+.* (716 chars); Bash go test -v -run TestFailGenFishCompletionFile . 2>&1 | head  (1,532 chars)
 - **go-failing-test · baseline** (113,941 tokens, 3 turns): Bash go test -v ./... 2>&1 | grep -E "^(--- FAIL|FAIL|panic|\s+.* (2,028 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (539 chars)
 - **go-failing-test · baseline** (114,308 tokens, 4 turns): Bash go test -v ./... 2>&1 | grep -E "^(--- FAIL|FAIL|panic|\s+.* (2,164 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (539 chars); Bash id -u (1 chars)
-- **go-failing-test · kompact** (75,781 tokens, 2 turns): Bash go test -v ./... 2>&1 (1,550 chars, compacted) · Kompact: bash ×1 (−1,729 tokens)
-- **go-failing-test · kompact** (75,884 tokens, 2 turns): Bash go test -v ./... (1,550 chars, compacted) · Kompact: bash ×1 (−1,729 tokens)
-- **go-failing-test · kompact** (75,825 tokens, 2 turns): Bash go test -v ./... (1,550 chars, compacted) · Kompact: bash ×1 (−1,729 tokens)
+- **go-failing-test · kompactor** (115,114 tokens, 3 turns): Bash go test -v ./... (1,573 chars, compacted); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (581 chars) · Kompactor: bash ×1 (−1,729 tokens), code_map ×1 (−0 tokens)
+- **go-failing-test · kompactor** (75,944 tokens, 2 turns): Bash go test -v ./... (1,573 chars, compacted) · Kompactor: bash ×1 (−1,729 tokens)
+- **go-failing-test · kompactor** (75,989 tokens, 2 turns): Bash go test -v ./... 2>&1 (1,573 chars, compacted) · Kompactor: bash ×1 (−1,729 tokens)
 - **go-locate-code · baseline** (113,502 tokens, 3 turns): Grep func validateRequiredFlagGroups|func validateFlagGroups|Requ (563 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (3,887 chars)
 - **go-locate-code · baseline** (111,607 tokens, 3 turns): Grep func validateRequiredFlagGroups|func validateFlagGroups|func (176 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (872 chars)
 - **go-locate-code · baseline** (74,640 tokens, 2 turns): Grep func validateRequiredFlagGroups|func validateFlagGroups|requ (691 chars)
-- **go-locate-code · kompact** (76,056 tokens, 2 turns): Grep func validateRequiredFlagGroups|func validateFlagGroups|Requ (563 chars) · Kompact: code_map ×1 (−0 tokens)
-- **go-locate-code · kompact** (75,739 tokens, 2 turns): Grep func validateRequiredFlagGroups|func.*RequiredFlagGroups|fun (186 chars) · Kompact: code_map ×1 (−0 tokens)
-- **go-locate-code · kompact** (75,711 tokens, 2 turns): Grep func ValidateRequiredFlagGroups|func validateRequiredFlagGro (91 chars) · Kompact: code_map ×1 (−0 tokens)
+- **go-locate-code · kompactor** (75,949 tokens, 2 turns): Grep func validateRequiredFlagGroups|func.*RequiredTogether|func  (176 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **go-locate-code · kompactor** (76,377 tokens, 2 turns): Grep func validateRequiredFlagGroups|func validateFlagGroups|Requ (1,163 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **go-locate-code · kompactor** (75,785 tokens, 2 turns): Grep func validateRequiredFlagGroups|func validateFlagGroups|func (176 chars) · Kompactor: code_map ×1 (−0 tokens)
 - **py-failing-tests · baseline** (75,983 tokens, 2 turns): Bash .venv/bin/pytest tests -v 2>&1 | tail -80 (3,448 chars)
 - **py-failing-tests · baseline** (75,989 tokens, 2 turns): Bash .venv/bin/pytest tests -v 2>&1 | tail -80 (3,448 chars)
 - **py-failing-tests · baseline** (76,064 tokens, 2 turns): Bash .venv/bin/pytest tests -v 2>&1 | tail -80 (3,448 chars)
-- **py-failing-tests · kompact** (76,269 tokens, 2 turns): Bash .venv/bin/pytest tests -v (2,749 chars, compacted) · Kompact: bash ×1 (−1,723 tokens)
-- **py-failing-tests · kompact** (76,191 tokens, 2 turns): Bash .venv/bin/pytest tests -v (2,749 chars, compacted) · Kompact: bash ×1 (−1,723 tokens)
-- **py-failing-tests · kompact** (76,199 tokens, 2 turns): Bash .venv/bin/pytest tests -v (2,749 chars, compacted) · Kompact: bash ×1 (−1,723 tokens)
+- **py-failing-tests · kompactor** (76,257 tokens, 2 turns): Bash .venv/bin/pytest tests -v (2,774 chars, compacted) · Kompactor: bash ×1 (−1,722 tokens)
+- **py-failing-tests · kompactor** (76,295 tokens, 2 turns): Bash .venv/bin/pytest tests -v (2,774 chars, compacted) · Kompactor: bash ×1 (−1,722 tokens)
+- **py-failing-tests · kompactor** (76,275 tokens, 2 turns): Bash .venv/bin/pytest tests -v (2,774 chars, compacted) · Kompactor: bash ×1 (−1,722 tokens)
 - **py-git-history · baseline** (143,749 tokens, 4 turns): Bash git log -n 40 --format='@@%H' --name-only | awk '/^@@/{delet (175 chars); Bash git log -n 40 --format=@@ --name-only (48 chars); Bash git log -n 40 --format=format:@@ --name-only (1,976 chars)
 - **py-git-history · baseline** (107,325 tokens, 3 turns): Bash git log -n 40 --name-only --format='%x00' | awk 'BEGIN{RS="\ (241 chars); Bash git log -n 40 --name-only --format= | grep '^src/' | sort |  (137 chars)
 - **py-git-history · baseline** (142,571 tokens, 4 turns): Bash git log -n 40 --format='@@%h' --name-only | awk '/^@@/{delet (172 chars); Bash git log -n 40 --format= --name-only -- src | sort | uniq -c  (135 chars); Bash git log -n 40 --format= --name-only | grep '^src/' | sort |  (137 chars)
-- **py-git-history · kompact** (108,628 tokens, 3 turns): Bash git log -n 40 --format='@@%H' --name-only | awk '/^@@/{delet (173 chars); Bash git log -n 40 --format= --name-only | sort | uniq -c | sort  (1,307 chars) · Kompact: nothing to compact
-- **py-git-history · kompact** (108,309 tokens, 3 turns): Bash git log -n 40 --format='@@%h' --name-only | awk '/^@@/{delet (189 chars); Bash git log -n 40 --name-only --format= | grep '^src/' | sort |  (137 chars) · Kompact: nothing to compact
-- **py-git-history · kompact** (108,432 tokens, 3 turns): Bash git log -n 40 --format='@@%H' --name-only | awk '/^@@/{delet (189 chars); Bash git log -n 40 --format= --name-only | grep '^src/' | sort |  (137 chars) · Kompact: nothing to compact
+- **py-git-history · kompactor** (144,963 tokens, 4 turns): Bash git log -n 40 --format='@@%H' --name-only | awk '/^@@/{delet (177 chars); Bash git log -n 40 --format= --name-only -- src/ | sort | uniq -c (497 chars); Bash git log -n 40 --format= --name-only | grep '^src/' | sort |  (137 chars) · Kompactor: nothing to compact
+- **py-git-history · kompactor** (111,729 tokens, 3 turns): Bash git log -n 40 --format='@@%H' --name-only | awk '/^@@/{delet (189 chars); Bash git log -n 40 --stat=200 --format=@@%h (6,233 chars) · Kompactor: nothing to compact
+- **py-git-history · kompactor** (144,839 tokens, 4 turns): Bash git log -n 40 --name-only --pretty=format:'@@%h' | awk '/^@@ (187 chars); Bash git log -n 40 --name-only --pretty=format: -- src/ | sort |  (506 chars); Bash git log -n 40 --name-only --pretty=format: | grep '^src/' |  (137 chars) · Kompactor: nothing to compact
 - **py-locate-code · baseline** (150,435 tokens, 4 turns): Grep def save_session|class SecureCookieSessionInterface|get_sign (252 chars); Grep def save_session|class SecureCookieSessionInterface|def get_ (375 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (3,281 chars)
 - **py-locate-code · baseline** (113,170 tokens, 3 turns): Grep def save_session|class SecureCookieSessionInterface (266 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (4,135 chars)
 - **py-locate-code · baseline** (150,879 tokens, 4 turns): Grep def save_session|class SecureCookieSessionInterface|URLSafeT (252 chars); Grep def save_session|class SecureCookieSessionInterface|URLSafeT (422 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (3,326 chars)
-- **py-locate-code · kompact** (115,606 tokens, 3 turns): Grep class SecureCookieSessionInterface|def save_session|URLSafeT (290 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (3,133 chars) · Kompact: code_map ×1 (−0 tokens)
-- **py-locate-code · kompact** (115,695 tokens, 3 turns): Grep def save_session|class SecureCookieSessionInterface|URLSafeT (290 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (3,133 chars) · Kompact: code_map ×1 (−0 tokens)
-- **py-locate-code · kompact** (76,299 tokens, 2 turns): Grep def save_session|class SecureCookieSessionInterface|URLSafeT (439 chars) · Kompact: code_map ×1 (−0 tokens)
+- **py-locate-code · kompactor** (76,222 tokens, 2 turns): Grep def save_session|class SecureCookieSessionInterface|URLSafeT (290 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **py-locate-code · kompactor** (76,237 tokens, 2 turns): Grep def save_session|class SecureCookieSessionInterface|get_sign (345 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **py-locate-code · kompactor** (116,269 tokens, 3 turns): Grep def save_session|def dumps|class SecureCookieSessionInterfac (495 chars); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (4,076 chars) · Kompactor: code_map ×1 (−0 tokens)
 - **react-failing-test · baseline** (81,472 tokens, 2 turns): Bash npx vitest run --reporter=verbose 2>&1 | tail -150 (16,600 chars)
 - **react-failing-test · baseline** (81,210 tokens, 2 turns): Bash npx vitest run --reporter=verbose 2>&1 | tail -150 (15,618 chars)
 - **react-failing-test · baseline** (80,803 tokens, 2 turns): Bash npx vitest run --reporter=verbose 2>&1 | tail -150 (14,578 chars)
-- **react-failing-test · kompact** (113,533 tokens, 3 turns): Bash npx vitest run --reporter=verbose (724 chars, compacted); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (466 chars) · Kompact: bash ×1 (−2,157 tokens), code_map ×1 (−0 tokens)
-- **react-failing-test · kompact** (75,375 tokens, 2 turns): Bash npx vitest run --reporter=verbose (724 chars, compacted) · Kompact: bash ×1 (−2,166 tokens)
-- **react-failing-test · kompact** (75,579 tokens, 2 turns): Bash npx vitest run --reporter=verbose 2>&1 (724 chars, compacted) · Kompact: bash ×1 (−2,181 tokens)
+- **react-failing-test · kompactor** (75,385 tokens, 2 turns): Bash npx vitest run --reporter=verbose (747 chars, compacted) · Kompactor: bash ×1 (−2,153 tokens)
+- **react-failing-test · kompactor** (113,603 tokens, 3 turns): Bash npx vitest run --reporter=verbose (746 chars, compacted); Read /tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995 (466 chars) · Kompactor: bash ×1 (−2,193 tokens), code_map ×1 (−0 tokens)
+- **react-failing-test · kompactor** (75,431 tokens, 2 turns): Bash npx vitest run --reporter=verbose (746 chars, compacted) · Kompactor: bash ×1 (−2,181 tokens)
 - **react-impact · baseline** (74,879 tokens, 2 turns): Grep createStore|from '\./vanilla|from "\./vanilla (665 chars)
 - **react-impact · baseline** (75,515 tokens, 2 turns): Grep createStore|from ['"]\./vanilla|from ['"]\.\./vanilla|vanill (1,666 chars)
 - **react-impact · baseline** (75,459 tokens, 2 turns): Grep createStore|vanilla (1,666 chars)
-- **react-impact · kompact** (76,135 tokens, 2 turns): Grep createStore|from '\./vanilla|from "\./vanilla|vanilla' (972 chars) · Kompact: code_map ×1 (−0 tokens)
-- **react-impact · kompact** (75,667 tokens, 2 turns): Grep createStore (476 chars) · Kompact: code_map ×1 (−0 tokens)
-- **react-impact · kompact** (76,310 tokens, 2 turns): Grep createStore|from '\./vanilla|from "\./vanilla|from '\.\./van (1,359 chars) · Kompact: code_map ×1 (−0 tokens)
+- **react-impact · kompactor** (75,881 tokens, 2 turns): Grep createStore (476 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **react-impact · kompactor** (75,808 tokens, 2 turns): Grep createStore (476 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **react-impact · kompactor** (75,850 tokens, 2 turns): Grep createStore (476 chars) · Kompactor: code_map ×1 (−0 tokens)
 - **ts-locate-code · baseline** (112,202 tokens, 3 turns): Grep dedupingInterval (260 chars); Grep FETCH\[|shouldStartNewRequest|dedupe (799 chars)
 - **ts-locate-code · baseline** (114,031 tokens, 3 turns): Grep dedupingInterval (2,036 chars); Grep dedupingInterval|FETCH\[|FETCH, (1,155 chars)
 - **ts-locate-code · baseline** (111,957 tokens, 3 turns): Grep dedupingInterval (260 chars); Grep shouldStartNewRequest|FETCH\[ (580 chars)
-- **ts-locate-code · kompact** (76,090 tokens, 2 turns): Grep dedupingInterval (260 chars) · Kompact: code_map ×1 (−0 tokens)
-- **ts-locate-code · kompact** (116,388 tokens, 4 turns): Grep dedupingInterval (1,440 chars); Grep dedupingInterval (260 chars); Grep FETCH\[|shouldStartNewRequest|startNewRequest (580 chars) · Kompact: code_map ×1 (−0 tokens)
-- **ts-locate-code · kompact** (76,141 tokens, 2 turns): Grep dedupingInterval (260 chars) · Kompact: code_map ×1 (−0 tokens)
+- **ts-locate-code · kompactor** (76,126 tokens, 2 turns): Grep dedupingInterval (260 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **ts-locate-code · kompactor** (115,581 tokens, 3 turns): Grep dedupingInterval (1,520 chars); Grep dedupingInterval (260 chars) · Kompactor: code_map ×1 (−0 tokens)
+- **ts-locate-code · kompactor** (76,142 tokens, 2 turns): Grep dedupingInterval (260 chars) · Kompactor: code_map ×1 (−0 tokens)
 - **ts-typecheck · baseline** (71,850 tokens, 2 turns): Bash npx tsc --noEmit -p . 2>&1 | head -200 (182 chars)
 - **ts-typecheck · baseline** (72,033 tokens, 2 turns): Bash npx tsc --noEmit -p . 2>&1 | tail -100 (182 chars)
 - **ts-typecheck · baseline** (72,038 tokens, 2 turns): Bash npx tsc --noEmit -p . 2>&1 | head -200 (182 chars)
-- **ts-typecheck · kompact** (72,533 tokens, 2 turns): Bash npx tsc --noEmit -p . (194 chars) · Kompact: nothing to compact
-- **ts-typecheck · kompact** (72,740 tokens, 2 turns): Bash npx tsc --noEmit -p . (194 chars) · Kompact: nothing to compact
-- **ts-typecheck · kompact** (72,542 tokens, 2 turns): Bash npx tsc --noEmit -p . (194 chars) · Kompact: nothing to compact
+- **ts-typecheck · kompactor** (72,577 tokens, 2 turns): Bash npx tsc --noEmit -p . (194 chars) · Kompactor: nothing to compact
+- **ts-typecheck · kompactor** (72,698 tokens, 2 turns): Bash npx tsc --noEmit -p . (194 chars) · Kompactor: nothing to compact
+- **ts-typecheck · kompactor** (72,585 tokens, 2 turns): Bash npx tsc --noEmit -p . (194 chars) · Kompactor: nothing to compact
 
 ## Answers
 
@@ -488,303 +488,240 @@ The other 224 tests across 13 files pass. I didn't change any code.
 ```
 </details>
 
-<details><summary>py-git-history · kompact · correct</summary>
-
-```
-Two files tie for the top spot, each touched in **4 of the 40 commits**:
-
-- `src/flask/cli.py`: 4 commits
-- `src/flask/app.py`: 4 commits
-
-Next is `src/flask/sansio/app.py` and `src/flask/helpers.py` at 2 commits each.
-
-I counted with `git log -n 40 --format= --name-only` rather than `--stat`, so the 40-commit window is the same but the output is easier to tally. I counted each file once per commit.
-```
-</details>
-
-<details><summary>py-failing-tests · kompact · correct</summary>
-
-```
-**1 failed**, 482 passed, 4 skipped.
-
-**Failure:** `tests/test_helpers.py::TestStreaming::test_async_view`
-- Key error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.` (raised at `src/flask/app.py:1096` in `async_to_sync`)
-- Why: `asgiref` isn't installed in `.venv`, so the `async def index()` view can't be run.
-
-**Skipped:** 4 tests, including the three dotenv tests in `tests/test_cli.py` (`test_load_dotenv`, `test_dotenv_path`, `test_disable_dotenv_from_env`), because `dotenv` isn't installed. I only saw the three dotenv skips in the output, so I can't name the fourth.
-
-Both problems come from optional dependencies missing from the environment, not from code bugs. I changed no code.
-```
-</details>
-
-<details><summary>py-locate-code · kompact · correct</summary>
-
-```
-- **File:** `src/flask/sessions.py`
-- **Class:** `SecureCookieSessionInterface`
-- **Method:** `save_session()` (line 337). Line 373 does the serialization and signing: `val = self.get_signing_serializer(app).dumps(dict(session))`. Line 374 then calls `response.set_cookie(name, val, ...)`.
-
-`get_signing_serializer()` (line 303) builds the `itsdangerous.URLSafeTimedSerializer`. It uses `app.secret_key` plus any `SECRET_KEY_FALLBACKS`, the salt, and `session_json_serializer` (a `TaggedJSONSerializer`). `open_session()` (line 323) is the reverse path: it verifies the cookie with `s.loads(...)`.
-```
-</details>
-
-<details><summary>py-failing-tests · kompact · correct</summary>
-
-```
-1 failed, 482 passed, 4 skipped.
-
-**Failure:** `tests/test_helpers.py::TestStreaming::test_async_view`
-- Error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.`
-- Why: the test uses an `async def` view, and Flask's `async_to_sync` (`src/flask/app.py:1096`) can't import `asgiref`. It isn't installed in `.venv`. This is a missing dependency, not a code bug.
-
-**Skipped:** `test_load_dotenv`, `test_dotenv_path` and `test_disable_dotenv_from_env` in `tests/test_cli.py` skip because `dotenv` isn't installed. The output shows 3 of the 4 skips, and the 4th was hidden in the collapsed output.
-
-I changed no code.
-```
-</details>
-
-<details><summary>py-git-history · kompact · correct</summary>
-
-```
-In the 40 most recent commits, the two `src/` files changed most often were:
-
-1. `src/flask/cli.py`: 4 commits
-2. `src/flask/app.py`: 4 commits
-
-They are tied. The next most-changed files were `src/flask/sansio/app.py` and `src/flask/helpers.py`, at 2 commits each.
-
-I counted with `git log -n 40 --name-only --format=`, filtered to `src/`, with no path filter on the log itself. Each file appears at most once per commit in that output, so the counts are per commit. I didn't use `--stat`, since `--name-only` gives the same file list.
-```
-</details>
-
-<details><summary>py-locate-code · kompact · correct</summary>
+<details><summary>py-locate-code · kompactor · correct</summary>
 
 ```
 **File:** `src/flask/sessions.py`
+**Class:** `SecureCookieSessionInterface`
+**Serializes and signs:** `save_session()` (line 337). It calls `get_signing_serializer()` (line 303) to get the `itsdangerous.URLSafeTimedSerializer`. It then runs `s.dumps(dict(session))` and writes the result with `response.set_cookie(...)`.
 
-**Class:** `SecureCookieSessionInterface` (line 284)
-
-**Method:** `save_session(self, app, session, response)` (line 337)
-
-- Line 373: `val = self.get_signing_serializer(app).dumps(dict(session))` serializes and signs the session.
-- Line 374: `response.set_cookie(name, val, ...)` writes it to the cookie.
-
-The signer comes from `get_signing_serializer` (line 303). It returns an itsdangerous `URLSafeTimedSerializer` built with these settings:
-- **Keys:** `SECRET_KEY_FALLBACKS` plus `app.secret_key`.
-- **Salt:** `self.salt`.
-- **Payload serializer:** `session_json_serializer`, which is `TaggedJSONSerializer` from `flask/json/tag.py`.
-- **Signing options:** `key_derivation` and `digest_method`.
-
-`open_session` (line 323) does the reverse. It calls `s.loads(val, max_age=...)` on the cookie.
+I only grepped for these definitions and did not read `save_session()`'s body. The `dumps` and `set_cookie` calls are from my knowledge of Flask, not from this checkout.
 ```
 </details>
 
-<details><summary>py-failing-tests · kompact · correct</summary>
+<details><summary>py-git-history · kompactor · correct</summary>
+
+```
+Over the 40 most recent commits (no path filter), the top two `src/` files are:
+
+1. `src/flask/app.py`: 4 commits
+2. `src/flask/cli.py`: 4 commits
+
+The next files are `src/flask/sansio/app.py` and `src/flask/helpers.py`, at 2 commits each.
+
+I counted file-name lines from `git log -n 40 --name-only`, and each file appears at most once per commit.
+
+My first attempt used `-- src/`, which picks the 40 most recent commits that touched `src/`. That's a different window and gave different counts: `app.py` 11 and `sansio/app.py` 10. I discarded that result.
+```
+</details>
+
+<details><summary>py-failing-tests · kompactor · correct</summary>
 
 ```
 1 failed, 482 passed, 4 skipped.
 
-**Failure:** `tests/test_helpers.py::TestStreaming::test_async_view`
-- Error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.` It is raised at `src/flask/app.py:1096` in `async_to_sync`.
-- Why: the test uses an `async def` view, and `asgiref` isn't installed in `.venv`, so the `from asgiref.sync import async_to_sync` import fails. It's an environment problem, not a code bug.
+**Failed:** `tests/test_helpers.py::TestStreaming::test_async_view`
+- Key error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.`
+- Why: `asgiref` isn't installed in `.venv`. `app.async_to_sync` (`src/flask/app.py:1096`) raises this when the `asgiref` import fails. It's an environment problem, not a code bug.
 
-**Skipped:** `test_load_dotenv`, `test_dotenv_path` and `test_disable_dotenv_from_env` in `tests/test_cli.py`, because `dotenv` isn't installed. The output shows only these three skips. The fourth wasn't visible because the tool output was condensed.
+**Skipped (not failures):** 3 tests in `tests/test_cli.py` (`test_load_dotenv`, `test_dotenv_path`, `test_disable_dotenv_from_env`) skip because `dotenv` isn't installed. I didn't look into the 4th skip, because the output was truncated. The full output is available with `kompactor show 1`.
 
 I changed no code.
 ```
 </details>
 
-<details><summary>py-git-history · kompact · correct</summary>
-
-```
-In the 40 most recent commits, these two `src/` files were touched most:
-
-1. `src/flask/cli.py`: 4 commits
-2. `src/flask/app.py`: 4 commits
-
-They are tied. The next closest are `src/flask/sansio/app.py` and `src/flask/helpers.py`, at 2 commits each.
-
-I counted from `git log -n 40 --name-only` rather than `--stat`, because it lists the same files without the diff-stat formatting. A file appears at most once per commit, so each count is a count of commits.
-```
-</details>
-
-<details><summary>py-locate-code · kompact · correct</summary>
+<details><summary>py-locate-code · kompactor · correct</summary>
 
 ```
 - **File:** `src/flask/sessions.py`
 - **Class:** `SecureCookieSessionInterface`
-- **Method:** `save_session()` (line 337). It calls `self.get_signing_serializer(app).dumps(dict(session))` at line 373, then sets the result as the cookie value.
+- **Method:** `save_session` (line 337). It calls `self.get_signing_serializer(app).dumps(dict(session))` at line 373 to serialize and sign the session, then sets the result with `response.set_cookie(...)`.
+- **Signer:** `get_signing_serializer` (line 303) builds the `URLSafeTimedSerializer`. That serializer does the signing.
 
-The signing happens in `get_signing_serializer()` (line 303). It builds an `itsdangerous.URLSafeTimedSerializer` (line 313) from the app's secret key, so `dumps()` both serializes and signs.
-
-The reverse direction, cookie to session, is `open_session()` in the same class (it uses `s = self.get_signing_serializer(app)` at line 324).
+I only grepped for these lines. I didn't read the surrounding code, so the `set_cookie` detail comes from memory of Flask's source.
 ```
 </details>
 
-<details><summary>go-failing-test · kompact · correct</summary>
+<details><summary>py-failing-tests · kompactor · correct</summary>
 
 ```
-**Failing test:** `TestFailGenFishCompletionFile` (`fish_completions_test.go:141`)
+1 failed, 482 passed, 4 skipped.
 
-**Error:** it panics with `runtime error: invalid memory address or nil pointer dereference` (`SIGSEGV`, `addr=0x18`). The panic aborts the whole `github.com/spf13/cobra` package, so `FAIL` is reported for the package after 0.473s.
+**Failed:** `tests/test_helpers.py::TestStreaming::test_async_view`
+- Error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.`
+- Why: `asgiref` isn't installed in `.venv`. `app.async_to_sync` (`src/flask/app.py:1096`) hits an `ImportError` on `asgiref.sync` and raises this.
 
-I didn't change any code. I haven't looked at line 141, so I don't know the cause.
+**Skipped:** the 4 skips include the three dotenv tests in `tests/test_cli.py` (`test_load_dotenv`, `test_dotenv_path`, `test_disable_dotenv_from_env`). They skip because `dotenv` isn't installed. I didn't see the fourth skip in the output.
+
+No code was changed.
 ```
 </details>
 
-<details><summary>go-locate-code · kompact · correct</summary>
+<details><summary>py-git-history · kompactor · correct</summary>
+
+```
+In the 40 most recent commits, the two `src/` files changed most often are tied at 4 commits each:
+
+1. `src/flask/app.py` — 4 commits (`329c32b9`, `d73fa1cd`, `7203feab`, `81798b40`)
+2. `src/flask/cli.py` — 4 commits (`7689f984`, `8285adf5`, `36e4a824`, `954f5684`)
+
+The next most frequent files were `src/flask/helpers.py` and `src/flask/sansio/app.py`, at 2 commits each.
+
+I ignored `examples/celery/src/task_app/__init__.py`, since it isn't under the top-level `src/`. I tallied the counts by hand from the `--stat` output.
+```
+</details>
+
+<details><summary>py-locate-code · kompactor · correct</summary>
+
+```
+**File:** `src/flask/sessions.py`
+**Class:** `SecureCookieSessionInterface` (line 284)
+**Method:** `save_session` (line 337)
+
+- **Serialize and sign:** line 373 does `val = self.get_signing_serializer(app).dumps(dict(session))`.
+- **Write the cookie:** `response.set_cookie(name, val, ...)` follows at line 374.
+- **Serializer:** `get_signing_serializer` (line 303) builds an itsdangerous `URLSafeTimedSerializer`. It uses the `cookie-session` salt, HMAC key derivation, SHA1 digest, and `app.secret_key`. Keys from `SECRET_KEY_FALLBACKS` are added for verification.
+- **Payload encoding:** the serializer is `session_json_serializer`, which is `TaggedJSONSerializer` from `json/tag.py`.
+- **Reading:** `open_session` (line 323) does the reverse with `s.loads(val, max_age=...)`.
+```
+</details>
+
+<details><summary>py-failing-tests · kompactor · correct</summary>
+
+```
+1 failed, 482 passed, 4 skipped.
+
+**Failed:** `tests/test_helpers.py::TestStreaming::test_async_view`
+- Error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.`
+- Why: `asgiref` isn't installed in `.venv`. `Flask.async_to_sync` (`src/flask/app.py:1096`) fails on `from asgiref.sync import async_to_sync` when the test's `async def index()` view is called.
+
+**Skipped:** 3 of the 4 are in `tests/test_cli.py` (`test_load_dotenv`, `test_dotenv_path`, `test_disable_dotenv_from_env`). The reason is "dotenv is not installed". The output I got doesn't show the fourth.
+
+I changed no code. Installing `asgiref`, for example with `pip install "flask[async]"`, should fix the failure.
+```
+</details>
+
+<details><summary>py-git-history · kompactor · correct</summary>
+
+```
+In the 40 most recent commits, with no path filter, these two `src/` files were changed most often:
+
+1. `src/flask/cli.py`: 4 commits
+2. `src/flask/app.py`: 4 commits
+
+`src/flask/sansio/app.py` and `src/flask/helpers.py` follow with 2 commits each.
+
+My first run used a `-- src/` path filter. That counted the last 40 commits that touched `src/`, which is a different set. I redid it without the filter, and the numbers above come from that run.
+```
+</details>
+
+<details><summary>go-locate-code · kompactor · correct</summary>
 
 ```
 `validateRequiredFlagGroups` in `flag_groups.go:144`.
 
-It's called from `ValidateFlagGroups`, the exported entry point in the same file. Groups are registered via `MarkFlagsRequiredTogether` (`flag_groups.go:33`).
+It's called from the exported `ValidateFlagGroups` in the same file. `MarkFlagsRequiredTogether` (line 33) registers the groups.
 ```
 </details>
 
-<details><summary>ts-locate-code · kompact · correct</summary>
+<details><summary>go-failing-test · kompactor · correct</summary>
 
 ```
-Option: `dedupingInterval`. Default is `2 * 1000` (2 s), set in `src/_internal/utils/config.ts:76`.
+**Failing test:** `TestFailGenFishCompletionFile` in `fish_completions_test.go`
 
-Mechanism: in `src/index/use-swr.ts`, the first call for a key stores its in-flight promise in a shared `FETCH` cache entry. Other hooks with the same key that mount within the interval reuse that promise instead of calling the fetcher again. Around line 606, a `setTimeout(cleanupState, config.dedupingInterval)` clears that entry after the interval.
+**Error:** nil pointer dereference (SIGSEGV) at `fish_completions_test.go:141`, which panicked the whole `github.com/spf13/cobra` package run.
 
-I only grepped for `dedupingInterval`, so I haven't read the `FETCH` handling itself. That part comes from my knowledge of SWR's design.
+```
+--- FAIL: TestFailGenFishCompletionFile (0.00s)
+panic: runtime error: invalid memory address or nil pointer dereference
+```
+
+**Cause:** `GenFishCompletionFile` returned `nil` instead of an `os.ErrPermission` error. The test then called `got.Error()` on that nil error, which caused the panic.
+
+The test creates the file with mode `0400` and expects the write to fail with a permission error. It's likely running as root here (the paths are under `/tmp/claude-0`, `/root/.ccr`), and root ignores file permission bits. I haven't confirmed this by running the test as a non-root user.
+
+The panic aborted the package, so any tests that run after it didn't run. Everything before it passed. I changed no code.
 ```
 </details>
 
-<details><summary>go-locate-code · kompact · correct</summary>
+<details><summary>ts-locate-code · kompactor · correct</summary>
+
+```
+Config option: `dedupingInterval`. Default is `2 * 1000` (2 s), set in `src/_internal/utils/config.ts:76`.
+
+Mechanism, in `src/index/use-swr.ts`: the first request for a key stores its promise and a timestamp in the shared `FETCH` map. Calls for the same key within `dedupingInterval` reuse that promise and skip the fetcher. `setTimeout(cleanupState, config.dedupingInterval)` at line 606 clears the entry once the interval has passed.
+```
+</details>
+
+<details><summary>go-locate-code · kompactor · correct</summary>
 
 ```
 `validateRequiredFlagGroups` in `flag_groups.go:144`.
 
-It's called from `ValidateFlagGroups` in the same file. You set up the groups with `MarkFlagsRequiredTogether`.
+It's called from `ValidateFlagGroups` (same file, line 79). Flags are registered with `MarkFlagsRequiredTogether` (line 33).
 ```
 </details>
 
-<details><summary>go-failing-test · kompact · correct</summary>
+<details><summary>go-failing-test · kompactor · correct</summary>
 
 ```
 **Failing test:** `TestFailGenFishCompletionFile` in `fish_completions_test.go:141`.
 
-**Error:** nil pointer dereference (SIGSEGV), which aborts the whole `github.com/spf13/cobra` package run:
-
+**Error:** nil pointer dereference panic.
 ```
 panic: runtime error: invalid memory address or nil pointer dereference
 [signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]
-github.com/spf13/cobra.TestFailGenFishCompletionFile(...)
+github.com/spf13/cobra.TestFailGenFishCompletionFile(0xc000394000)
 	fish_completions_test.go:141 +0x25b
-FAIL	github.com/spf13/cobra	0.303s
+FAIL	github.com/spf13/cobra	0.349s
 ```
 
-Because of the panic, any tests that would have run after it didn't run. The `--localroot` "unknown flag" debug line and the `child1`/`parent` log lines are normal test output, not the cause.
+The panic aborts the whole package run, so any tests that would have run after it didn't run. I changed no code.
 
-I didn't change any code. I haven't looked at line 141, so I don't know the cause yet. The test probably expects an error and gets a nil one, possibly because it runs as root and the file write succeeds.
-```
-</details>
-
-<details><summary>go-locate-code · kompact · correct</summary>
-
-```
-`validateRequiredFlagGroups` in `flag_groups.go:144`.
-
-It takes the map of group name to flag set/unset state. Groups are registered with `MarkFlagsRequiredTogether` in the same file. The exported `ValidateFlagGroups` in `flag_groups.go` calls it.
+The test probably expects `GenFishCompletionFile` to return an error and then dereferences a nil `err` (or similar) at line 141. This is a guess, since I haven't read the test. A likely cause is that the test writes to a path that is unwritable as a non-root user, but this environment runs as root, so the write succeeds and no error comes back.
 ```
 </details>
 
-<details><summary>ts-locate-code · kompact · correct</summary>
+<details><summary>go-locate-code · kompactor · correct</summary>
 
 ```
-**Option:** `dedupingInterval`, default `2 * 1000` (2 s).
+`validateRequiredFlagGroups`, at `flag_groups.go:144`.
 
-**Default set in:** `src/_internal/utils/config.ts:76`. The type is declared at `src/_internal/types.ts:224`.
-
-**Mechanism** (`src/index/use-swr.ts`):
-- In-flight requests are stored in a shared `FETCH[key]` map as `[promise, startTimestamp]`.
-- `shouldStartNewRequest = !FETCH[key] || !opts.dedupe` (line 515). If a request for the key already exists, later callers reuse its promise (line 599) instead of calling the fetcher.
-- After the request settles, `FETCH[key]` is cleared by `setTimeout(cleanupState, config.dedupingInterval)` (line 606). So requests for the same key within 2 s of starting share one fetch.
+`MarkFlagsRequiredTogether` (`flag_groups.go:33`) registers the group. `ValidateFlagGroups` in the same file runs the check.
 ```
 </details>
 
-<details><summary>go-failing-test · kompact · correct</summary>
+<details><summary>ts-locate-code · kompactor · correct</summary>
 
 ```
-**Failing test:** `TestFailGenFishCompletionFile` in `fish_completions_test.go:141`
+Config option: `dedupingInterval`. The default is `2 * 1000` ms, set in `src/_internal/utils/config.ts:76`.
 
-**Error:** nil pointer dereference panic (SIGSEGV, addr=0x18):
+Mechanism, in `src/index/use-swr.ts`: the first call for a key stores its in-flight promise in a shared `FETCH` map. Other hooks that use the same key within the interval reuse that promise instead of calling the fetcher again. The entry is cleaned up with `setTimeout(cleanupState, config.dedupingInterval)` at line 606.
+
+I didn't open the `FETCH` map code directly. That part comes from what I know of SWR's internals, not from reading this checkout.
+```
+</details>
+
+<details><summary>go-failing-test · kompactor · correct</summary>
+
+```
+**Failing test:** `TestFailGenFishCompletionFile` in `fish_completions_test.go:141`.
+
+**Error:** nil pointer dereference panic.
 ```
 panic: runtime error: invalid memory address or nil pointer dereference
-github.com/spf13/cobra.TestFailGenFishCompletionFile
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]
+github.com/spf13/cobra.TestFailGenFishCompletionFile(0xc00038c540)
 	fish_completions_test.go:141 +0x25b
-FAIL	github.com/spf13/cobra	0.319s
 ```
 
-The panic aborts the whole `cobra` package run, so any tests after it didn't run. I haven't read line 141, so I don't know the cause. This test usually expects file creation to fail, and the usual cause is that the environment (running as root, as here) lets the write succeed, so the error it dereferences is nil. I didn't change any code.
-```
-</details>
+The panic aborted the `github.com/spf13/cobra` package run, so any tests after it didn't run. The `[Debug] [Error] ... unknown flag: --localroot` line is log output from an earlier test, not the failure.
 
-<details><summary>ts-typecheck · kompact · correct</summary>
-
-```
-2 errors:
-
-- `source/zz-kompact.ts:1:14` — TS2322: Type 'string' is not assignable to type 'number'.
-- `source/zz-kompact.ts:3:2` — TS2322: Type 'number' is not assignable to type 'string'.
-
-I didn't fix anything.
+I changed no code. The nil dereference at line 141 probably means the test expected an error and got `nil`. I haven't looked at the file to confirm. It may be environmental: this sandbox runs as root, and the test likely relies on a file being unwritable.
 ```
 </details>
 
-<details><summary>ts-locate-code · kompact · correct</summary>
-
-```
-Config option: `dedupingInterval`. Default is `2 * 1000` (2 seconds), set at `src/_internal/utils/config.ts:76`.
-
-Requests for the same key within that window share one in-flight request. The shared request is tracked in `FETCH` (a global per-cache map), and `use-swr.ts` clears that entry via `setTimeout(cleanupState, config.dedupingInterval)` (`src/index/use-swr.ts:606`). I did not read the surrounding dedupe logic, so that part comes from the cleanup call and my background knowledge of SWR.
-```
-</details>
-
-<details><summary>react-impact · kompact · correct</summary>
-
-```
-Direct callers of `createStore` (these would need to change):
-- `src/react.ts:54`: `createStore(createState)` inside `create`
-- `src/traditional.ts:70`: `createStore(createState)` inside `createWithEqualityFn`
-
-Possibly affected, depending on the change:
-- `src/index.ts`: only `export * from './vanilla.ts'`, so it needs no edit.
-- `src/middleware/{persist,redux,devtools,immer,subscribeWithSelector}.ts`: these use `declare module '../vanilla'` to augment `StoreMutators`. They don't call `createStore`. They only break if you change the `StateCreator` or `StoreMutators` types along with the signature.
-
-Not affected: `src/shallow.ts`, `src/vanilla/shallow.ts`, `src/react/shallow.ts`, `src/middleware/combine.ts` and `src/middleware/ssrSafe.ts`.
-
-I searched with grep and didn't check types. If the `CreateStore` type changes, `tsc` may flag more files, such as `UseBoundStore` consumers.
-```
-</details>
-
-<details><summary>ts-typecheck · kompact · correct</summary>
-
-```
-`tsc` reported 2 errors, both in `source/zz-kompact.ts`:
-
-- `source/zz-kompact.ts:1:14` — TS2322: Type 'string' is not assignable to type 'number'.
-- `source/zz-kompact.ts:3:2` — TS2322: Type 'number' is not assignable to type 'string'.
-
-I didn't fix anything.
-```
-</details>
-
-<details><summary>react-impact · kompact · correct</summary>
-
-```
-Direct callers of `createStore` (outside vanilla.ts):
-
-- `src/react.ts:54` – `createStore(createState)` in `create`
-- `src/traditional.ts:70` – `createStore(createState)` in `createWithEqualityFn`
-
-Indirect: `src/index.ts` only re-exports, so it needs a change only if you rename or remove the export. Middleware files don't call `createStore`. They depend on the `StateCreator`, `StoreApi` and `Mutate` types, which matter only if your signature change touches those types.
-```
-</details>
-
-<details><summary>ts-typecheck · kompact · correct</summary>
+<details><summary>ts-typecheck · kompactor · correct</summary>
 
 ```
 2 errors:
@@ -792,68 +729,128 @@ Indirect: `src/index.ts` only re-exports, so it needs a change only if you renam
 - `source/zz-kompact.ts:1:14` TS2322: Type 'string' is not assignable to type 'number'.
 - `source/zz-kompact.ts:3:2` TS2322: Type 'number' is not assignable to type 'string'.
 
+I didn't fix anything.
+```
+</details>
+
+<details><summary>ts-locate-code · kompactor · correct</summary>
+
+```
+Option: `dedupingInterval`. Default `2 * 1000` (2s), set in `src/_internal/utils/config.ts:76`.
+
+Mechanism (`src/index/use-swr.ts`): the first request for a key is stored in the shared `FETCH` map. Within `dedupingInterval`, other hooks with the same key reuse that in-flight promise instead of calling the fetcher. The `setTimeout(cleanupState, config.dedupingInterval)` at line 606 clears the entry after the interval.
+
+I only checked the grep hits, not the surrounding code. The `FETCH` map detail is from memory of SWR's design, not confirmed in this repo.
+```
+</details>
+
+<details><summary>react-impact · kompactor · correct</summary>
+
+```
+Two files under `src/` call `createStore` and would need to change:
+
+- `src/react.ts:54`: `const api = createStore(createState)`
+- `src/traditional.ts:70`: `const api = createStore(createState)`
+
+`src/index.ts` doesn't mention `createStore` by name. It re-exports from `vanilla.ts`, so it only needs a change if you rename or remove the export.
+
+No other file under `src/` references it. The middleware files only use types from `vanilla.ts`, such as `StateCreator` and `StoreMutators`. They would need a change only if you alter those types as well.
+
+The same file also uses `createStoreImpl` (`src/vanilla.ts:60`) and the `CreateStore` type, so they probably need updating with it.
+
+I only searched `src/`. Tests, docs and other directories may call it too.
+```
+</details>
+
+<details><summary>ts-typecheck · kompactor · correct</summary>
+
+```
+2 errors:
+
+- `source/zz-kompact.ts:1:14` — TS2322: Type 'string' is not assignable to type 'number'.
+- `source/zz-kompact.ts:3:2` — TS2322: Type 'number' is not assignable to type 'string'.
+
 I haven't fixed anything.
 ```
 </details>
 
-<details><summary>react-failing-test · kompact · correct</summary>
+<details><summary>react-impact · kompactor · correct</summary>
+
+```
+Direct callers of `createStore` outside `vanilla.ts`:
+
+- `src/react.ts:54`: `create` calls `createStore(createState)`.
+- `src/traditional.ts:70`: `createWithEqualityFn` calls `createStore(createState)`.
+
+`src/index.ts` only re-exports, so it needs no change unless you rename the export. The middleware files don't call `createStore`. They depend on the `StateCreator`, `StoreApi` and `StoreMutators` types, so they would only change if those types change too.
+
+I only grepped for the literal name `createStore`. I didn't check whether `src/index.ts` re-exports with `export *` or by name.
+```
+</details>
+
+<details><summary>ts-typecheck · kompactor · correct</summary>
+
+```
+2 errors:
+
+- `source/zz-kompact.ts:1:14` — TS2322: Type 'string' is not assignable to type 'number'.
+- `source/zz-kompact.ts:3:2` — TS2322: Type 'number' is not assignable to type 'string'.
+
+I didn't fix anything.
+```
+</details>
+
+<details><summary>react-failing-test · kompactor · correct</summary>
+
+```
+Failing test: `tests/zz-kompact.test.ts` > `counter store` > `counts every increment`.
+
+Key error: `AssertionError: expected 2 to be 3 // Object.is equality` at `tests/zz-kompact.test.ts:12`.
+
+Why: the test calls `store.getState().inc()` twice (lines 10–11 are visible, so I can't say whether a third call sits above them). It then expects `count` to be 3, but `count` is 2. The test's expected value doesn't match the number of increments it performs. I didn't open the file, so I can't say whether the test or the store is wrong.
+
+The other 224 tests passed (13 of 14 files). I changed no code.
+```
+</details>
+
+<details><summary>react-impact · kompactor · correct</summary>
+
+```
+Direct callers of `createStore` under `src/`:
+
+- `src/react.ts:54`: `create` calls `createStore(createState)`.
+- `src/traditional.ts:70`: `createWithEqualityFn` calls `createStore(createState)`.
+
+`src/index.ts` only re-exports from `vanilla.ts`, so it changes only if you rename or remove the export.
+
+The middleware files (`devtools`, `persist`, `combine`, `ssrSafe`) don't call `createStore`. They use types such as `StateCreator` and `StoreMutatorIdentifier` from `vanilla.ts`. They would need edits only if your change touches those types.
+
+I only grepped for the name `createStore`. I didn't check tests or other directories outside `src/`.
+```
+</details>
+
+<details><summary>react-failing-test · kompactor · correct</summary>
 
 ```
 **Failing test:** `tests/zz-kompact.test.ts > counter store > counts every increment`
 
 **Error:** `AssertionError: expected 2 to be 3 // Object.is equality` at `tests/zz-kompact.test.ts:12`
 
-**Why:** The test calls `inc()` twice (lines 10–11), so `count` goes from 0 to 2. The assertion at line 12 expects 3, so the test itself is wrong. The store behaves correctly.
+**Why:** The test is wrong, not the store. It calls `inc()` twice (lines 10–11), so `count` is 2. Line 12 asserts `toBe(3)`.
 
-The other 224 tests passed (13 of 14 test files). I didn't change any code.
+Everything else passes: 224 of 225 tests, with 13 of 14 files passing. I changed no code.
 ```
 </details>
 
-<details><summary>react-impact · kompact · correct</summary>
-
-```
-Direct callers of `createStore` (these need to change):
-
-- `src/react.ts:54`: `create` calls `createStore(createState)`.
-- `src/traditional.ts:70`: `createWithEqualityFn` calls `createStore(createState)`.
-
-Indirect: `src/index.ts` only does `export * from './vanilla.ts'`, so it needs no edit. The public type changes through it.
-
-The middleware files don't call `createStore`. They import only types (`StateCreator`, `StoreMutatorIdentifier` and similar) from `../vanilla.ts`. They need changes only if your new signature alters those types:
-- `src/middleware/persist.ts`
-- `src/middleware/redux.ts`
-- `src/middleware/devtools.ts`
-- `src/middleware/combine.ts`
-- `src/middleware/immer.ts`
-- `src/middleware/subscribeWithSelector.ts`
-- `src/middleware/ssrSafe.ts`
-
-I searched `src/` only. Tests, docs and any other callers outside `src/` are not covered.
-```
-</details>
-
-<details><summary>react-failing-test · kompact · correct</summary>
+<details><summary>react-failing-test · kompactor · correct</summary>
 
 ```
 **Failing test:** `tests/zz-kompact.test.ts` › `counter store` › `counts every increment`
 
-**Key error:** `AssertionError: expected 2 to be 3 // Object.is equality`, at `tests/zz-kompact.test.ts:12`.
+**Error:** `AssertionError: expected 2 to be 3 // Object.is equality`, at `tests/zz-kompact.test.ts:12`. The assertion is `expect(store.getState().count).toBe(3)`.
 
-**Why:** The test calls `inc()` twice (lines 10–11) and then asserts `count` is `3`. Two increments give `2`, so the assertion is wrong. Either the test needs a third `inc()` call or the expected value should be `2`. I didn't see lines 1–9 of the test, so I can't rule out a setup problem. The other 224 tests pass.
+**Why:** The test calls `inc()` twice, at lines 10 and 11 of the excerpt, so `count` ends at 2. It expects 3, so the test is off by one. The test needs a third `inc()` call or an expected value of 2, unless a line above the excerpt also calls `inc()`. The store itself looks fine, since `inc` is incrementing correctly.
 
-I changed no code.
-```
-</details>
-
-<details><summary>react-failing-test · kompact · correct</summary>
-
-```
-**Failing test:** `tests/zz-kompact.test.ts` › `counter store > counts every increment`
-
-**Key error:** `AssertionError: expected 2 to be 3 // Object.is equality`, at `tests/zz-kompact.test.ts:12`, on `expect(store.getState().count).toBe(3)`.
-
-**Why:** The test calls `inc()` twice (lines 10–11) but expects a count of 3. The store counted both increments correctly and ended at 2. The test's expected value is wrong, or it's missing a third `inc()` call. This doesn't look like a store bug.
-
-The other 224 tests pass, across 13 of 14 test files. I haven't changed any code.
+Everything else passed: 224 of 225 tests, with 13 of 14 files passing. I changed no code.
 ```
 </details>

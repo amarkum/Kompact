@@ -1,4 +1,4 @@
-"""Local settings & savings dashboard: `kompact ui`.
+"""Local settings & savings dashboard: `kompactor ui`.
 
 Stdlib only. Binds to 127.0.0.1, checks the Host header (DNS rebinding) and a
 per-launch token on every write (CSRF), so other websites can't change settings.
@@ -88,7 +88,8 @@ def state() -> dict:
         "knob_order": config.KNOBS,
         "languages": {k: v["label"] for k, v in langs.PROFILES.items()},
         "projects": [{"path": p, "detected": langs.detect(p) if os.path.isdir(p) else [],
-                      "override": data["projects"].get(p)} for p in projects],
+                      "override": data["projects"].get(p),
+                      "team": config.team_settings(p) if os.path.isdir(p) else {}} for p in projects],
         "setup": installer.status(),
         "home": str(store.home()),
     }
@@ -173,7 +174,7 @@ def save_config(body: dict) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "kompact"
+    server_version = "kompactor"
 
     def log_message(self, *a):  # quiet
         pass
@@ -198,10 +199,10 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         try:
             if u.path in ("/", "/index.html"):
-                html = UI_FILE.read_text().replace("__KOMPACT_TOKEN__", TOKEN)
+                html = UI_FILE.read_text().replace("__KOMPACTOR_TOKEN__", TOKEN)
                 return self._send(200, html.encode(), "text/html; charset=utf-8")
             if u.path == "/api/ping":
-                return self._send(200, {"kompact": __version__})
+                return self._send(200, {"kompactor": __version__})
             if u.path == "/api/state":
                 return self._send(200, state())
             if u.path == "/api/stats":
@@ -227,7 +228,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(e)})
 
     def do_POST(self):
-        if not self._host_ok() or self.headers.get("X-Kompact-Token") != TOKEN:
+        if not self._host_ok() or self.headers.get("X-Kompactor-Token") != TOKEN:
             return self._send(403, {"error": "forbidden"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
@@ -289,7 +290,7 @@ def serve(port: int = 7420, open_browser: bool = True, print_url: bool = True) -
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     if print_url:
-        print(f"Kompact dashboard: {url}  (Ctrl+C to stop)", flush=True)
+        print(f"Kompactor dashboard: {url}  (Ctrl+C to stop)", flush=True)
     if open_browser:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()
     try:

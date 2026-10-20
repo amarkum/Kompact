@@ -2,7 +2,7 @@
 
 Task `react-failing-test` from [REPORT.md](REPORT.md): *"Run the tests with `npx vitest run --reporter=verbose` and tell me which test fails and why."* (zustand, 225 tests, one failing). Both results below are copied from the session transcripts of the A/B runs.
 
-## Without Kompact: 15,617 characters
+## Without Kompactor: 15,617 characters
 
 Claude added its own `| tail -150` to keep the output manageable. The 150 lines it got back were mostly passing tests:
 
@@ -24,16 +24,20 @@ AssertionError: expected 2 to be 3 // Object.is equality
 
 Here the failure happened to land in the last 150 lines. A bigger suite, or a failure printed earlier, would have needed another run.
 
-## With Kompact: 724 characters
+## With Kompactor: 1,039 characters
 
-The plain-command rule had Claude run the command without a pipe. Kompact's shell prefix ran it to completion, compacted it, and kept the exit code, so Claude Code still reported a failure:
+The plain-command rule had Claude run the command without a pipe. Kompactor's shell prefix ran it to completion, compacted it, and kept the exit code, so Claude Code still reported a failure. (The scratch path in vitest's `RUN` line is shortened here.)
 
 ```
 $ npx vitest run --reporter=verbose
 Exit code 1
 
- × |zustand| tests/zz-kompact.test.ts > counter store > counts every increment 11ms
+ RUN  v4.1.10 …/bench/zustand
+
+ × |zustand| tests/zz-kompact.test.ts > counter store > counts every increment 8ms
    → expected 2 to be 3 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  |zustand| tests/zz-kompact.test.ts > counter store > counts every increment
 AssertionError: expected 2 to be 3 // Object.is equality
@@ -52,10 +56,16 @@ AssertionError: expected 2 to be 3 // Object.is equality
      13|   })
      14| })
 
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
  Test Files  1 failed | 13 passed (14)
       Tests  1 failed | 224 passed (225)
-[kompact: 229 passing-test lines hidden]
-[kompact: 7397›161 tokens; full output: kompact show 1]
+   Start at  06:20:37
+   Duration  8.64s (transform 880ms, setup 3.35s, import 1.48s, tests 813ms, environment 15.29s)
+[kompactor: 224 passing-test lines hidden]
+[kompactor: 7398›251 tokens; full output: ~/.kompactor/bin/kompactor show 1]
 ```
 
-Both arms answered correctly in all three runs. The Kompact runs cost 37% less ($0.042 vs $0.066 median). The failing output is also a case Claude Code handles badly on its own: when a command fails, it cuts the output to its first and last ~5,000 characters, and output hooks don't run. Kompact's shell prefix is what gets this output compacted at all.
+At Balanced, vitest's own header and timing lines stay; Savings and Max savings drop them too.
+
+Both arms answered correctly in all three runs. The Kompactor runs cost 37% less ($0.042 vs $0.066 median). Without Kompactor, a failing command is also a case Claude Code handles badly: it cuts the output to its first and last ~5,000 characters, and output hooks don't run. Kompactor's shell prefix is what gets this output compacted at all.

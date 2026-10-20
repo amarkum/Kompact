@@ -9,9 +9,9 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 TMP = tempfile.mkdtemp()
-os.environ["KOMPACT_HOME"] = os.path.join(TMP, "home")
+os.environ["KOMPACTOR_HOME"] = os.path.join(TMP, "home")
 
-from kompact import config, estimate, filters, hooks, installer, langs, outline, server, store, tokens  # noqa: E402
+from kompactor import config, estimate, filters, hooks, installer, langs, outline, server, store, tokens  # noqa: E402
 
 
 def run_hook(name, event):
@@ -61,6 +61,14 @@ class FilterTests(unittest.TestCase):
         out = filters.compress("git log -p -n 1", patch)
         self.assertIn("         nested = True", out)  # indented context inside a patch is not message text
         self.assertIn("+    return 2", out)
+
+    def test_output_claude_shaped_is_never_cut_short(self):
+        names = "".join(f"@@{i:07x}\nsrc/flask/mod_{i % 9}.py\nsrc/flask/app.py\n\n" for i in range(40))  # 160 lines
+        for opts in (config.PRESETS[5], config.PRESETS[3]):
+            self.assertEqual(filters.compress("git log -n 40 --format=@@%h --name-only -- src", names, opts=opts),
+                             names.rstrip("\n"))
+            piped = "".join(f"{i:4d} src/f{i}.py\n" for i in range(150))
+            self.assertEqual(filters.compress("git log --name-only | sort | uniq -c", piped, opts=opts), piped.rstrip("\n"))
 
     def test_git_log_custom_format_untouched(self):
         raw = "abc123 one\ndef456 two"
@@ -126,7 +134,7 @@ class FilterTests(unittest.TestCase):
     def test_view_commands_stay_verbatim(self):
         src = "\n".join(["x = '" + "a" * 900 + "'"] + [f"line {i}" for i in range(50)] * 2)
         self.assertEqual(filters.compress("cat big.py", src), src)
-        self.assertIn("kompact show 3", filters.compress("cat huge.log", "\n".join(f"l{i}" for i in range(2000)), stash_id=3))
+        self.assertIn("kompactor show 3", filters.compress("cat huge.log", "\n".join(f"l{i}" for i in range(2000)), stash_id=3))
 
     def test_log_lines_collapse_but_tables_do_not(self):
         logs = "\n".join(f"2026-10-20 12:00:{i:02d} INFO heartbeat ok seq={i}" for i in range(40))
@@ -137,7 +145,7 @@ class FilterTests(unittest.TestCase):
         lines[500] = "ERROR: the important thing broke"
         out = filters.compress("custom", "\n".join(lines), 1, stash_id=7)
         self.assertIn("ERROR: the important thing broke", out)
-        self.assertIn("kompact show 7", out)
+        self.assertIn("kompactor show 7", out)
 
     def test_lockfile_diff_collapsed(self):
         raw = "diff --git a/package-lock.json b/package-lock.json\nindex 1..2\n--- a/x\n+++ b/x\n" + "+x\n" * 300 + \
@@ -289,7 +297,7 @@ class HookTests(unittest.TestCase):
 
     def test_session_start_injects_rules(self):
         out = run_hook("session-start", {"session_id": "s", "source": "startup"})
-        self.assertIn("[kompact]", out["additionalContext"])
+        self.assertIn("[kompactor]", out["additionalContext"])
         self.assertIn("Lead with the answer", out["additionalContext"])
 
     def test_bad_input_fails_open(self):
@@ -367,6 +375,24 @@ class PresetAndLanguageTests(unittest.TestCase):
         self.assertEqual((p["preset"], p["style"], p["languages"]), (5, "ultra", ["go"]))
         self.assertEqual(p["bash_max_lines"], 77)  # global override still applies
 
+    def test_team_file_sits_between_your_global_and_project_settings(self):
+        d = tempfile.mkdtemp()
+        Path(d, "pyproject.toml").write_text("")
+        Path(d, config.TEAM_FILE).write_text(json.dumps({"preset": 4, "overrides": {"never_compact": "terraform plan"}}))
+        data = config.read_file()
+        data["preset"], data["overrides"] = 2, {}
+        data["projects"].pop(str(Path(d).resolve()), None)
+        config.write_file(data)
+        c = config.load(d)
+        self.assertEqual((c["preset"], c["never_compact"]), (4, ["terraform plan"]))  # team beats your global level
+        data["projects"][str(Path(d).resolve())] = {"preset": 1, "overrides": {}}
+        config.write_file(data)
+        self.assertEqual(config.load(d)["preset"], 1)  # your own choice for the project wins
+        Path(d, config.TEAM_FILE).write_text("{not json")
+        data["projects"].pop(str(Path(d).resolve()))
+        config.write_file(data)
+        self.assertEqual(config.load(d)["preset"], 2)  # a broken team file is ignored
+
     def test_detect_react(self):
         d = tempfile.mkdtemp()
         Path(d, "package.json").write_text('{"dependencies": {"react": "^18"}}')
@@ -382,7 +408,7 @@ class PresetAndLanguageTests(unittest.TestCase):
         self.assertIn("JSONDecodeError: Expecting value", text)
 
     def test_go_and_node_frames(self):
-        from kompact import samples
+        from kompactor import samples
         cfg = dict(config.PRESETS[3], languages=[])
         go = filters.compress("go test ./...", samples.SAMPLES[1]["text"], 1, opts=cfg)
         self.assertIn("cart.go:58", go)
@@ -415,13 +441,22 @@ class DocsTests(unittest.TestCase):
         self.assertEqual(subprocess.run([sys.executable, str(root / "scripts/sync_docs.py"), "--check"]).returncode, 0,
                          "docs/usage.html is stale: run python scripts/sync_docs.py")
 
+    def test_versions_agree(self):
+        root = Path(__file__).resolve().parent.parent
+        import re as _re
+        from kompactor import __version__
+        py = _re.search(r'^version = "([^"]+)"', (root / "pyproject.toml").read_text(), _re.M).group(1)
+        plugin = json.loads((root / ".claude-plugin/plugin.json").read_text())["version"]
+        vsix = json.loads((root / "vscode/package.json").read_text())["version"]
+        self.assertEqual({__version__, py, plugin, vsix}, {__version__})  # scripts/bump_version.py keeps them in step
+
     def test_plugin_skill_matches_installer(self):
         root = Path(__file__).resolve().parent.parent
-        self.assertEqual((root / "skills/kompact/SKILL.md").read_text(), installer.SKILL.format(cmd="kompact"))
+        self.assertEqual((root / "skills/kompactor/SKILL.md").read_text(), installer.SKILL.format(cmd="kompactor"))
 
     def test_no_arrow_glyphs_in_ui(self):
         root = Path(__file__).resolve().parent.parent
-        for f in ("kompact/ui.html", "kompact/static/usage.html", "kompact/hooks.py", "kompact/cli.py"):
+        for f in ("kompactor/ui.html", "kompactor/static/usage.html", "kompactor/hooks.py", "kompactor/cli.py"):
             text = (root / f).read_text()
             for glyph in ("→", "▶", "◀", "▸", "⚡"):
                 self.assertNotIn(glyph, text, f"{glyph} in {f}")
@@ -441,17 +476,17 @@ class TurnAndSetupTests(unittest.TestCase):
             hooks.run("stop")
         sys.stdin = sys.__stdin__
         msg = json.loads(buf.getvalue())["systemMessage"]
-        self.assertRegex(msg, r"Kompact: −[\d.]+k? tokens this turn \([\d.]+k? › [\d.]+k?")
+        self.assertRegex(msg, r"Kompactor: −[\d.]+k? tokens this turn \([\d.]+k? › [\d.]+k?")
         self.assertIn("context ≈", msg)
         live = store.read_live()
         self.assertEqual(live["session"], "turn1")
-        from kompact import cli
+        from kompactor import cli
         sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "workspace": {"current_dir": TMP}}))
         buf = io.StringIO()
         with redirect_stdout(buf):
             cli.main(["statusline"])
         sys.stdin = sys.__stdin__
-        self.assertRegex(buf.getvalue(), r"Kompact −[\d.]+k? · ctx −\d+% · last turn −[\d.]+k? · Balanced")
+        self.assertRegex(buf.getvalue(), r"Kompactor −[\d.]+k? · ctx −\d+% · last turn −[\d.]+k? · Balanced")
         self.assertEqual(live["session_totals"]["context"], 21000)
         # next turn with nothing compacted stays silent
         sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "cwd": TMP}))
@@ -473,17 +508,17 @@ class TurnAndSetupTests(unittest.TestCase):
             installer.install()
             d = json.loads(p.read_text())
             self.assertEqual(len(d["hooks"]["Stop"]), 2)
-            skill = Path(home, ".claude", "skills", "kompact", "SKILL.md")
+            skill = Path(home, ".claude", "skills", "kompactor", "SKILL.md")
             self.assertIn("config preset", skill.read_text())
             self.assertEqual(d["statusLine"]["command"], "mine")  # never replaced
             self.assertTrue(installer.status()["hooks_installed"])
             installer.install(uninstall=True)
             d = json.loads(p.read_text())
             self.assertEqual(d["hooks"], {"Stop": [{"hooks": [{"type": "command", "command": "notify"}]}]})
-            self.assertTrue(p.with_suffix(".json.kompact-backup").exists())
+            self.assertTrue(p.with_suffix(".json.kompactor-backup").exists())
             self.assertFalse(skill.exists())
             # with the plugin enabled, only the status line is managed
-            d["enabledPlugins"] = {"kompact@kompact": True}
+            d["enabledPlugins"] = {"kompactor@kompactor": True}
             d.pop("statusLine")
             p.write_text(json.dumps(d))
             installer.install()
@@ -508,7 +543,7 @@ class TurnAndSetupTests(unittest.TestCase):
             req = urllib.request.Request(base + "/api/config", body, {"Content-Type": "application/json"})
             with self.assertRaises(urllib.error.HTTPError):
                 urllib.request.urlopen(req)
-            req.add_header("X-Kompact-Token", server.TOKEN)
+            req.add_header("X-Kompactor-Token", server.TOKEN)
             self.assertTrue(json.load(urllib.request.urlopen(req))["ok"])
             self.assertEqual(config.read_file()["preset"], 4)
         finally:

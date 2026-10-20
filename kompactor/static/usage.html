@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kompactor Guide</title>
+<link rel="icon" href="logo-mark.svg" type="image/svg+xml">
+<style>
+/* Layout: full-width documentation page. A contents rail on the left (like the dashboard), content using
+   the rest of the window; running text keeps a readable measure, tables, cards and code span the width. */
+@font-face { font-family: "Plex Sans"; src: url("fonts/plex-sans-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url("fonts/plex-sans-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url("fonts/plex-sans-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url("fonts/plex-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url("fonts/plex-mono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8; --panel: #ffffff; --line: #e3e5ea; --line-2: #eef0f3;
+  --ink: #111318; --ink-2: #4a505c; --ink-3: #868c98; --hover: #eef0f4;
+  --brand: #f5a524; --brand-ink: #925400; --brand-soft: #fdf1dc; --good: #12713a; --good-soft: #e3f3e8;
+  --code: #f4f5f7; --logo-tile: #111318; --side: #fafbfc;
+  --sans: "Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0c0d10; --panel: #131519; --line: #23262d; --line-2: #1b1e24;
+    --ink: #eceef2; --ink-2: #a8aeba; --ink-3: #6d7380; --hover: #1b1e24;
+    --brand-ink: #f6b64a; --brand-soft: #2b2112; --good: #45c07f; --good-soft: #13261b; --code: #0f1114; --logo-tile: #262a33;
+    --side: #101216;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c0d10; --panel: #131519; --line: #23262d; --line-2: #1b1e24;
+  --ink: #eceef2; --ink-2: #a8aeba; --ink-3: #6d7380; --hover: #1b1e24;
+  --brand-ink: #f6b64a; --brand-soft: #2b2112; --good: #45c07f; --good-soft: #13261b; --code: #0f1114; --logo-tile: #262a33;
+  --side: #101216;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 20px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--ink); text-decoration-color: var(--brand); text-underline-offset: 3px; }
+code { font: 0.88em var(--mono); background: var(--code); border: 1px solid var(--line-2); border-radius: 4px; padding: 1px 5px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.wrap { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+.toc { position: sticky; top: 0; height: 100vh; overflow-y: auto; align-self: start; font-size: 13.5px; background: var(--side); border-right: 1px solid var(--line); padding: 28px 14px 28px max(14px, env(safe-area-inset-left, 0px)); }
+.toc .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.02em; margin-bottom: 22px; }
+.toc .brand svg { width: 26px; height: 26px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: toc; }
+.toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; }
+.toc a:hover { background: var(--hover); color: var(--ink); }
+main { min-width: 0; padding: 40px max(24px, env(safe-area-inset-right, 0px)) 96px 48px; }
+header.hero { padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.eyebrow { font: 500 12.5px var(--mono); color: var(--brand-ink); }
+h1 { font-size: 34px; line-height: 1.15; letter-spacing: -0.025em; margin: 8px 0 12px; font-weight: 600; text-wrap: balance; }
+.lede { font-size: 17px; color: var(--ink-2); margin: 0; max-width: 92ch; }
+section { padding-top: 34px; }
+h2 { font-size: 22px; letter-spacing: -0.015em; margin: 0 0 10px; font-weight: 600; text-wrap: balance; }
+h3 { font-size: 15.5px; margin: 22px 0 6px; font-weight: 600; }
+p { margin: 0 0 12px; max-width: 100ch; }
+ul, ol.steps { margin: 0 0 14px; padding-left: 20px; }
+li { margin: 3px 0; }
+.muted { color: var(--ink-2); }
+pre { position: relative; margin: 10px 0 16px; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 74px 12px 14px; overflow-x: auto; font: 13px/1.6 var(--mono); }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+pre .copy { position: absolute; top: 6px; right: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); border-radius: 6px; font: 500 12px var(--sans); padding: 2px 8px; cursor: pointer; }
+pre .c { color: var(--ink-3); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 14px 0 6px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.card b { font-size: 14.5px; }
+.card .muted { font-size: 13.5px; }
+.card pre { margin: 4px 0 0; font-size: 12px; padding: 32px 12px 10px; white-space: pre; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0 16px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+th { font-weight: 500; color: var(--ink-3); font-size: 12.5px; }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 2px 6px; margin: 12px 0 18px; }
+.tbl table { margin: 0; }
+.tbl tr:last-child td { border-bottom: 0; }
+.flow { display: grid; gap: 0; margin: 14px 0 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.step { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; padding: 12px 18px; border-top: 1px solid var(--line-2); }
+.step:first-child { border-top: 0; }
+.step .when { font: 500 12.5px var(--mono); color: var(--ink-2); padding-top: 2px; }
+.step .what b { display: block; }
+.step .what span { color: var(--ink-2); font-size: 14px; }
+@media (max-width: 640px) { .step { grid-template-columns: 1fr; gap: 2px; } }
+.note { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 12px 16px; margin: 12px 0 16px; font-size: 14px; color: var(--ink-2); }
+.note b { color: var(--ink); }
+.lv { display: inline-block; font: 500 12px var(--mono); background: var(--hover); border-radius: 4px; padding: 0 6px; }
+svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vertical-align: 0; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 18px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); }
+  main { padding: 24px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
+  .step { grid-template-columns: 1fr; gap: 2px; }
+  .toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+  .toc a { border: 1px solid var(--line); background: var(--panel); }
+  h1 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" style="fill: var(--logo-tile)"/><rect x="17" y="14" width="7.5" height="36" rx="3.75" fill="#F4F4F5"/><path d="M45 15 L29 32 L45 49" fill="none" stroke="#F5A524" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>kompactor</div>
+    <ol>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#team">Use it across your team</a></li>
+      <li><a href="#session">What happens in a session</a></li>
+      <li><a href="#levels">Quality vs tokens</a></li>
+      <li><a href="#chat">Using it from chat</a></li>
+      <li><a href="#graph">Code graph</a></li>
+      <li><a href="#savings">Seeing the savings</a></li>
+      <li><a href="#projects">Projects and languages</a></li>
+      <li><a href="#raw">Getting the full output</a></li>
+      <li><a href="#prove">Proving it on your repo</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Kompactor guide · v0.4</div>
+      <h1>Spend Claude Code's tokens on your code, not on noise</h1>
+      <p class="lede">Kompactor trims what Claude reads (test runs, installs, git output, whole-file reads) and how much it writes, and shows the saving after every turn. It works in the Claude Code CLI and the VS Code extension, on this machine only.</p>
+    </header>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p>Kompactor lives in your team's private repo; there's nothing to download from a public registry. Pick one way in. All of them end in the same place, and everything can be changed later from the dashboard. Below, <code><span data-repo>your-org/kompactor</span></code> stands for your team's repo; when you open this guide from the dashboard, it's filled in.</p>
+      <div class="cards">
+        <div class="card"><b>Claude Code plugin</b><span class="muted">Recommended. Run these in any Claude Code session, one at a time. The last one adds the status line and the shell prefix, which a plugin can't set itself.</span>
+          <pre><code>/plugin marketplace add <span data-repo>your-org/kompactor</span>
+/plugin install kompactor@kompactor
+/kompactor setup</code></pre></div>
+        <div class="card"><b>Terminal</b><span class="muted">macOS and Linux. Needs Python 3.9 or newer and nothing else. Opens the dashboard when done.</span>
+          <pre><code>git clone <span data-clone>https://github.com/your-org/kompactor.git</span>
+./<span data-dir>kompactor</span>/install.sh</code></pre></div>
+        <div class="card"><b>VS Code</b><span class="muted">Install the extension file from <code>dist/</code> in the repo (or your release page), then click <b>Enable</b> when Kompactor asks.</span>
+          <pre><code>code --install-extension kompactor-0.4.0.vsix</code></pre></div>
+      </div>
+      <p class="muted">Windows: run <code>.\kompactor\install.ps1</code> from a clone, or use the VS Code extension. The CLI and the VS Code extension read the same <code>~/.claude/settings.json</code>, so one install covers both. A backup of that file is kept as <code>settings.json.kompactor-backup</code>.</p>
+      <p class="muted">Setup adds hooks, a status line (if you don't have one) and, on macOS and Linux, Claude Code's <code>CLAUDE_CODE_SHELL_PREFIX</code> setting pointing at <code>~/.kompactor/bin/kompactor-shell</code>, which is what lets Kompactor compact failing commands. It never replaces a status line or shell prefix you already have. Restart open Claude Code sessions after setup.</p>
+      <p>Open the dashboard any time with <code>kompactor ui</code>, or <b>Kompactor: Open Dashboard</b> in VS Code. Its <b>Setup</b> page shows these commands with your repo filled in, ready to copy.</p>
+    </section>
+
+    <section id="team">
+      <h2>Use it across your team</h2>
+      <p>Keep Kompactor in a private repo your teammates can read; an organisation repo is easiest. Every way in pulls from it with each person's own git access, so there are no shared tokens.</p>
+      <div class="tbl"><table>
+        <tr><th>Way</th><th>Who it's for</th><th>What each person does</th><th>Updating</th></tr>
+        <tr><td><b>Plugin</b></td><td>Everyone on Claude Code, CLI or VS Code</td><td>The three plugin commands under Install, once</td><td>Automatic with <code>autoUpdate</code> (below); or <code>claude plugin marketplace update kompactor</code>, then <code>claude plugin update kompactor@kompactor</code></td></tr>
+        <tr><td><b>Project settings</b></td><td>Everyone who works in a given repo</td><td>Trust the project folder when Claude Code asks, then <code>/kompactor setup</code> once; you commit the snippet below</td><td>Same as the plugin</td></tr>
+        <tr><td><b>pip / pipx / uv</b></td><td>People who manage Python tools that way</td><td><code>pipx install "git+<span data-clone>https://github.com/your-org/kompactor.git</span>"</code>, then <code>kompactor setup</code></td><td><code>pipx upgrade kompactor</code></td></tr>
+        <tr><td><b>Terminal install</b></td><td>Scripted machine setup, or people who don't use plugins</td><td><code>git clone</code>, then <code>./kompactor/install.sh</code></td><td><code>git pull</code>, then run <code>./install.sh</code> again</td></tr>
+        <tr><td><b>VS Code extension file</b></td><td>VS Code users who want the status bar and dashboard inside VS Code</td><td>Install the <code>.vsix</code> from <code>dist/</code></td><td>Install the newer <code>.vsix</code></td></tr>
+      </table></div>
+      <h3>Offer it in a project</h3>
+      <p>Commit this as <code>.claude/settings.json</code> in any repo your team works in:</p>
+      <pre><code>{
+  "extraKnownMarketplaces": {
+    "kompactor": { "source": { "source": "github", "repo": "<span data-repo>your-org/kompactor</span>" }, "autoUpdate": true }
+  },
+  "enabledPlugins": { "kompactor@kompactor": true }
+}</code></pre>
+      <p class="muted">When a teammate opens the project and accepts Claude Code's prompt to trust the folder, Claude Code adds the marketplace and turns the plugin on. Each person then runs <code>/kompactor setup</code> once (plugins can't set the status line or the shell prefix themselves). <code>autoUpdate</code> keeps everyone on your latest release: teammates get a new version when <code>version</code> in <code>.claude-plugin/plugin.json</code> changes, and <code>python scripts/bump_version.py 0.4.1</code> bumps it everywhere.</p>
+      <h3>Private-repo access</h3>
+      <p>Claude Code uses each person's existing git login and can't prompt for a password. An SSH key that works with GitHub is enough. Without one, run <code>gh auth login</code> and <code>gh auth setup-git</code>, and set <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code>.</p>
+      <h3>Set the team's level for a repo</h3>
+      <p>Commit a <code>.kompactor.json</code> next to the code. <code>preset</code> is the level, 1 (Max quality) to 5 (Max savings); <code>overrides</code> sets any option by its name in <code>kompactor config</code>.</p>
+      <pre><code>{ "preset": 4, "overrides": { "never_compact": ["terraform plan"] } }</code></pre>
+      <p class="muted">A repo's file beats each person's global level, and each person's own choice for that project still wins. Entries Kompactor doesn't recognise are ignored. The <b>Projects</b> page shows which repos have team settings.</p>
+      <h3>Script it</h3>
+      <p>The plugin commands also work outside the chat, for onboarding scripts:</p>
+      <pre><code>claude plugin install kompactor --marketplace <span data-repo>your-org/kompactor</span>   <span class="c"># Claude Code 2.1.292+</span>
+claude plugin marketplace add <span data-repo>your-org/kompactor</span> && claude plugin install kompactor@kompactor   <span class="c"># older</span></code></pre>
+      <h3>Roll out to every machine</h3>
+      <p>For admins: managed settings take the same <code>extraKnownMarketplaces</code> and <code>enabledPlugins</code> keys. They live in <code>/Library/Application Support/ClaudeCode/managed-settings.json</code> on macOS, <code>/etc/claude-code/managed-settings.json</code> on Linux and WSL, <code>C:\Program Files\ClaudeCode\managed-settings.json</code> on Windows, or the managed settings in your claude.ai organisation. <code>strictKnownMarketplaces</code> limits people to approved marketplaces.</p>
+      <h3>Plain <code>pip install kompactor</code></h3>
+      <p>That needs a package index. Public PyPI would make the code public. To keep it private, build the wheel with <code>pip wheel --no-deps .</code> and upload it to a private index your company already runs, such as Artifactory, AWS CodeArtifact, Google Artifact Registry or Gemfury. Teammates who point pip at that index can then run <code>pip install kompactor</code>.</p>
+    </section>
+
+    <section id="session">
+      <h2>What happens in a session</h2>
+      <p>Kompactor works through Claude Code hooks, so it acts on every tool call without Claude having to remember to use it. Your commands run exactly as typed; only what Claude reads changes.</p>
+      <div class="flow">
+        <div class="step"><div class="when">Session starts</div><div class="what"><b>Short rules</b><span>About 150 tokens of reply rules for your level. The code graph is built or refreshed in the background.</span></div></div>
+        <div class="step"><div class="when">Claude runs a command</div><div class="what"><b>Output is compacted</b><span>Passing tests, progress bars, download chatter, library stack frames and lock-file diffs are removed. Errors, failures, your own frames and summaries stay. The full output is stashed and Claude is told how to get it.</span></div></div>
+        <div class="step"><div class="when">A command fails, or prints a lot</div><div class="what"><b>Still compacted, still complete</b><span>Claude Code cuts a failing command's output to its first and last few thousand characters, which usually drops the failures at the end of a test run, and it replaces very long output with a 2 KB preview. Kompactor's shell prefix runs tests, builds, linters and installs to completion and hands Claude the failures and summary, with the exit code unchanged. Long outputs are compacted from Claude Code's saved copy.</span></div></div>
+        <div class="step"><div class="when">Claude first searches or reads code</div><div class="what"><b>Code map, once</b><span>A budgeted map of the most depended-on modules (Balanced and up). Sessions that only run commands don't pay for it.</span></div></div>
+        <div class="step"><div class="when">Claude opens a big file</div><div class="what"><b>Outline first</b><span>The first full read of a large source file returns its outline with line ranges and who imports it. Claude then reads only the ranges it needs. Repeating the read returns the whole file.</span></div></div>
+        <div class="step"><div class="when">Claude edits code</div><div class="what"><b>Graph refresh</b><span>Changed files are re-indexed in the background, so later lookups see the new code.</span></div></div>
+        <div class="step"><div class="when">A subagent starts</div><div class="what"><b>Same rules</b><span>Subagents get the same prose and code rules as the main agent.</span></div></div>
+        <div class="step"><div class="when">Claude replies</div><div class="what"><b>Turn summary</b><span>The saving for the turn appears in Claude Code, in the status line, in the VS Code status bar and on the dashboard.</span></div></div>
+      </div>
+    </section>
+
+    <section id="levels">
+      <h2>Quality vs tokens</h2>
+      <p>One level sets every option. Move toward quality and Claude sees more raw output; toward savings and it sees less. Every individual setting can still be changed on the dashboard, globally or per project.</p>
+      <div class="tbl"><table>
+        <tr><th>Level</th><th>What Claude gets</th><th>Use when</th></tr>
+        <tr><td><span class="lv">1</span> Max quality</td><td>Almost everything. Only outputs over about 1,500 tokens are touched, and only pure noise is removed.</td><td>Debugging something subtle, or auditing Kompactor itself.</td></tr>
+        <tr><td><span class="lv">2</span> Quality</td><td>Noisy commands compacted, passing tests hidden, one-line git log. Big files still read whole up to 800 lines.</td><td>You want savings with no change to how Claude reads files.</td></tr>
+        <tr><td><span class="lv">3</span> Balanced</td><td>Outline-first reads, library stack frames trimmed, a 500-token code map, lean code style.</td><td>Default. Day-to-day work.</td></tr>
+        <tr><td><span class="lv">4</span> Savings</td><td>Tighter caps, 3 lines of diff context, test banners dropped, shorter replies.</td><td>Long sessions, big repos, tight budgets.</td></tr>
+        <tr><td><span class="lv">5</span> Max savings</td><td>Most aggressive caps, 1 line of diff context, telegraphic replies.</td><td>Routine tasks where you mostly want results.</td></tr>
+      </table></div>
+      <h3>Changing the level</h3>
+      <ul>
+        <li>Dashboard: <b>Quality vs tokens</b>. The live preview shows exactly what Claude would get, with removed lines marked.</li>
+        <li>VS Code: click the Kompactor item in the status bar, then <b>Choose quality vs tokens level</b>.</li>
+        <li>In Claude Code: type <code>/kompactor balanced</code>, <code>/kompactor max savings</code> and so on.</li>
+        <li>Terminal: <code>kompactor config preset 4</code>, or <code>kompactor presets</code> to list them.</li>
+      </ul>
+      <div class="note"><b>Never shortened at any level:</b> code, commands, file paths, error text, numbers, negations, security warnings, commit messages and docs.</div>
+    </section>
+
+    <section id="chat">
+      <h2>Using it from chat</h2>
+      <p>Kompactor installs a small <code>/kompactor</code> skill (about 370 tokens, loaded only when used).</p>
+      <div class="tbl"><table>
+        <tr><th>Type</th><th>What Claude does</th></tr>
+        <tr><td><code>/kompactor</code></td><td>Shows savings so far.</td></tr>
+        <tr><td><code>/kompactor max savings</code></td><td>Switches the level. Any level name or number works.</td></tr>
+        <tr><td><code>/kompactor review</code></td><td>Reviews your current diff for code that could be cut: duplicates of existing helpers, options nobody asked for, dead branches.</td></tr>
+        <tr><td><code>/kompactor audit</code></td><td>Lists dead-code candidates from the code graph and ranks what is safe to remove.</td></tr>
+        <tr><td><code>/kompactor debt</code></td><td>Summarises <code>shortcut:</code>, FIXME, HACK and TODO comments by severity.</td></tr>
+        <tr><td><code>/kompactor graph &lt;question&gt;</code></td><td>Finds code by topic, or shows what a change affects.</td></tr>
+      </table></div>
+    </section>
+
+    <section id="graph">
+      <h2>Code graph</h2>
+      <p>Kompactor indexes functions, classes, methods, imports and calls for Python, Go, TypeScript, JavaScript and React on this machine. Building it takes well under a second for most repos, and only changed files are re-parsed. It is stored outside your repo, so it never shows up in diffs.</p>
+      <pre><code><span class="c"># find code by topic</span>
+kompactor graph query "session cookie signing"
+<span class="c"># what breaks if this changes, and which tests to run</span>
+kompactor graph impact src/flask/sessions.py
+<span class="c"># one symbol: where, who uses it, what it uses, its tests</span>
+kompactor graph explain Flask.make_response
+<span class="c"># overview, dead code, import cycles</span>
+kompactor graph report
+kompactor graph unused</code></pre>
+      <p>You rarely need to type these. Claude gets the outline and the "imported by / tests" line automatically when it opens a big file, and the rules mention the commands in one line.</p>
+    </section>
+
+    <section id="savings">
+      <h2>Seeing the savings</h2>
+      <div class="tbl"><table>
+        <tr><th>Where</th><th>What you see</th></tr>
+        <tr><td>Claude Code, after each reply</td><td><code>Kompactor: −8.2k tokens this turn (13.1k › 4.9k, −63%) · session −41k · context ≈31% smaller</code></td></tr>
+        <tr><td>CLI status line</td><td><code>Kompactor −41.3k · ctx −31% · last turn −8.2k · Balanced</code></td></tr>
+        <tr><td>VS Code status bar</td><td>Running total and context reduction. Each new turn briefly shows its saving.</td></tr>
+        <tr><td>Dashboard</td><td>Per-turn chart, biggest wins by command, savings by feature, per project.</td></tr>
+        <tr><td><code>kompactor estimate</code></td><td>Replays your past Claude Code sessions through the current settings and reports the share of tool output, billed tokens and cost it would have saved.</td></tr>
+      </table></div>
+      <p class="muted">"Context smaller" compares the context Claude carries now with what it would carry without Kompactor, counting everything trimmed since the last compaction. If Claude ends up reading a whole file anyway, the claimed saving for that file is taken back.</p>
+    </section>
+
+    <section id="projects">
+      <h2>Projects and languages</h2>
+      <p>Each repo's languages are detected from <code>pyproject.toml</code> or <code>requirements.txt</code> (Python), <code>go.mod</code> (Go), <code>tsconfig.json</code> or <code>package.json</code> (TypeScript) and a <code>react</code> or <code>next</code> dependency (React). The profile decides which stack frames are library noise, which files are generated, and which lock files collapse in diffs. You can pin languages on the dashboard instead.</p>
+      <p>Give a repo its own level under <b>Projects &amp; languages</b>, for example Max quality for a payments service and Savings for everything else.</p>
+    </section>
+
+    <section id="raw">
+      <h2>Getting the full output</h2>
+      <ul>
+        <li>Every compacted output ends with a note such as <code>[kompactor: 4210›612 tokens; full output: kompactor show 17]</code>. Claude, or you, can run <code>kompactor show 17</code>, or <code>kompactor show 17 --lines 120-180</code> for a slice.</li>
+        <li><code>kompactor search "TypeError"</code> searches every stashed output.</li>
+        <li>To skip compaction for one command, start it with <code>KOMPACTOR_RAW=1</code>.</li>
+        <li>For commands you always want raw, add them to <b>Never compact these commands</b> on the dashboard.</li>
+        <li>An outline is never a dead end: repeating the same Read returns the whole file.</li>
+      </ul>
+    </section>
+
+    <section id="prove">
+      <h2>Proving it on your repo</h2>
+      <p><code>kompactor prove</code> runs the same tasks through real headless Claude Code sessions with and without Kompactor, and reports tokens, cost, turns and whether each answer was right. Write a few tasks that look like your team's work:</p>
+      <pre><code>{ "tasks": [ {
+    "id": "failing-tests", "repo": "api",
+    "prompt": "Run the tests with `pytest -v` and tell me which fail and why.",
+    "tools": ["Bash(pytest:*)", "Read", "Grep"],
+    "max_turns": 8, "expect": ["test_refund_rounding"] } ] }</code></pre>
+      <pre><code>kompactor prove --tasks my-tasks.json --repos ~/code --reps 3 --out evidence</code></pre>
+      <p class="muted">Each run is capped at $1 by default (<code>--budget</code>). The report lands in <code>evidence/REPORT.md</code>. Use <code>--preset 1</code> to <code>5</code> to test a level, and <code>--set name=value</code> to test a single setting.</p>
+      <p>Kompactor's own results, from 54 sessions on Flask, Cobra, SWR, ky and zustand: <b>16% fewer tokens and 10% lower cost</b> at the default level, with every answer correct in both arms. Failing test runs and code search gained the most. The same sessions at Max savings came in at 12% fewer tokens and 10% lower cost, and at Max quality close to neutral (+3% tokens, −1% cost).</p>
+    </section>
+
+    <section id="trouble">
+      <h2>Troubleshooting</h2>
+      <h3>Is it working?</h3>
+      <p>Dashboard › <b>Setup</b> › <b>Run self-test</b> runs every installed hook exactly as Claude Code would and shows pass or fail with timings. From a terminal, use <code>kompactor doctor</code>.</p>
+      <h3>Claude can't run <code>kompactor</code></h3>
+      <p>Installs from VS Code or a clone add a launcher at <code>~/.kompactor/bin/kompactor</code>, which Claude can always call. Add <code>~/.kompactor/bin</code> to your PATH if you want to type <code>kompactor</code> yourself.</p>
+      <h3>Turn it off</h3>
+      <p>Dashboard › Setup › <b>Disable</b>, or <code>kompactor install --uninstall</code>. This removes the hooks, the status line and the shell prefix. Your other hooks and your own status line are never touched. To keep everything except the shell prefix, turn off <b>Compact failing commands too</b> on the dashboard or run <code>kompactor install --no-shell-prefix</code>.</p>
+      <h3>Every command fails with <code>kompactor-shell: not found</code></h3>
+      <p><code>~/.kompactor</code> was deleted while Kompactor was still set up. Remove the <code>CLAUDE_CODE_SHELL_PREFIX</code> line from <code>~/.claude/settings.json</code>, or reinstall and run <code>kompactor install --uninstall</code>. If Kompactor itself is broken or removed but the script is still there, commands simply run untouched.</p>
+      <h3>Where is my data?</h3>
+      <p>In <code>~/.kompactor</code>: settings (<code>config.json</code>), the savings history and stashed outputs (<code>kompactor.db</code>, pruned after 30 days by default) and code graphs (<code>graphs/</code>). Nothing is sent anywhere.</p>
+    </section>
+
+    <section id="faq">
+      <h2>FAQ</h2>
+      <h3>Does it change what my commands do?</h3>
+      <p>No. Commands run exactly as written, with your normal permissions: Claude Code checks Claude's command against your rules before Kompactor is involved. Kompactor only changes the text Claude reads afterwards. The one visible difference: for tests, builds, linters and installs, the shell prefix collects the output until the command finishes, so those lines don't stream live in the terminal. Servers, watch modes and every other command stream as usual, and the exit code is always the command's own.</p>
+      <h3>Does it slow Claude Code down?</h3>
+      <p>Each hook takes about 50 to 90 ms, far less than a model turn. The shell prefix adds about 50 ms to test, build and lint commands and nothing measurable to the rest. Code graphs build in under a second for most repos, in the background for big ones.</p>
+      <h3>How is this different from graphify, ponytail or caveman?</h3>
+      <p>Each of those covers one layer. Kompactor covers command output, file reads, code navigation, reply length and code size together, acts automatically through hooks, keeps its own instructions small, and measures the result in real A/B sessions. The README has a feature-by-feature comparison.</p>
+      <h3>Will Claude miss something important?</h3>
+      <p>Errors, failing tests, your own stack frames and summaries are kept at every level, and the full output is always one command away. If in doubt, use a lower level for that project.</p>
+    </section>
+  </main>
+</div>
+<script>
+fetch("/api/state").then((r) => r.json()).then((st) => {
+  const src = (st.setup || {}).source || {};
+  if (!src.repo) return;
+  document.querySelectorAll("[data-repo]").forEach((el) => (el.textContent = src.marketplace));
+  document.querySelectorAll("[data-clone]").forEach((el) => (el.textContent = src.clone));
+  document.querySelectorAll("[data-dir]").forEach((el) => (el.textContent = src.dir));
+}).catch(() => {});
+(function () {
+  try {
+    var t = new URLSearchParams(location.search).get("theme") || localStorage.getItem("kompactor-theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+  document.querySelectorAll("pre").forEach(function (pre) {
+    var b = document.createElement("button");
+    b.className = "copy"; b.type = "button"; b.textContent = "Copy";
+    b.addEventListener("click", function () {
+      var text = pre.querySelector("code").innerText;
+      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1400); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { b.textContent = "Select to copy"; });
+    });
+    pre.appendChild(b);
+  });
+})();
+</script>
+</body>
+</html>

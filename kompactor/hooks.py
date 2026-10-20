@@ -36,13 +36,13 @@ def post_bash(event: dict, cfg: dict) -> None:
     cmd = (event.get("tool_input") or {}).get("command", "")
     if not isinstance(resp, dict) or "stdout" not in resp or resp.get("isImage"):
         return
-    if cmd.lstrip().startswith(("kompact ", "KOMPACT_RAW=1", "~/.kompact/bin/kompact")) or "_launch.py" in cmd:
+    if cmd.lstrip().startswith(("kompactor ", "KOMPACTOR_RAW=1", "~/.kompactor/bin/kompactor")) or "_launch.py" in cmd:
         return
     words = " ".join(filters.argv0(cmd))
     if any(words.startswith(c.strip()) for c in cfg.get("never_compact", []) if c.strip()):
         return
     out, err = resp.get("stdout") or "", resp.get("stderr") or ""
-    if "[kompact: " in out[-400:]:  # already compacted (shell prefix, or hooks registered twice)
+    if "[kompactor: " in out[-400:]:  # already compacted (shell prefix, or hooks registered twice)
         return
     # Claude Code saves outputs over ~30K characters to a file and shows Claude a 2 KB preview of it;
     # hooks get only the head. Compact the whole output instead, and drop the file reference so Claude
@@ -70,7 +70,7 @@ def post_bash(event: dict, cfg: dict) -> None:
     kept = tokens.count(new_out) + tokens.count(new_err)
     if kept > raw_tokens * 0.9 and full is None:  # not worth changing what Claude sees
         return
-    new_out += f"\n[kompact: {raw_tokens}›{kept} tokens; full output: {installer.cli_name()} show {sid}]"
+    new_out += f"\n[kompactor: {raw_tokens}›{kept} tokens; full output: {installer.cli_name()} show {sid}]"
     store.record("bash", raw_tokens if shown is None else shown, kept, cmd, event.get("session_id", ""),
                  project=cfg["project"])
     resp = {k: v for k, v in resp.items() if k not in ("persistedOutputPath", "persistedOutputSize")}
@@ -175,7 +175,7 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
                             skel = f"{skel}\n\n{ctx}"
                     if skel:
                         kind = "a generated file" if is_gen else f"{n} lines"
-                        msg = (f"[kompact] Not an error: {path} is {kind} (~{tokens.count(text)} tokens), so here is "
+                        msg = (f"[kompactor] Not an error: {path} is {kind} (~{tokens.count(text)} tokens), so here is "
                                f"its outline (line ranges in brackets). Read just the ranges you need with offset/limit, "
                                f"or repeat the same Read to get the whole file.\n\n{skel}")
                         raw, kept = tokens.count(text), tokens.count(msg)
@@ -202,7 +202,7 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
                 lines = text.splitlines()
                 off = int(inp.get("offset") or 1)
                 text = "\n".join(lines[max(off - 1, 0): off - 1 + int(inp.get("limit") or 2000)])
-            msg = (f"[kompact] Not an error: {path} is unchanged since you read this range earlier in this session, "
+            msg = (f"[kompactor] Not an error: {path} is unchanged since you read this range earlier in this session, "
                    f"so it is already in your context. If it is not (e.g. after compaction), repeat the same Read.")
             raw, kept = tokens.count(text), tokens.count(msg)
             if raw > kept * 2:
@@ -264,6 +264,10 @@ def pre_compact(event: dict, cfg: dict) -> None:
 
 
 def session_start(event: dict, cfg: dict) -> None:
+    try:  # so outputs can point at `~/.kompactor/bin/kompactor` even before `kompactor setup` (plugin installs)
+        installer.write_shim(only_if_changed=True)
+    except OSError:
+        pass
     if event.get("source") in ("compact", "clear"):
         store.mark_compacted(event.get("session_id", ""))
     elif event.get("source") == "startup":
@@ -314,7 +318,7 @@ def turn_message(turn: dict, totals: dict) -> str:
     ctx, live = totals.get("context", 0), totals.get("in_context_saved", 0)
     if ctx and live > 0:
         parts.append(f"context ≈{100 * live / (ctx + live):.0f}% smaller")
-    return "Kompact: " + " · ".join(parts)
+    return "Kompactor: " + " · ".join(parts)
 
 
 def stop(event: dict, cfg: dict) -> None:
@@ -340,7 +344,7 @@ def run(name: str) -> int:
     try:
         event = json.load(sys.stdin)
         HANDLERS[name](event, config.load(event.get("cwd") or os.getcwd()))
-    except Exception as e:  # fail open, but leave a trace for `kompact doctor`
+    except Exception as e:  # fail open, but leave a trace for `kompactor doctor`
         try:
             with (store.home() / "hook-errors.log").open("a") as f:
                 f.write(f"{time.ctime()} {name}: {e!r}\n")

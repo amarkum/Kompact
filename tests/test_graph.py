@@ -9,9 +9,9 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-os.environ.setdefault("KOMPACT_HOME", tempfile.mkdtemp())
+os.environ.setdefault("KOMPACTOR_HOME", tempfile.mkdtemp())
 
-from kompact import config, graph, hooks  # noqa: E402
+from kompactor import config, graph, hooks  # noqa: E402
 
 
 def make_repo(files: dict) -> str:

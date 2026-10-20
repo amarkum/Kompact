@@ -1,8 +1,9 @@
-"""Wire Kompact into Claude Code (CLI and VS Code extension share ~/.claude/settings.json)."""
+"""Wire Kompactor into Claude Code (CLI and VS Code extension share ~/.claude/settings.json)."""
 
 import glob
 import json
 import os
+import re
 import shlex
 import shutil
 import sys
@@ -19,7 +20,10 @@ HOOKS = [  # (event, matcher, handler)
     ("Stop", None, "stop"),
 ]
 EVENTS = sorted({e for e, _, _ in HOOKS})
-MARK = "kompact"
+# Settings entries written by this tool, including those from its earlier name (Kompact). The patterns are
+# precise so an unrelated tool called `kompact` (there is one on PyPI) never has its settings touched.
+OURS = re.compile(r"kompactor|[\\/]+kompact[\\/]+_launch\.py|[\\/]+\.kompact[\\/]+bin[\\/]+kompact\b")
+PREFIX_OURS = re.compile(r"kompactor-shell|[\\/]+\.kompact[\\/]+bin[\\/]+kompact-shell")
 
 
 def settings_path(scope: str = "user", project: str = "") -> Path:
@@ -29,45 +33,48 @@ def settings_path(scope: str = "user", project: str = "") -> Path:
 
 
 def launcher() -> str:
-    """Command prefix that runs this copy of Kompact."""
+    """Command prefix that runs this copy of Kompactor."""
     script = Path(__file__).with_name("_launch.py")
     py = sys.executable or shutil.which("python3") or "python3"
     return f'"{py}" "{script}"'
 
 
 def shim_dir() -> Path:
-    return Path.home() / ".kompact" / "bin"
+    return Path.home() / ".kompactor" / "bin"
 
 
-def write_shim() -> Path:
-    """A stable `~/.kompact/bin/kompact` that Claude's Bash tool can always call,
-    however Kompact was installed (pip, clone, VS Code bundle, plugin)."""
+def write_shim(only_if_changed: bool = False) -> Path:
+    """A stable `~/.kompactor/bin/kompactor` that Claude's Bash tool can always call,
+    however Kompactor was installed (pip, clone, VS Code bundle, plugin), plus the shell prefix
+    script. With only_if_changed, files that already point at this copy are left alone."""
     d = shim_dir()
     d.mkdir(parents=True, exist_ok=True)
     py = sys.executable or "python3"
     script = Path(__file__).with_name("_launch.py")
-    sh = d / "kompact"
-    sh.write_text(f'#!/bin/sh\nexec {shlex.quote(py)} {shlex.quote(str(script))} "$@"\n')
-    sh.chmod(0o755)
-    (d / "kompact.cmd").write_text(f'@"{py}" "{script}" %*\r\n')
+    files = {"kompactor": f'#!/bin/sh\nexec {shlex.quote(py)} {shlex.quote(str(script))} "$@"\n',
+             "kompactor.cmd": f'@"{py}" "{script}" %*\r\n'}
     if os.name != "nt":
-        prefix = d / "kompact-shell"
-        prefix.write_text(SHELL_PREFIX.format(py=shlex.quote(py), script=shlex.quote(str(script))))
-        prefix.chmod(0o755)
-    return sh
-
+        files["kompactor-shell"] = SHELL_PREFIX.format(py=shlex.quote(py), script=shlex.quote(str(script)))
+    for name, text in files.items():
+        f = d / name
+        if only_if_changed and f.exists() and f.read_text() == text:
+            continue
+        f.write_text(text)
+        if not name.endswith(".cmd"):
+            f.chmod(0o755)
+    return d / "kompactor"
 
 PREFIX_ENV = "CLAUDE_CODE_SHELL_PREFIX"
-# Claude Code runs every Bash command as `kompact-shell '<command>'`. Only commands that look like
-# tests, builds, linters or installs start Python; the rest (and everything, if Kompact is gone)
+# Claude Code runs every Bash command as `kompactor-shell '<command>'`. Only commands that look like
+# tests, builds, linters or installs start Python; the rest (and everything, if Kompactor is gone)
 # run untouched. Keep this POSIX sh: it sits in front of every command Claude runs.
 SHELL_PREFIX = """#!/bin/sh
-# Kompact shell prefix (Claude Code setting {env}). Compacts test, build and lint
-# output even when the command fails, keeping its exit code. Remove: kompact uninstall
+# Kompactor shell prefix (Claude Code setting {env}). Compacts test, build and lint
+# output even when the command fails, keeping its exit code. Remove: kompactor uninstall
 case "$1" in *snapshot-zsh-*) s=zsh ;; *) s=bash ;; esac
 command -v "$s" >/dev/null 2>&1 || s=sh
 c=${{1#* eval }}
-if [ -z "$KOMPACT_RAW" ] && [ -x {py} ] && [ -f {script} ]; then
+if [ -z "$KOMPACTOR_RAW" ] && [ -x {py} ] && [ -f {script} ]; then
   case "$c" in
     *test*|*build*|*lint*|*check*|*tsc*|*make*|*cargo*|*mvn*|*gradle*|*install*|*jest*|*mocha*|*mypy*|*ruff*|\\
     *pyright*|*flake8*|*vet*|*npm*|*pnpm*|*yarn*|*bun*|*uv\\ *|*pip*|*poetry*|*docker*|*golangci*|*tox*|*nox*)
@@ -79,22 +86,57 @@ exec "$s" -c "$1"
 
 
 def prefix_path() -> Path:
-    return shim_dir() / "kompact-shell"
+    return shim_dir() / "kompactor-shell"
 
 
 def prefix_active() -> bool:
-    """True inside a Claude Code session whose Bash commands run through Kompact's shell prefix."""
+    """True inside a Claude Code session whose Bash commands run through Kompactor's shell prefix."""
     cur = os.environ.get(PREFIX_ENV, "")
-    return "kompact-shell" in cur and os.path.exists(cur)
+    return bool(PREFIX_OURS.search(cur)) and os.path.exists(cur)
 
 
 def cli_name() -> str:
-    """How Claude should invoke Kompact from its Bash tool."""
-    if shutil.which("kompact"):
-        return "kompact"
-    if (shim_dir() / "kompact").exists():
-        return "~/.kompact/bin/kompact"
+    """How Claude should invoke Kompactor from its Bash tool."""
+    if shutil.which("kompactor"):
+        return "kompactor"
+    if (shim_dir() / "kompactor").exists():
+        return "~/.kompactor/bin/kompactor"
     return launcher()
+
+
+SOURCE_FILE = ".kompactor-source"  # written by install.sh / install.ps1: the repo this copy came from
+
+
+def parse_source(url: str) -> dict:
+    """{"repo", "clone", "marketplace", "dir"} for a git remote URL, or {} if it isn't one."""
+    url = re.sub(r"^(https?://)[^/@\s]+@", r"\1", (url or "").strip())  # never show tokens (ssh keeps git@)
+    m = re.match(r"^(?:[a-z+]+://)?(?:[\w.-]+@)?([\w.-]+)(?::\d+)?[/:](.+?)(?:\.git)?/?$", url)
+    if not m:
+        return {}
+    host, parts = m.group(1), [x for x in m.group(2).split("/") if x]
+    if len(parts) < 2:
+        return {}
+    repo = "/".join(parts[-2:])
+    if host == "github.com":
+        return {"repo": repo, "clone": f"https://github.com/{repo}.git", "marketplace": repo, "dir": parts[-1]}
+    return {"repo": repo, "clone": url, "marketplace": url, "dir": parts[-1]}
+
+
+def source() -> dict:
+    """Where this copy of Kompactor came from (your team's repo), so setup instructions can name it.
+    Read from the file the installers leave, or the git remote of a clone or plugin install."""
+    import subprocess
+    root = Path(__file__).resolve().parent.parent
+    url = ""
+    try:
+        if (root / SOURCE_FILE).exists():
+            url = (root / SOURCE_FILE).read_text().strip()
+        elif (root / ".git").exists():
+            url = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True,
+                                 text=True, timeout=3).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        url = ""
+    return parse_source(url)
 
 
 def _read(p: Path) -> dict:
@@ -105,20 +147,20 @@ def _read(p: Path) -> dict:
 
 
 def _ours(entry) -> bool:
-    return MARK in json.dumps(entry)
+    return bool(OURS.search(json.dumps(entry)))
 
 
 def _prefix_state(settings: dict) -> str:
     cur = (settings.get("env") or {}).get(PREFIX_ENV, "")
     if not cur:
         return "none"
-    if "kompact-shell" not in cur:
+    if not PREFIX_OURS.search(cur):
         return "other"
-    return "kompact" if os.path.exists(cur) else "missing"
+    return "kompactor" if os.path.exists(cur) else "missing"
 
 
 def plugin_enabled(settings: dict) -> bool:
-    return any(k.startswith("kompact@") and v for k, v in (settings.get("enabledPlugins") or {}).items())
+    return any(k.startswith("kompactor@") and v for k, v in (settings.get("enabledPlugins") or {}).items())
 
 
 def status(project: str = "") -> dict:
@@ -137,19 +179,21 @@ def status(project: str = "") -> dict:
         "hooks": installed,
         "hooks_installed": all(installed.values()),
         "plugin_enabled": plugin_enabled(user),
-        "statusline": "kompact" if MARK in sl else ("other" if sl else "none"),
+        "statusline": "kompactor" if OURS.search(sl) else ("other" if sl else "none"),
         "shell_prefix": _prefix_state(user),
         "launcher": launcher(),
+        "source": source(),
     }
 
 
 SKILL = """---
-name: kompact
-description: Kompact token saver and code graph. Use when the user says /kompact (status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
+name: kompactor
+description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
-Run these with Bash and report briefly. Kompact token saver.
+Run these with Bash and report briefly. Kompactor token saver.
 
+/kompactor setup: run `{cmd} setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `{cmd} presets`; change with `{cmd} config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
 Savings: `{cmd} gain`. Dashboard: start `{cmd} ui --no-browser` in the background and give the user the URL.
 
@@ -158,9 +202,9 @@ Code graph (local, instant):
 - `{cmd} graph callers Name` · `{cmd} graph impact <file|Name>` what a change affects and which tests to run
 - `{cmd} graph report` overview · `{cmd} symbol Name` print a definition
 
-/kompact review: run `git diff HEAD`, then list concrete cuts, one line each (file:line, what to remove, why): code that duplicates an existing helper (check with graph query), options or abstractions nobody asked for, dead branches. Never cut validation, error handling, security or accessibility.
-/kompact audit: run `{cmd} graph unused` and `{cmd} graph report`; rank removals (likely dead first) with risks. Don't edit unless asked.
-/kompact debt: run `{cmd} debt` and summarize by severity.
+/kompactor review: run `git diff HEAD`, then list concrete cuts, one line each (file:line, what to remove, why): code that duplicates an existing helper (check with graph query), options or abstractions nobody asked for, dead branches. Never cut validation, error handling, security or accessibility.
+/kompactor audit: run `{cmd} graph unused` and `{cmd} graph report`; rank removals (likely dead first) with risks. Don't edit unless asked.
+/kompactor debt: run `{cmd} debt` and summarize by severity.
 
 Compacted output in full: `{cmd} show <id>`; search earlier outputs: `{cmd} search "text"`.
 """
@@ -168,14 +212,14 @@ Compacted output in full: `{cmd} show <id>`; search earlier outputs: `{cmd} sear
 
 def skill_path(scope: str = "user", project: str = "") -> Path:
     base = Path(project or os.getcwd()) if scope == "project" else Path.home()
-    return base / ".claude" / "skills" / "kompact" / "SKILL.md"
+    return base / ".claude" / "skills" / "kompactor" / "SKILL.md"
 
 
 def install(scope: str = "user", project: str = "", statusline: bool = True, uninstall: bool = False,
             shell_prefix: bool = True) -> Path:
-    """Add (or remove) Kompact's hooks, status line and /kompact skill.
+    """Add (or remove) Kompactor's hooks, status line and /kompactor skill.
 
-    When the Kompact plugin is enabled it already provides the hooks and the
+    When the Kompactor plugin is enabled it already provides the hooks and the
     skill, so only the status line (which plugins can't set) is managed."""
     target = settings_path(scope, project)
     settings = _read(target)
@@ -200,37 +244,44 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
         settings.pop("hooks", None)
     sl = settings.get("statusLine") or {}
     if uninstall or not statusline:
-        if MARK in sl.get("command", ""):
+        if OURS.search(sl.get("command", "")):
             settings.pop("statusLine", None)
-    elif not sl or MARK in sl.get("command", ""):  # never replace someone else's status line
+    elif not sl or OURS.search(sl.get("command", "")):  # never replace someone else's status line
         settings["statusLine"] = {"type": "command", "command": f"{cmd} statusline", "padding": 0}
     env = settings.get("env") or {}
     cur = env.get(PREFIX_ENV, "")
     if uninstall or not shell_prefix:
-        if "kompact-shell" in cur:
+        if PREFIX_OURS.search(cur):
             env.pop(PREFIX_ENV)
-    elif scope == "user" and os.name != "nt" and (not cur or "kompact-shell" in cur):
-        # user scope only: a project's settings.json is often committed, and a teammate without Kompact
+    elif scope == "user" and os.name != "nt" and (not cur or PREFIX_OURS.search(cur)):
+        # user scope only: a project's settings.json is often committed, and a teammate without Kompactor
         # would get a shell prefix that doesn't exist. Never replace someone else's prefix.
         env[PREFIX_ENV] = str(prefix_path())
     if env:
         settings["env"] = env
     else:
         settings.pop("env", None)
+    legacy = Path.home() / ".claude" / "skills" / "kompact" / "SKILL.md"  # the /kompact skill, before the rename
+    if scope == "user" and legacy.exists() and "Kompact token saver" in legacy.read_text():
+        legacy.unlink()
+        try:
+            legacy.parent.rmdir()
+        except OSError:
+            pass
     skill = skill_path(scope, project)
     if uninstall:
-        if skill.exists() and "Kompact token saver" in skill.read_text():
+        if skill.exists() and "Kompactor token saver" in skill.read_text():
             skill.unlink()
             try:
                 skill.parent.rmdir()
             except OSError:
                 pass
-    elif not via_plugin and (not skill.exists() or "Kompact token saver" in skill.read_text()):  # never clobber
+    elif not via_plugin and (not skill.exists() or "Kompactor token saver" in skill.read_text()):  # never clobber
         skill.parent.mkdir(parents=True, exist_ok=True)
         skill.write_text(SKILL.format(cmd=cli_name()))
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        backup = target.with_suffix(".json.kompact-backup")
+        backup = target.with_suffix(".json.kompactor-backup")
         if not backup.exists():
             shutil.copyfile(target, backup)
     target.write_text(json.dumps(settings, indent=2) + "\n")
@@ -242,14 +293,14 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
 
 
 def selftest() -> list:
-    """Run each Kompact hook from settings.json with a realistic event in an isolated
-    KOMPACT_HOME. Returns [{hook, ok, ms, detail}]."""
+    """Run each Kompactor hook from settings.json with a realistic event in an isolated
+    KOMPACTOR_HOME. Returns [{hook, ok, ms, detail}]."""
     import subprocess
     import tempfile
     import time as _time
     settings = _read(settings_path("user"))
     hooks_cfg = settings.get("hooks", {})
-    tmp = tempfile.mkdtemp(prefix="kompact-selftest-")
+    tmp = tempfile.mkdtemp(prefix="kompactor-selftest-")
     big = Path(tmp, "big_module.py")
     big.write_text("".join(f"def handler_{i}(request):\n" + "    value = request * 2\n" * 6 + "    return value\n\n"
                            for i in range(80)))
@@ -278,15 +329,15 @@ def selftest() -> list:
         cmd = None
         for entry in hooks_cfg.get(event, []):
             for h in entry.get("hooks", []):
-                if f"hook {handler}" in h.get("command", "") and MARK in h.get("command", ""):
+                if f"hook {handler}" in h.get("command", "") and OURS.search(h.get("command", "")):
                     cmd = h["command"]
         if cmd is None:
             if not plugin:
                 results.append({"hook": f"{event} {handler}", "ok": False, "ms": 0, "detail": "not installed"})
                 continue
             cmd = f"{launcher()} hook {handler}"  # plugin hooks: exercise the same code path
-        ev = {"session_id": "kompact-selftest", "cwd": tmp, "hook_event_name": event, **events[handler]}
-        env = dict(os.environ, KOMPACT_HOME=tmp)
+        ev = {"session_id": "kompactor-selftest", "cwd": tmp, "hook_event_name": event, **events[handler]}
+        env = dict(os.environ, KOMPACTOR_HOME=tmp)
         t0 = _time.time()
         try:
             p = subprocess.run(cmd, shell=True, input=json.dumps(ev), capture_output=True, text=True, timeout=20,
@@ -302,7 +353,7 @@ def selftest() -> list:
             ms, ok, detail = int((_time.time() - t0) * 1000), False, repr(e)[:200]
         results.append({"hook": f"{event} {handler}", "ok": ok, "ms": ms, "detail": detail})
     prefix = (settings.get("env") or {}).get(PREFIX_ENV, "")
-    if "kompact-shell" in prefix:
+    if PREFIX_OURS.search(prefix):
         results.append(_check_prefix(prefix, tmp))
     return results
 
@@ -321,8 +372,8 @@ def _check_prefix(prefix: str, tmp: str) -> dict:
     t0 = _time.time()
     try:
         p = subprocess.run([prefix, full], capture_output=True, text=True, timeout=30,
-                           env=dict(os.environ, KOMPACT_HOME=tmp))
-        ok = p.returncode == 1 and "test_boom" in p.stdout and "test_7 PASSED" not in p.stdout and "[kompact:" in p.stdout
+                           env=dict(os.environ, KOMPACTOR_HOME=tmp))
+        ok = p.returncode == 1 and "test_boom" in p.stdout and "test_7 PASSED" not in p.stdout and "[kompactor:" in p.stdout
         detail = "ok" if ok else f"exit {p.returncode}: {(p.stdout + p.stderr)[-160:]}"
     except (OSError, subprocess.TimeoutExpired) as e:
         ok, detail = False, repr(e)[:200]

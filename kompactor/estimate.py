@@ -1,4 +1,4 @@
-"""Replay past Claude Code sessions through Kompact to estimate savings.
+"""Replay past Claude Code sessions through Kompactor to estimate savings.
 
 Reads ~/.claude/projects/**/*.jsonl, finds every Bash and Read tool result,
 and runs them through the same filters the hooks use. A token removed from a
@@ -94,7 +94,7 @@ def analyze_file(path: str, stats: dict, opts=None) -> None:
         if name == "Bash" and t >= (opts or {}).get("bash_min_tokens", 150):
             cmd = inp.get("command", "")
             new = filters.compress(cmd, text, 1 if is_err else 0, stash_id=1, opts=opts)
-            kept = tokens.count(new) + 15  # + the "[kompact: …]" footer
+            kept = tokens.count(new) + 15  # + the "[kompactor: …]" footer
             if kept < t * 0.9:
                 saved, feature = t - kept, "bash:" + filters.classify(cmd)
                 stats["top_cmds"].append((saved * n, cmd[:80], t, kept))

@@ -1,4 +1,4 @@
-"""Benchmark Kompact's Bash filters on real command output.
+"""Benchmark Kompactor's Bash filters on real command output.
 
     python bench/bench.py <repo-dir> [cmd ...]
 
@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from kompact import config, filters, tokens  # noqa: E402
+from kompactor import config, filters, tokens  # noqa: E402
 
 DEFAULT = [
     "git log -n 40",
@@ -26,7 +26,7 @@ DEFAULT = [
 
 def main():
     repo, cmds = sys.argv[1], sys.argv[2:] or DEFAULT
-    opts = config.load(os.path.abspath(repo))  # honours KOMPACT_PRESET=1..5
+    opts = config.load(os.path.abspath(repo))  # honours KOMPACTOR_PRESET=1..5
     print(f"preset {opts['preset']} ({config.PRESETS[opts['preset']]['name']}), languages: {opts['languages']}")
     total_r = total_k = 0
     print(f"{'command':<52}{'before':>8}{'after':>8}{'saved':>8}")

@@ -845,7 +845,7 @@ def _fit(lines, budget: int):
 def load(root: str, build_if_missing: bool = True) -> Graph:
     if not exists(root):
         if not build_if_missing:
-            raise FileNotFoundError("no code graph yet; run `kompact graph build`")
+            raise FileNotFoundError("no code graph yet; run `kompactor graph build`")
         build(root)
     return Graph(root)
 
@@ -855,7 +855,7 @@ def query(root: str, text: str, budget: int = 1500) -> str:
     g = load(root)
     words = [w for w in split_words(text) if len(w) > 1 and w not in STOP]
     if not words:
-        return "query: give some words, e.g. `kompact graph query \"session cookie signing\"`"
+        return "query: give some words, e.g. `kompactor graph query \"session cookie signing\"`"
     df = Counter()
     sym_words = []
     for s in g.symbols:
@@ -882,7 +882,7 @@ def query(root: str, text: str, budget: int = 1500) -> str:
             scored.append((score, s))
     scored.sort(key=lambda x: -x[0])
     if not scored:
-        return f'query "{text}": no matching symbols. Try other words, or `kompact graph report` for an overview.'
+        return f'query "{text}": no matching symbols. Try other words, or `kompactor graph report` for an overview.'
     out = [f'query "{text}": {len(scored)} matches, best first']
     per_file, picked, more = Counter(), [], Counter()
     for score, s in scored:
@@ -1302,16 +1302,16 @@ def report(root: str, budget: int = 1800) -> str:
         out.append("\n## Tests by module")
         for v in sorted(tested, key=lambda v: -pr.get(v, 0))[:10]:
             out.append(f"- {v} ← {', '.join(sorted(tested[v])[:4])}")
-    out.append("\n## Next steps\n`kompact graph query \"<words>\"` · `kompact graph impact <file|symbol>` · "
-               "`kompact graph callers <Name>` · `kompact symbol <Name>`")
+    out.append("\n## Next steps\n`kompactor graph query \"<words>\"` · `kompactor graph impact <file|symbol>` · "
+               "`kompactor graph callers <Name>` · `kompactor symbol <Name>`")
     return _fit(out, budget)
 
 
 def session_map(root: str, budget: int = 600) -> str:
     """Compact orientation map for SessionStart: top modules and their key symbols."""
     g = load(root, build_if_missing=False)
-    lines = [f"[kompact] Code map of {Path(g.root).name} (most depended-on modules first; "
-             f"`kompact graph query \"words\"` finds code by topic):"]
+    lines = [f"[kompactor] Code map of {Path(g.root).name} (most depended-on modules first; "
+             f"`kompactor graph query \"words\"` finds code by topic):"]
     core = g.core_units()
     if len(core) <= 3:  # one big package (typical Go): list key files instead
         for f, names in _key_files(g, 15):

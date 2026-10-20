@@ -1,5 +1,5 @@
 {
-  "_doc": "Tasks for bench/ab.py. Each runs in `repo` (relative to --repos) with the same prompt and tools in both conditions. `expect`: every string must appear in the final answer (case-insensitive). Prompts never mention Kompact.",
+  "_doc": "Tasks for kompactor prove. Each runs in `repo` (relative to --repos) with the same prompt and tools in both conditions. `expect`: every string must appear in the final answer (case-insensitive). Prompts never mention Kompactor.",
   "tasks": [
     {
       "id": "py-failing-tests",

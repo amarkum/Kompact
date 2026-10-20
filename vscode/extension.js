@@ -1,4 +1,4 @@
-// Kompact for VS Code: wires Kompact's hooks into Claude Code (the VS Code
+// Kompactor for VS Code: wires Kompactor's hooks into Claude Code (the VS Code
 // extension and the CLI share ~/.claude/settings.json), shows per-turn savings
 // in the status bar, and hosts the settings dashboard in a webview.
 // Plain JavaScript, no dependencies, no build step.
@@ -12,16 +12,16 @@ const path = require("path");
 
 let ctx;
 let status;
-let server;          // child process running `kompact ui`
+let server;          // child process running `kompactor ui`
 let dashboardUrl;    // http://127.0.0.1:port/
 let panel;           // webview panel
 let lastTs = 0;
 let pythonCmd;       // [exe, ...args]
 
-const kompactHome = () => process.env.KOMPACT_HOME || path.join(os.homedir(), ".kompact");
-const livePath = () => path.join(kompactHome(), "live.json");
+const kompactorHome = () => process.env.KOMPACTOR_HOME || path.join(os.homedir(), ".kompactor");
+const livePath = () => path.join(kompactorHome(), "live.json");
 const claudeSettings = () => path.join(os.homedir(), ".claude", "settings.json");
-const cfg = () => vscode.workspace.getConfiguration("kompact");
+const cfg = () => vscode.workspace.getConfiguration("kompactor");
 
 function fmt(n) {
   n = Number(n) || 0;
@@ -33,9 +33,9 @@ function fmt(n) {
 // Python + launcher
 
 function launcher() {
-  const bundled = path.join(ctx.extensionPath, "python", "kompact", "_launch.py");
+  const bundled = path.join(ctx.extensionPath, "python", "kompactor", "_launch.py");
   if (fs.existsSync(bundled)) return bundled;
-  return path.join(ctx.extensionPath, "..", "kompact", "_launch.py"); // running from the repo
+  return path.join(ctx.extensionPath, "..", "kompactor", "_launch.py"); // running from the repo
 }
 
 function findPython() {
@@ -53,10 +53,10 @@ function findPython() {
   return null;
 }
 
-function runKompact(args, input) {
+function runKompactor(args, input) {
   return new Promise((resolve) => {
     const py = findPython();
-    if (!py) return resolve({ code: -1, stdout: "", stderr: "Python 3.9+ not found. Set kompact.pythonPath." });
+    if (!py) return resolve({ code: -1, stdout: "", stderr: "Python 3.9+ not found. Set kompactor.pythonPath." });
     const p = cp.spawn(py[0], [...py.slice(1), launcher(), ...args], { env: process.env });
     let stdout = "", stderr = "";
     p.stdout.on("data", (d) => (stdout += d));
@@ -75,8 +75,8 @@ function hookCommands() {
     const s = JSON.parse(fs.readFileSync(claudeSettings(), "utf8"));
     const cmds = [];
     for (const entries of Object.values(s.hooks || {}))
-      for (const e of entries || []) for (const h of e.hooks || []) if (String(h.command || "").includes("kompact")) cmds.push(h.command);
-    const plugin = Object.entries(s.enabledPlugins || {}).some(([k, v]) => k.startsWith("kompact@") && v);
+      for (const e of entries || []) for (const h of e.hooks || []) if (String(h.command || "").includes("kompactor")) cmds.push(h.command);
+    const plugin = Object.entries(s.enabledPlugins || {}).some(([k, v]) => k.startsWith("kompactor@") && v);
     return { cmds, plugin };
   } catch (e) {
     return { cmds: [], plugin: false };
@@ -84,14 +84,14 @@ function hookCommands() {
 }
 
 async function enable(silent) {
-  const r = await runKompact(["install"]);
+  const r = await runKompactor(["install"]);
   if (r.code !== 0) {
-    vscode.window.showErrorMessage(`Kompact: couldn't enable (${(r.stderr || r.stdout).trim().split("\n").pop()})`);
+    vscode.window.showErrorMessage(`Kompactor: couldn't enable (${(r.stderr || r.stdout).trim().split("\n").pop()})`);
     return false;
   }
   if (!silent) {
     const pick = await vscode.window.showInformationMessage(
-      "Kompact is on for Claude Code (VS Code and CLI). New sessions will use it.", "Choose quality level", "Open dashboard");
+      "Kompactor is on for Claude Code (VS Code and CLI). New sessions will use it.", "Choose quality level", "Open dashboard");
     if (pick === "Choose quality level") choosePreset();
     if (pick === "Open dashboard") openDashboard();
   }
@@ -99,24 +99,24 @@ async function enable(silent) {
 }
 
 async function disable() {
-  const r = await runKompact(["install", "--uninstall"]);
-  vscode.window.showInformationMessage(r.code === 0 ? "Kompact hooks removed from Claude Code." : "Kompact: " + r.stderr);
+  const r = await runKompactor(["install", "--uninstall"]);
+  vscode.window.showInformationMessage(r.code === 0 ? "Kompactor hooks removed from Claude Code." : "Kompactor: " + r.stderr);
 }
 
 // After an extension update the bundled path changes; keep hooks pointing at it.
 async function refreshHooks() {
   const { cmds } = hookCommands();
-  const ours = cmds.filter((c) => /extensions[\\/][^"]*kompact[^"]*_launch\.py/i.test(c));
+  const ours = cmds.filter((c) => /extensions[\\/][^"]*kompactor[^"]*_launch\.py/i.test(c));
   if (ours.length && !ours.every((c) => c.includes(launcher()))) await enable(true);
 }
 
 async function firstRun() {
   const { cmds, plugin } = hookCommands();
   if (cmds.length || plugin) return refreshHooks();
-  if (ctx.globalState.get("kompact.prompted")) return;
-  await ctx.globalState.update("kompact.prompted", true);
+  if (ctx.globalState.get("kompactor.prompted")) return;
+  await ctx.globalState.update("kompactor.prompted", true);
   const pick = await vscode.window.showInformationMessage(
-    "Kompact can cut the tokens Claude Code spends on tool output (often 40–80%). Enable it?",
+    "Kompactor can cut the tokens Claude Code spends on tool output (often 40–80%). Enable it?",
     "Enable", "Open dashboard", "Not now");
   if (pick === "Enable") enable(false);
   if (pick === "Open dashboard") openDashboard();
@@ -146,15 +146,15 @@ function renderStatus(live) {
     const ctxPct = tot.context && tot.in_context_saved > 0 ? Math.round(100 * tot.in_context_saved / (tot.context + tot.in_context_saved)) : 0;
     status.text = `$(fold) −${fmt(tot.saved)}` + (ctxPct ? ` · ctx −${ctxPct}%` : "");
     const md = new vscode.MarkdownString(
-      `**Kompact** · ${live.preset_name || ""}\n\n` +
+      `**Kompactor** · ${live.preset_name || ""}\n\n` +
       (turn.saved > 0 ? `Last turn: **−${fmt(turn.saved)} tokens** (${fmt(turn.raw)} › ${fmt(turn.kept)})\n\n` : "Last turn: nothing to trim\n\n") +
       `This session: −${fmt(tot.saved)} tokens` + (ctxPct ? `, context ≈${ctxPct}% smaller` : "") +
-      `\n\n[Open dashboard](command:kompact.openDashboard) · [Change level](command:kompact.choosePreset)`);
+      `\n\n[Open dashboard](command:kompactor.openDashboard) · [Change level](command:kompactor.choosePreset)`);
     md.isTrusted = true;
     status.tooltip = md;
   } else {
-    status.text = "$(fold) Kompact";
-    status.tooltip = "Kompact: click for the dashboard or to change the quality vs tokens level";
+    status.text = "$(fold) Kompactor";
+    status.tooltip = "Kompactor: click for the dashboard or to change the quality vs tokens level";
   }
   status.show();
 }
@@ -182,23 +182,23 @@ async function menu() {
   const { cmds, plugin } = hookCommands();
   items.push(cmds.length || plugin ? { label: "$(circle-slash) Disable for Claude Code", run: disable }
     : { label: "$(check) Enable for Claude Code", run: () => enable(false) });
-  const pick = await vscode.window.showQuickPick(items, { title: "Kompact" });
+  const pick = await vscode.window.showQuickPick(items, { title: "Kompactor" });
   if (pick) pick.run();
 }
 
 function showLastTurn() {
   const live = readLive();
-  vscode.window.showInformationMessage(live && live.message ? live.message : "Kompact hasn't seen a Claude Code turn yet.");
+  vscode.window.showInformationMessage(live && live.message ? live.message : "Kompactor hasn't seen a Claude Code turn yet.");
 }
 
 // ---------------------------------------------------------------------------
 // Quality level
 
 async function choosePreset() {
-  const r = await runKompact(["presets", "--json"]);
+  const r = await runKompactor(["presets", "--json"]);
   let data;
   try { data = JSON.parse(r.stdout); } catch (e) {
-    return vscode.window.showErrorMessage("Kompact: " + (r.stderr || "couldn't read presets"));
+    return vscode.window.showErrorMessage("Kompactor: " + (r.stderr || "couldn't read presets"));
   }
   const items = Object.entries(data.presets).map(([n, p]) => ({
     label: `${Number(n) === data.current ? "$(check) " : "      "}${n} · ${p.name}`,
@@ -207,12 +207,12 @@ async function choosePreset() {
     n,
   }));
   const pick = await vscode.window.showQuickPick(items, {
-    title: "Kompact: quality vs tokens", placeHolder: "Left = more quality, right = more savings",
+    title: "Kompactor: quality vs tokens", placeHolder: "Left = more quality, right = more savings",
   });
   if (!pick) return;
-  const res = await runKompact(["config", "preset", pick.n]);
-  if (res.code === 0) vscode.window.setStatusBarMessage(`Kompact: ${data.presets[pick.n].name} (applies to the next tool call)`, 5000);
-  else vscode.window.showErrorMessage("Kompact: " + res.stderr);
+  const res = await runKompactor(["config", "preset", pick.n]);
+  if (res.code === 0) vscode.window.setStatusBarMessage(`Kompactor: ${data.presets[pick.n].name} (applies to the next tool call)`, 5000);
+  else vscode.window.showErrorMessage("Kompactor: " + res.stderr);
   if (panel) panel.webview.postMessage({ type: "reload" });
 }
 
@@ -224,7 +224,7 @@ function ping(url) {
     const req = http.get(url + "api/ping", { timeout: 800 }, (res) => {
       let b = "";
       res.on("data", (d) => (b += d));
-      res.on("end", () => resolve(res.statusCode === 200 && b.includes("kompact")));
+      res.on("end", () => resolve(res.statusCode === 200 && b.includes("kompactor")));
     });
     req.on("error", () => resolve(false));
     req.on("timeout", () => { req.destroy(); resolve(false); });
@@ -234,7 +234,7 @@ function ping(url) {
 async function ensureServer() {
   if (dashboardUrl && (await ping(dashboardUrl))) return dashboardUrl;
   const py = findPython();
-  if (!py) throw new Error("Python 3.9+ not found. Set kompact.pythonPath.");
+  if (!py) throw new Error("Python 3.9+ not found. Set kompactor.pythonPath.");
   return new Promise((resolve, reject) => {
     server = cp.spawn(py[0], [...py.slice(1), launcher(), "ui", "--no-browser", "--port", "7420"], { env: process.env });
     let out = "";
@@ -251,10 +251,10 @@ async function ensureServer() {
 
 async function openDashboard() {
   let url;
-  try { url = await ensureServer(); } catch (e) { return vscode.window.showErrorMessage("Kompact: " + e.message); }
+  try { url = await ensureServer(); } catch (e) { return vscode.window.showErrorMessage("Kompactor: " + e.message); }
   const ext = await vscode.env.asExternalUri(vscode.Uri.parse(url));
   if (panel) { panel.reveal(); return; }
-  panel = vscode.window.createWebviewPanel("kompact", "Kompact", vscode.ViewColumn.Active,
+  panel = vscode.window.createWebviewPanel("kompactor", "Kompactor", vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true });
   const origin = `${ext.scheme}://${ext.authority}`;
   panel.webview.html = `<!doctype html><html><head><meta charset="utf-8">
@@ -267,7 +267,7 @@ async function openDashboard() {
 }
 
 async function openInBrowser() {
-  try { vscode.env.openExternal(vscode.Uri.parse(await ensureServer())); } catch (e) { vscode.window.showErrorMessage("Kompact: " + e.message); }
+  try { vscode.env.openExternal(vscode.Uri.parse(await ensureServer())); } catch (e) { vscode.window.showErrorMessage("Kompactor: " + e.message); }
 }
 
 // ---------------------------------------------------------------------------
@@ -275,21 +275,21 @@ async function openInBrowser() {
 function activate(context) {
   ctx = context;
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  status.command = "kompact.menu";
+  status.command = "kompactor.menu";
   context.subscriptions.push(status,
-    vscode.commands.registerCommand("kompact.menu", menu),
-    vscode.commands.registerCommand("kompact.openDashboard", openDashboard),
-    vscode.commands.registerCommand("kompact.openInBrowser", openInBrowser),
-    vscode.commands.registerCommand("kompact.choosePreset", choosePreset),
-    vscode.commands.registerCommand("kompact.enable", () => enable(false)),
-    vscode.commands.registerCommand("kompact.disable", disable),
-    vscode.commands.registerCommand("kompact.showLastTurn", showLastTurn),
+    vscode.commands.registerCommand("kompactor.menu", menu),
+    vscode.commands.registerCommand("kompactor.openDashboard", openDashboard),
+    vscode.commands.registerCommand("kompactor.openInBrowser", openInBrowser),
+    vscode.commands.registerCommand("kompactor.choosePreset", choosePreset),
+    vscode.commands.registerCommand("kompactor.enable", () => enable(false)),
+    vscode.commands.registerCommand("kompactor.disable", disable),
+    vscode.commands.registerCommand("kompactor.showLastTurn", showLastTurn),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("kompact.pythonPath")) pythonCmd = null;
-      if (e.affectsConfiguration("kompact")) renderStatus(readLive());
+      if (e.affectsConfiguration("kompactor.pythonPath")) pythonCmd = null;
+      if (e.affectsConfiguration("kompactor")) renderStatus(readLive());
     }));
 
-  fs.mkdirSync(kompactHome(), { recursive: true });
+  fs.mkdirSync(kompactorHome(), { recursive: true });
   const live = readLive();
   lastTs = (live && live.ts) || 0;
   renderStatus(live);

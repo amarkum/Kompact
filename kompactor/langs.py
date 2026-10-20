@@ -1,6 +1,6 @@
 """Language profiles and project auto-detection.
 
-A profile tells Kompact which files are source (outline-first reads), which
+A profile tells Kompactor which files are source (outline-first reads), which
 are generated (never worth reading in full), which stack frames are library
 noise, and which lock files to collapse in diffs.
 """

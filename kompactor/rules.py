@@ -1,7 +1,7 @@
 """Reply-style rules injected at session start (and into subagents).
 
 Two independent dials, kept deliberately short because these tokens are paid
-on every turn (caveman's rules cost ~1,160; these cost ~20-160). Kompact's own
+on every turn (caveman's rules cost ~1,160; these cost ~20-160). Kompactor's own
 commands aren't advertised here: compacted output and outlines say how to get
 the full text, and the code map (given on first exploration) names the graph.
 
@@ -34,11 +34,11 @@ CODE = {
 
 KEEP = "Keep code, commands, paths, errors, numbers and warnings exact; commits and docs stay normal prose."
 
-PLAIN = ("Run tests, builds and linters plainly, without | head, | tail or | grep: Kompact keeps every failure, "
+PLAIN = ("Run tests, builds and linters plainly, without | head, | tail or | grep: Kompactor keeps every failure, "
          "so one run is enough.")
 
 
-def build(prose: str = "lite", code: str = "lean", cli: str = "kompact", plain: bool = False) -> str:
+def build(prose: str = "lite", code: str = "lean", cli: str = "kompactor", plain: bool = False) -> str:
     lines = list(PROSE.get(prose, []))
     if lines:
         lines.append(KEEP)
@@ -47,7 +47,7 @@ def build(prose: str = "lite", code: str = "lean", cli: str = "kompact", plain: 
         lines.append(PLAIN)
     if not lines:
         return ""
-    return "[kompact]\n" + "\n".join(f"- {ln.format(cli=cli)}" for ln in lines)
+    return "[kompactor]\n" + "\n".join(f"- {ln.format(cli=cli)}" for ln in lines)
 
 
 # Back-compat for callers that look up a style by name.

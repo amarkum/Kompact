@@ -5,13 +5,13 @@ command exits non-zero it skips PostToolUse, fires PostToolUseFailure (which can
 add context but not replace anything) and cuts the output to its first and last
 few thousand characters, which usually drops the failures at the end of a test
 run. Claude Code's CLAUDE_CODE_SHELL_PREFIX setting runs every Bash command as
-`<prefix> '<shell command>'`. Kompact's prefix (~/.kompact/bin/kompact-shell)
+`<prefix> '<shell command>'`. Kompactor's prefix (~/.kompactor/bin/kompactor-shell)
 sends finite, noisy commands here: they run to completion, the output is
 compacted, and the exit code is passed through unchanged. Permission rules
 still see Claude's original command, because the prefix applies only when the
 command runs.
 
-Everything else, and any problem inside Kompact before the command starts,
+Everything else, and any problem inside Kompactor before the command starts,
 runs the command untouched.
 """
 
@@ -46,11 +46,11 @@ def user_command(full: str) -> str:
 
 
 def decide(full: str):
-    """(command, config) when the command should run through Kompact, else (None, None)."""
-    if os.environ.get("KOMPACT_RAW"):
+    """(command, config) when the command should run through Kompactor, else (None, None)."""
+    if os.environ.get("KOMPACTOR_RAW"):
         return None, None
     cmd = user_command(full)
-    if not cmd or cmd.lstrip().startswith("KOMPACT_RAW=1") or not filters.wrappable(cmd):
+    if not cmd or cmd.lstrip().startswith("KOMPACTOR_RAW=1") or not filters.wrappable(cmd):
         return None, None
     cfg = config.load(os.getcwd())
     if not cfg.get("bash") or not cfg.get("bash_wrap"):
@@ -62,7 +62,7 @@ def decide(full: str):
 
 
 def shown_tokens(text: str, code: int) -> int:
-    """Roughly what Claude would have read without Kompact (the honest baseline for the ledger)."""
+    """Roughly what Claude would have read without Kompactor (the honest baseline for the ledger)."""
     if code != 0:
         if len(text) > ERROR_LIMIT:
             return tokens.count(text[:ERROR_LIMIT // 2]) + tokens.count(text[-ERROR_LIMIT // 2:])
@@ -82,7 +82,7 @@ def compact(cmd: str, raw: str, code: int, cfg: dict, stopped: bool = False) -> 
     if kept > raw_tokens * 0.9 and len(raw) <= (ERROR_LIMIT if code else SHOWN_LIMIT):
         return raw  # barely compressible, and Claude Code would show all of it anyway
     note = "; the command was stopped before it finished" if stopped else ""
-    new = new.rstrip("\n") + f"\n[kompact: {raw_tokens}›{kept} tokens{note}; full output: {installer.cli_name()} show {sid}]\n"
+    new = new.rstrip("\n") + f"\n[kompactor: {raw_tokens}›{kept} tokens{note}; full output: {installer.cli_name()} show {sid}]\n"
     store.record("bash", shown_tokens(raw, code), kept, cmd, os.environ.get("CLAUDE_CODE_SESSION_ID", ""),
                  project=cfg["project"])
     return new
@@ -124,11 +124,11 @@ def run(shell: str, full: str, cmd: str, cfg: dict) -> int:
         code = 128 - code
     raw = head.decode("utf-8", "replace")
     if dropped:
-        raw += f"\n… [kompact: {dropped} bytes from the middle were not kept] …\n"
+        raw += f"\n… [kompactor: {dropped} bytes from the middle were not kept] …\n"
     raw += b"".join(tail).decode("utf-8", "replace")
     try:
         text = compact(cmd, raw, code, cfg, bool(stopped))
-    except Exception:  # never lose the output to a Kompact bug
+    except Exception:  # never lose the output to a Kompactor bug
         text = raw
     try:
         sys.stdout.write(text)

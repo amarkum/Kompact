@@ -10,9 +10,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def render() -> str:
-    html = (ROOT / "kompact/static/usage.html").read_text()
-    return html.replace('url("fonts/', 'url("../kompact/static/fonts/').replace('href="logo-mark.svg"',
-                                                                              'href="../kompact/static/logo-mark.svg"')
+    html = (ROOT / "kompactor/static/usage.html").read_text()
+    return html.replace('url("fonts/', 'url("../kompactor/static/fonts/').replace('href="logo-mark.svg"',
+                                                                              'href="../kompactor/static/logo-mark.svg"')
 
 
 if __name__ == "__main__":

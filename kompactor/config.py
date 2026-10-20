@@ -1,7 +1,7 @@
 """Configuration: a quality-vs-tokens preset, optional per-knob overrides,
 language profiles, and per-project overrides.
 
-Stored in ~/.kompact/config.json and edited from the dashboard (`kompact ui`):
+Stored in ~/.kompactor/config.json and edited from the dashboard (`kompactor ui`):
 
     {
       "preset": 3,
@@ -34,7 +34,7 @@ PRESETS = {
         "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 150, "bash_max_lines": 120, "max_line_chars": 300, "grep_per_file": 8, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 3, "git_log_compact": True, "read_outline": True,
         "read_outline_lines": 250, "graph": True, "session_map_tokens": 700, "read_graph_context": True, "read_dedupe": True, "style": "full", "code_style": "lean", "subagent_rules": True, "never_compact": []},
-    5: {"name": "Max savings", "blurb": "Most aggressive. Claude may need `kompact show` more often.",
+    5: {"name": "Max savings", "blurb": "Most aggressive. Claude may need `kompactor show` more often.",
         "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 80, "bash_max_lines": 80, "max_line_chars": 200, "grep_per_file": 5, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 1, "git_log_compact": True, "read_outline": True,
         "read_outline_lines": 150, "graph": True, "session_map_tokens": 900, "read_graph_context": True, "read_dedupe": True, "style": "ultra", "code_style": "lean", "subagent_rules": True, "never_compact": []},
@@ -46,11 +46,11 @@ KNOB_INFO = {
     "bash": ("Compact command output", "Shrink Bash/terminal output before Claude reads it.", "bool"),
     "bash_wrap": ("Compact failing commands too", "Claude Code won't let hooks touch the output of a command that "
                   "fails, and cuts long failure output down to its first and last few thousand characters, often "
-                  "losing the actual errors. With this on, tests, builds, linters and installs run through Kompact "
+                  "losing the actual errors. With this on, tests, builds, linters and installs run through Kompactor "
                   "(Claude Code's shell prefix setting) so failures arrive compacted and complete, with the same exit "
                   "code. Servers and watch modes are never touched.", "bool"),
-    "bash_plain": ("Let Kompact trim command output", "Tells Claude to run commands without `| head`, `| tail` or "
-                   "`| grep`. Kompact's compaction keeps every failure, while Claude's own trimming can cut the one "
+    "bash_plain": ("Let Kompactor trim command output", "Tells Claude to run commands without `| head`, `| tail` or "
+                   "`| grep`. Kompactor's compaction keeps every failure, while Claude's own trimming can cut the one "
                    "line that mattered and lead to a re-run. Only used while failing commands are compacted too "
                    "(shell prefix active).", "bool"),
     "bash_min_tokens": ("Leave outputs smaller than", "Outputs under this many tokens are passed through untouched.",
@@ -71,7 +71,7 @@ KNOB_INFO = {
     "read_outline_lines": ("Outline files longer than", "Line count from which a file is outlined first.",
                            "int", 50, 3000, 50),
     "graph": ("Code graph", "Index functions, classes, imports and calls so Claude can find code without reading "
-              "whole files (`kompact graph query`).", "bool"),
+              "whole files (`kompactor graph query`).", "bool"),
     "session_map_tokens": ("Code map", "Token budget for a map of the most depended-on modules, given to Claude the "
                            "first time it searches or reads code in a session (0 = off). Sessions that only run "
                            "commands don't pay for it.", "int", 0, 3000, 100),
@@ -151,25 +151,54 @@ def coerce(key: str, value):
     return value
 
 
+TEAM_FILE = ".kompactor.json"  # committed to a repo: the team's level and settings for it
+
+
+def team_settings(root: str) -> dict:
+    """{"preset": N, "overrides": {...}} from the repo's .kompactor.json, validated; {} if none."""
+    try:
+        d = json.loads((Path(root) / TEAM_FILE).read_text())
+    except (OSError, ValueError, TypeError):
+        return {}
+    if not isinstance(d, dict):
+        return {}
+    out = {}
+    if str(d.get("preset", "")).isdigit() and int(d["preset"]) in PRESETS:
+        out["preset"] = int(d["preset"])
+    ov = {}
+    for k, v in (d.get("overrides") or {}).items() if isinstance(d.get("overrides"), dict) else ():
+        if k in KNOBS:
+            try:
+                ov[k] = coerce(k, v)
+            except (ValueError, TypeError):
+                pass
+    if ov:
+        out["overrides"] = ov
+    return out
+
+
 def load(cwd: str = "") -> dict:
-    """Effective settings for a working directory: preset ⊕ overrides ⊕ project ⊕ env."""
+    """Effective settings for a working directory, most specific last:
+    your level and overrides ⊕ the repo's .kompactor.json ⊕ your settings for this project ⊕ env."""
     data = read_file()
     root = project_root(cwd) if cwd else ""
     proj = data["projects"].get(root, {}) if root else {}
-    preset = int(proj.get("preset", data.get("preset", 3)))
+    team = team_settings(root) if root else {}
+    preset = int(proj.get("preset", team.get("preset", data.get("preset", 3))))
     preset = preset if preset in PRESETS else 3
     cfg = {k: PRESETS[preset][k] for k in KNOBS}
     cfg.update({k: v for k, v in data.get("overrides", {}).items() if k in KNOBS})
+    cfg.update(team.get("overrides", {}))
     cfg.update({k: v for k, v in proj.get("overrides", {}).items() if k in KNOBS})
     for k in KNOBS:
-        env = os.environ.get(f"KOMPACT_{k.upper()}")
+        env = os.environ.get(f"KOMPACTOR_{k.upper()}")
         if env is not None:
             try:
                 cfg[k] = coerce(k, env)
             except ValueError:
                 pass
-    if os.environ.get("KOMPACT_PRESET", "").isdigit() and int(os.environ["KOMPACT_PRESET"]) in PRESETS:
-        preset = int(os.environ["KOMPACT_PRESET"])
+    if os.environ.get("KOMPACTOR_PRESET", "").isdigit() and int(os.environ["KOMPACTOR_PRESET"]) in PRESETS:
+        preset = int(os.environ["KOMPACTOR_PRESET"])
         cfg.update({k: PRESETS[preset][k] for k in KNOBS})
     cfg["preset"] = preset
     cfg["project"] = root
@@ -185,7 +214,7 @@ def load(cwd: str = "") -> dict:
 
 
 def save(key: str, value) -> None:
-    """CLI helper: `kompact config preset 4` or `kompact config bash_max_lines 150`."""
+    """CLI helper: `kompactor config preset 4` or `kompactor config bash_max_lines 150`."""
     data = read_file()
     if key == "preset":
         data["preset"] = int(value)

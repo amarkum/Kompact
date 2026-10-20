@@ -1,18 +1,18 @@
 # Evidence
 
 Every number here comes from real headless Claude Code sessions (`claude -p`) on public repos, run with
-`kompact prove`. Each task runs three times without Kompact and three times with it, using the same prompt,
+`kompactor prove`. Each task runs three times without Kompactor and three times with it, using the same prompt,
 tools, turn limit and budget cap. The two arms run interleaved, so model drift affects both equally.
 
-- [`REPORT.md`](REPORT.md) is the main result: 9 tasks, 54 sessions, Kompact at level 3 (Balanced),
-  installed as a plugin (hooks and the `/kompact` skill) with the shell prefix on, as `kompact setup` leaves it.
+- [`REPORT.md`](REPORT.md) is the main result: 9 tasks, 54 sessions, Kompactor at level 3 (Balanced),
+  installed as a plugin (hooks and the `/kompactor` skill) with the shell prefix on, as `kompactor setup` leaves it.
   [`results.json`](results.json) has every session: tokens by type, cost, turns, the answer, each tool
-  call with its result size, and Kompact's own ledger.
+  call with its result size, and Kompactor's own ledger.
 - [`EXAMPLE.md`](EXAMPLE.md) shows, side by side, what Claude received for the same failing vitest run
-  without Kompact (15,617 characters, mostly passing tests) and with it (724 characters, exit code kept).
+  without Kompactor (15,617 characters, mostly passing tests) and with it (1,039 characters, exit code kept).
 - [`levels/level-1`](levels/level-1/REPORT.md) and [`levels/level-5`](levels/level-5/REPORT.md) re-run the same
-  27 Kompact sessions at Max quality and Max savings against the same baselines: −4% and −15% tokens,
-  −6% and −11% cost, 27/27 correct at both ends (Balanced: −11% tokens, −8% cost).
+  27 Kompactor sessions at Max quality and Max savings against the same baselines: +3% and −12% tokens,
+  −1% and −10% cost, 27/27 correct at both ends (Balanced: −16% tokens, −10% cost).
 - [`experiments/plain-without-prefix`](experiments/plain-without-prefix/REPORT.md) and
   [`experiments/plain-with-prefix`](experiments/plain-with-prefix/REPORT.md) compare two ways of running the
   three failing-test tasks with "run commands plainly" (no `| tail`). **Without the shell prefix:** +33% tokens.
@@ -21,10 +21,14 @@ tools, turn limit and budget cap. The two arms run interleaved, so model drift a
   2 to 5, and only while the prefix is active.
 
 Notes:
+- An earlier Max-savings round got 2 of 27 answers wrong on the git-history task. In one, the 80-line cap cut
+  a `git log --format=… --name-only` list that Claude had asked for. Output Claude shapes itself (a pipe or a
+  format flag) is now kept verbatim, and the round was re-run.
+- The two experiments under `experiments/` were recorded before the rename, when the tool was called Kompact.
 - The `py-git-history` prompt was clarified after an earlier round. "The last 40 commits" could mean the 40
   most recent commits or the last 40 that touched `src/`, and both arms got it wrong 2 times in 3. Both
   arms were re-run with the new prompt.
 - Token totals add input, cache writes, cache reads and output across every API call in a session,
   including the small helper model Claude Code uses. Cost is Claude Code's own `total_cost_usd`.
 - Reproduce: clone the repos listed in `bench/tasks.json` into one folder, then run
-  `kompact prove --tasks bench/tasks.json --repos <folder> --reps 3`.
+  `kompactor prove --tasks bench/tasks.json --repos <folder> --reps 3`.
