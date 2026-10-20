@@ -139,7 +139,7 @@ svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-w
           <pre><code>git clone <span data-clone>https://github.com/your-org/kompactor.git</span>
 ./<span data-dir>kompactor</span>/install.sh</code></pre></div>
         <div class="card"><b>VS Code</b><span class="muted">Install the extension file from <code>dist/</code> in the repo (or your release page), then click <b>Enable</b> when Kompactor asks.</span>
-          <pre><code>code --install-extension kompactor-0.4.0.vsix</code></pre></div>
+          <pre><code>code --install-extension kompactor-0.4.1.vsix</code></pre></div>
       </div>
       <p class="muted">Windows: run <code>.\kompactor\install.ps1</code> from a clone, or use the VS Code extension. The CLI and the VS Code extension read the same <code>~/.claude/settings.json</code>, so one install covers both. A backup of that file is kept as <code>settings.json.kompactor-backup</code>.</p>
       <p class="muted">Setup adds hooks, a status line (if you don't have one) and, on macOS and Linux, Claude Code's <code>CLAUDE_CODE_SHELL_PREFIX</code> setting pointing at <code>~/.kompactor/bin/kompactor-shell</code>, which is what lets Kompactor compact failing commands. It never replaces a status line or shell prefix you already have. Restart open Claude Code sessions after setup.</p>

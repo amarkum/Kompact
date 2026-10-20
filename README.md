@@ -44,7 +44,7 @@ pipx install "git+https://github.com/your-org/kompactor.git"     # or: uv tool i
 kompactor setup
 ```
 
-**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.4.0.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
+**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.4.1.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
 
 The CLI and the VS Code extension read the same `~/.claude/settings.json`, so one install covers both. Setup adds Kompactor's hooks, a status line (only if you don't have one) and the `/kompactor` skill. On macOS and Linux it also sets `CLAUDE_CODE_SHELL_PREFIX`. It never replaces a status line or shell prefix you already have, and it keeps a backup in `settings.json.kompactor-backup`. `kompactor install --uninstall` removes all of it.
 

@@ -3,8 +3,8 @@
     python scripts/bump_version.py 0.4.1
 
 Teammates' plugins update only when .claude-plugin/plugin.json's version changes, so bump it whenever you
-want everyone to get what's on the default branch. Also updates the Python package and the VS Code extension;
-rebuild the .vsix afterwards with scripts/build-vsix.sh.
+want everyone to get what's on the default branch. Also updates the Python package, the VS Code extension and
+the .vsix name in the docs; rebuild the .vsix afterwards with scripts/build-vsix.sh.
 """
 import json
 import re
@@ -29,7 +29,10 @@ def main(version: str) -> None:
         d = json.loads(p.read_text())
         d["version"] = version
         p.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
-    print(f"version {version}: pyproject.toml, kompactor/__init__.py, plugin.json, vscode/package.json")
+    for rel in ("README.md", "kompactor/static/usage.html", "docs/usage.html"):
+        p = ROOT / rel
+        p.write_text(re.sub(r"kompactor-\d+\.\d+\.\d+\.vsix", f"kompactor-{version}.vsix", p.read_text()))
+    print(f"version {version}: pyproject.toml, kompactor/__init__.py, plugin.json, vscode/package.json, docs")
 
 
 if __name__ == "__main__":

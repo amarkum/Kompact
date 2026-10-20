@@ -124,19 +124,54 @@ def parse_source(url: str) -> dict:
 
 def source() -> dict:
     """Where this copy of Kompactor came from (your team's repo), so setup instructions can name it.
-    Read from the file the installers leave, or the git remote of a clone or plugin install."""
+    Read from the file the installers leave, the git remote of a clone, the marketplace of a plugin
+    install, or the URL pip, pipx and uv record for an install from git."""
     import subprocess
     root = Path(__file__).resolve().parent.parent
-    url = ""
     try:
         if (root / SOURCE_FILE).exists():
             url = (root / SOURCE_FILE).read_text().strip()
-        elif (root / ".git").exists():
-            url = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True,
-                                 text=True, timeout=3).stdout.strip()
+        else:
+            url = _git_remote(root) or _plugin_source(root) or _pip_source(root)
     except (OSError, subprocess.SubprocessError):
         url = ""
     return parse_source(url)
+
+
+def _git_remote(path: Path) -> str:
+    import subprocess
+    if not (path / ".git").exists():  # not a parent repo's remote (a venv inside a project)
+        return ""
+    return subprocess.run(["git", "-C", str(path), "remote", "get-url", "origin"], capture_output=True,
+                          text=True, timeout=3).stdout.strip()
+
+
+def _plugin_source(root: Path) -> str:
+    """Claude Code copies a plugin to plugins/cache/<marketplace>/<plugin>/<version>, without .git;
+    the marketplace's source is in plugins/known_marketplaces.json."""
+    if len(root.parents) < 4 or root.parents[2].name != "cache":
+        return ""
+    entry = _read(root.parents[3] / "known_marketplaces.json").get(root.parents[1].name) or {}
+    src = entry.get("source") or {}
+    kind = src.get("source")
+    if kind == "github" and src.get("repo"):
+        return f"https://github.com/{src['repo']}"
+    if kind == "git":
+        return src.get("url", "")
+    return _git_remote(Path(src["path"])) if kind == "directory" and src.get("path") else ""
+
+
+def _pip_source(root: Path) -> str:
+    """The URL of `pip/pipx/uv install git+…` (PEP 610 direct_url.json), if this copy is that install."""
+    from importlib import metadata
+    try:
+        dist = metadata.distribution("kompactor")
+        if Path(str(dist.locate_file(""))).resolve() != root:
+            return ""
+        info = json.loads(dist.read_text("direct_url.json") or "{}")
+    except (metadata.PackageNotFoundError, OSError, ValueError):
+        return ""
+    return info.get("url", "") if "vcs_info" in info else ""
 
 
 def _read(p: Path) -> dict:

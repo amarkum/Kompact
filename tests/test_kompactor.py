@@ -449,6 +449,8 @@ class DocsTests(unittest.TestCase):
         plugin = json.loads((root / ".claude-plugin/plugin.json").read_text())["version"]
         vsix = json.loads((root / "vscode/package.json").read_text())["version"]
         self.assertEqual({__version__, py, plugin, vsix}, {__version__})  # scripts/bump_version.py keeps them in step
+        for doc in ("README.md", "kompactor/static/usage.html"):
+            self.assertIn(f"kompactor-{__version__}.vsix", (root / doc).read_text(), doc)
 
     def test_plugin_skill_matches_installer(self):
         root = Path(__file__).resolve().parent.parent
@@ -550,6 +552,45 @@ class TurnAndSetupTests(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
             config.path().unlink()
+
+
+class SourceTests(unittest.TestCase):
+    """Each install names the repo it came from, so the dashboard can show teammates the right commands."""
+
+    def test_parse_source(self):
+        self.assertEqual(installer.parse_source("https://ghp_secret@github.com/acme/kompactor.git"),
+                         {"repo": "acme/kompactor", "clone": "https://github.com/acme/kompactor.git",
+                          "marketplace": "acme/kompactor", "dir": "kompactor"})
+        self.assertEqual(installer.parse_source("git@github.com:acme/kompactor.git")["marketplace"], "acme/kompactor")
+        ssh = "ssh://git@gitlab.acme.dev/tools/kompactor.git"
+        self.assertEqual(installer.parse_source(ssh)["clone"], ssh)
+        self.assertEqual(installer.parse_source(""), {})
+
+    def test_plugin_install_reads_its_marketplace(self):
+        plugins = Path(tempfile.mkdtemp(), "plugins")
+        root = plugins / "cache" / "acme-tools" / "kompactor" / "0.4.0"
+        root.mkdir(parents=True)
+        known = plugins / "known_marketplaces.json"
+        for src, want in (({"source": "github", "repo": "acme/kompactor"}, "https://github.com/acme/kompactor"),
+                          ({"source": "git", "url": "https://git.acme.dev/kompactor.git"},
+                           "https://git.acme.dev/kompactor.git"),
+                          ({"source": "directory", "path": str(plugins)}, "")):  # a folder that isn't a clone
+            known.write_text(json.dumps({"acme-tools": {"source": src}}))
+            self.assertEqual(installer._plugin_source(root), want)
+        self.assertEqual(installer._plugin_source(plugins / "elsewhere" / "a" / "b" / "c"), "")
+
+    def test_pip_install_from_git(self):
+        from unittest import mock
+        root = Path(tempfile.mkdtemp()).resolve()
+        dist = mock.Mock()
+        dist.locate_file.return_value = root
+        with mock.patch("importlib.metadata.distribution", return_value=dist):
+            dist.read_text.return_value = json.dumps({"url": "https://github.com/acme/kompactor.git",
+                                                      "vcs_info": {"vcs": "git", "commit_id": "955ccd6"}})
+            self.assertEqual(installer._pip_source(root), "https://github.com/acme/kompactor.git")
+            self.assertEqual(installer._pip_source(root / "other"), "")  # a different copy
+            dist.read_text.return_value = json.dumps({"url": f"file://{root}", "dir_info": {"editable": True}})
+            self.assertEqual(installer._pip_source(root), "")
 
 
 if __name__ == "__main__":
