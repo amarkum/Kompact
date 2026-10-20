@@ -14,8 +14,8 @@ Choose quality vs tokens on a dashboard, and see what every turn saved.</p>
 
 Most of a Claude Code session's tokens aren't your prompt or Claude's answer. They're tool output: test runs, installs, `git log`, whole-file reads. That output is sent again on every later turn until the context is compacted. Kompact shrinks it before Claude reads it. It keeps every error, failing test, your own stack frames and the summary lines. It also gives Claude a local code graph and short rules for terser replies and smaller diffs.
 
-**Measured in 54 real Claude Code sessions** on Flask, Cobra, SWR, ky and zustand, at the default level:
-**−11% tokens, −8% cost, −15% output tokens, same answers (27/27 correct with and without).**
+**Measured in real Claude Code sessions** on Flask, Cobra, SWR, ky and zustand, at the default level:
+**−11% tokens, −8% cost, −15% output tokens, same answers (27/27 correct with and without).** At Max savings: −15% tokens, −11% cost, still 27/27.
 Failing test runs saved the most: **−33% tokens** on a Go test failure and **−37% cost** on a vitest failure.
 [Full results](#evidence)
 
@@ -164,6 +164,14 @@ Kompact borrows the best idea from each of these tools: graphify's code graph, p
 | What does changing `createStore` affect | zustand | +1% | 0% | 2.0 › 2.0 | 3/3 › 3/3 |
 | Most-changed files in the last 40 commits | Flask | +2% | +11% | 3.7 › 3.7 | 3/3 › 3/3 |
 | **Total (54 sessions)** | | **−11%** | **−8%** | | **27/27 › 27/27** |
+
+**The quality-vs-tokens control works in real sessions.** The same 27 Kompact sessions were re-run at each end of the range, against the same baseline:
+
+| Level | Tokens | Cost | Output tokens | Correct |
+|---|---:|---:|---:|---|
+| 1 Max quality | −4% | −6% | −6% | 27/27 |
+| 3 Balanced (default) | −11% | −8% | −15% | 27/27 |
+| 5 Max savings | **−15%** | **−11%** | **−25%** | 27/27 |
 
 What the numbers show:
 - **The wins come from avoided turns.** Every turn re-sends the whole context. The vitest failure was 32K characters of passing tests; Kompact handed Claude 1K characters with the failure, at 37% lower cost. On the Go failure, Claude got the answer in one run instead of piping through `tail` and `grep` three or four times.

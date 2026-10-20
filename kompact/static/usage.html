@@ -244,7 +244,8 @@ kompact graph unused</code></pre>
     "tools": ["Bash(pytest:*)", "Read", "Grep"],
     "max_turns": 8, "expect": ["test_refund_rounding"] } ] }</code></pre>
       <pre><code>kompact prove --tasks my-tasks.json --repos ~/code --reps 3 --out evidence</code></pre>
-      <p class="muted">Each run is capped at $1 by default (<code>--budget</code>). The report lands in <code>evidence/REPORT.md</code>.</p>
+      <p class="muted">Each run is capped at $1 by default (<code>--budget</code>). The report lands in <code>evidence/REPORT.md</code>. Use <code>--preset 1</code> to <code>5</code> to test a level, and <code>--set name=value</code> to test a single setting.</p>
+      <p>Kompact's own results, from 54 sessions on Flask, Cobra, SWR, ky and zustand: <b>11% fewer tokens and 8% lower cost</b> at the default level, and 15% fewer tokens and 11% lower cost at Max savings. Every answer was correct in both arms at every level. Failing test runs gained the most.</p>
     </section>
 
     <section id="trouble">

@@ -8,6 +8,9 @@ tools, turn limit and budget cap. The two arms run interleaved, so model drift a
   installed as a plugin (hooks and the `/kompact` skill) with the shell prefix on, as `kompact setup` leaves it.
   [`results.json`](results.json) has every session: tokens by type, cost, turns, the answer, each tool
   call with its result size, and Kompact's own ledger.
+- [`levels/level-1`](levels/level-1/REPORT.md) and [`levels/level-5`](levels/level-5/REPORT.md) re-run the same
+  27 Kompact sessions at Max quality and Max savings against the same baselines: −4% and −15% tokens,
+  −6% and −11% cost, 27/27 correct at both ends (Balanced: −11% tokens, −8% cost).
 - [`experiments/plain-without-prefix`](experiments/plain-without-prefix/REPORT.md) and
   [`experiments/plain-with-prefix`](experiments/plain-with-prefix/REPORT.md) compare two ways of running the
   three failing-test tasks with "run commands plainly" (no `| tail`). **Without the shell prefix:** +33% tokens.
