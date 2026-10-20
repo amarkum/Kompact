@@ -19,23 +19,23 @@ from . import store
 
 PRESETS = {
     1: {"name": "Max quality", "blurb": "Only trims huge outputs and exact noise. Claude sees almost everything.",
-        "bash": True, "bash_plain": False, "bash_min_tokens": 1500, "bash_max_lines": 600, "max_line_chars": 2000, "grep_per_file": 50, "test_hide_passing": False, "test_boilerplate": False,
+        "bash": True, "bash_wrap": True, "bash_plain": False, "bash_min_tokens": 1500, "bash_max_lines": 600, "max_line_chars": 2000, "grep_per_file": 50, "test_hide_passing": False, "test_boilerplate": False,
         "trim_stack_frames": False, "diff_context": -1, "git_log_compact": False, "read_outline": False,
         "read_outline_lines": 1500, "graph": True, "session_map_tokens": 0, "read_graph_context": False, "read_dedupe": True, "style": "off", "code_style": "normal", "subagent_rules": True, "never_compact": []},
     2: {"name": "Quality", "blurb": "Compacts noisy commands; big files are still read whole.",
-        "bash": True, "bash_plain": False, "bash_min_tokens": 1000, "bash_max_lines": 400, "max_line_chars": 1000, "grep_per_file": 25, "test_hide_passing": True, "test_boilerplate": False,
+        "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 1000, "bash_max_lines": 400, "max_line_chars": 1000, "grep_per_file": 25, "test_hide_passing": True, "test_boilerplate": False,
         "trim_stack_frames": False, "diff_context": -1, "git_log_compact": True, "read_outline": True,
         "read_outline_lines": 800, "graph": True, "session_map_tokens": 0, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "normal", "subagent_rules": True, "never_compact": []},
     3: {"name": "Balanced", "blurb": "Recommended. Outline-first reads, compact tool output, terse replies.",
-        "bash": True, "bash_plain": False, "bash_min_tokens": 300, "bash_max_lines": 200, "max_line_chars": 500, "grep_per_file": 12, "test_hide_passing": True, "test_boilerplate": False,
+        "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 300, "bash_max_lines": 200, "max_line_chars": 500, "grep_per_file": 12, "test_hide_passing": True, "test_boilerplate": False,
         "trim_stack_frames": True, "diff_context": -1, "git_log_compact": True, "read_outline": True,
         "read_outline_lines": 400, "graph": True, "session_map_tokens": 500, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "lean", "subagent_rules": True, "never_compact": []},
     4: {"name": "Savings", "blurb": "Tighter caps, trimmed diff context, smaller file threshold.",
-        "bash": True, "bash_plain": False, "bash_min_tokens": 150, "bash_max_lines": 120, "max_line_chars": 300, "grep_per_file": 8, "test_hide_passing": True, "test_boilerplate": True,
+        "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 150, "bash_max_lines": 120, "max_line_chars": 300, "grep_per_file": 8, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 3, "git_log_compact": True, "read_outline": True,
         "read_outline_lines": 250, "graph": True, "session_map_tokens": 700, "read_graph_context": True, "read_dedupe": True, "style": "full", "code_style": "lean", "subagent_rules": True, "never_compact": []},
     5: {"name": "Max savings", "blurb": "Most aggressive. Claude may need `kompact show` more often.",
-        "bash": True, "bash_plain": False, "bash_min_tokens": 80, "bash_max_lines": 80, "max_line_chars": 200, "grep_per_file": 5, "test_hide_passing": True, "test_boilerplate": True,
+        "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 80, "bash_max_lines": 80, "max_line_chars": 200, "grep_per_file": 5, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 1, "git_log_compact": True, "read_outline": True,
         "read_outline_lines": 150, "graph": True, "session_map_tokens": 900, "read_graph_context": True, "read_dedupe": True, "style": "ultra", "code_style": "lean", "subagent_rules": True, "never_compact": []},
 }
@@ -44,8 +44,15 @@ KNOBS = [k for k in PRESETS[3] if k not in ("name", "blurb")]
 # UI metadata for every knob: label, help, type and range.
 KNOB_INFO = {
     "bash": ("Compact command output", "Shrink Bash/terminal output before Claude reads it.", "bool"),
+    "bash_wrap": ("Compact failing commands too", "Claude Code won't let hooks touch the output of a command that "
+                  "fails, and cuts long failure output down to its first and last few thousand characters, often "
+                  "losing the actual errors. With this on, tests, builds, linters and installs run through Kompact "
+                  "(Claude Code's shell prefix setting) so failures arrive compacted and complete, with the same exit "
+                  "code. Servers and watch modes are never touched.", "bool"),
     "bash_plain": ("Let Kompact trim command output", "Tells Claude to run commands without `| head`, `| tail` or "
-                   "`| grep`: Kompact keeps every failure, so Claude needs fewer follow-up runs.", "bool"),
+                   "`| grep`. Kompact's compaction keeps every failure, while Claude's own trimming can cut the one "
+                   "line that mattered and lead to a re-run. Only used while failing commands are compacted too "
+                   "(shell prefix active).", "bool"),
     "bash_min_tokens": ("Leave outputs smaller than", "Outputs under this many tokens are passed through untouched.",
                         "int", 0, 5000, 50),
     "bash_max_lines": ("Max lines kept per output", "Head and tail are kept; error lines from the middle are always kept.",

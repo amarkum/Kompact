@@ -524,3 +524,79 @@ def _piped(cmd: str) -> bool:
     """Output already shaped by the user's own pipeline/format flags."""
     return bool(re.search(r"(?<!\|)\|(?!\|)", cmd)) or "--format" in cmd or "--pretty" in cmd or "--porcelain" in cmd \
         or "--json" in cmd
+
+
+# ---------------------------------------------------------------------------
+# commands the shell prefix may buffer: finite and noisy (tests, builds, linters,
+# installs). Never servers, watchers or anything interactive: buffering those would
+# hide their output until they exit.
+
+LINTERS = {"tsc", "vue-tsc", "svelte-check", "eslint", "oxlint", "biome", "prettier", "stylelint", "ruff", "mypy",
+           "pyright", "basedpyright", "flake8", "pylint", "black", "isort", "bandit", "golangci-lint", "staticcheck",
+           "revive", "shellcheck", "hadolint", "rubocop", "markdownlint"}
+FINITE_SCRIPT = re.compile(r"^(build|lint|typecheck|type-check|types|check|test|tsc|compile|ci|validate|verify|e2e|"
+                           r"format:check|fmt:check)(:[\w:-]+)?$")
+INSTALL_WORDS = {"install", "i", "ci", "add", "sync", "update", "upgrade", "lock", "remove", "uninstall", "audit",
+                 "outdated", "dedupe", "rebuild", "prune"}
+LONG_RUNNING = re.compile(r"(^|\s)(--watch\w*|-w|--ui|--follow|--serve|--open)(\s|=|$)")
+SAFE_STEPS = {"echo", "printf", "ls", "pwd", "mkdir", "rm", "cp", "mv", "touch", "cat", "which", "true", "false", "git",
+              "rmdir", "ln", "chmod", "date", "wc"}
+
+
+def _wrappable_words(w) -> bool:
+    if not w:
+        return True
+    p, rest = w[0], w[1:]
+    sub = rest[0] if rest else ""
+    if any(a in ("watch", "dev", "serve", "start", "open", "run-server", "runserver", "up") for a in rest[:2]):
+        return False
+    if p in ("pytest", "py.test", "jest", "vitest", "mocha", "ava", "tap", "rspec", "phpunit", "ctest", "tox", "nox",
+             "playwright", "cypress", "gotestsum", "unittest") or p in LINTERS:
+        return True
+    if p == "go":
+        return sub in ("test", "build", "vet", "generate", "install", "mod")
+    if p == "cargo":
+        return sub in ("test", "build", "check", "clippy", "fetch", "doc", "fmt", "nextest")
+    if p in ("npm", "pnpm", "yarn", "bun"):
+        if sub in INSTALL_WORDS or (p == "yarn" and not sub) or sub == "test":
+            return True
+        if sub in ("run", "run-script"):
+            return len(rest) > 1 and bool(FINITE_SCRIPT.match(rest[1]))
+        return p != "npm" and bool(FINITE_SCRIPT.match(sub))
+    if p in ("pip", "pip3", "poetry", "pdm", "uv", "conda", "bundle", "composer"):
+        return sub in INSTALL_WORDS or (sub == "pip" and len(rest) > 1 and rest[1] in INSTALL_WORDS)
+    if p in ("make", "ninja", "cmake"):
+        return not any(a in ("run", "serve", "dev", "watch", "start") for a in rest)
+    if p in ("mvn", "mvnw", "gradle", "gradlew", "./mvnw", "./gradlew"):
+        return not any(a in ("run", "bootRun", "spring-boot:run", "jetty:run", "exec:java", "--continuous", "-t")
+                       for a in rest)
+    if p == "docker":
+        return sub == "build" or (sub in ("compose", "buildx") and "build" in rest[:2])
+    if p in ("next", "vite", "nuxt", "astro", "remix", "expo", "turbo", "nx"):
+        return "build" in rest[:3] or any(FINITE_SCRIPT.match(a.split(":")[-1]) for a in rest[1:3] if sub == "run")
+    if p in ("webpack", "rollup", "esbuild", "tsup", "parcel"):
+        return sub != "serve"
+    return False
+
+
+def wrappable(cmd: str) -> bool:
+    """True when every step of `cmd` is a finite, noisy command (or a trivial setup
+    step), so running it to completion before Claude sees the output is safe."""
+    if not cmd.strip() or "\n" in cmd.strip() or _piped(cmd) or LONG_RUNNING.search(cmd) \
+            or re.search(r"(?<![&>|])&(?![&>])", cmd) or re.search(r"(^|\s)(nohup|setsid|disown|exec)\s", cmd):
+        return False
+    noisy = False
+    for seg in re.split(r"&&|\|\||;", cmd):
+        try:
+            words = shlex.split(seg)
+        except ValueError:
+            return False
+        if not words or words[0] in SETUP_WORDS:
+            continue
+        w = argv0(seg)
+        if w and os.path.basename(w[0]) in SAFE_STEPS:
+            continue
+        if not _wrappable_words(w):
+            return False
+        noisy = True
+    return noisy

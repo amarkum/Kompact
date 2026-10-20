@@ -41,8 +41,18 @@ Existing tools each attack one layer and over-claim. Independent tests found pon
 
 ## 5. Feature layers
 
-### 5.1 Command output (PostToolUse · Bash › `updatedToolOutput`)
+### 5.1 Command output (three paths, one filter set)
 Command-aware filters for git, test runners (pytest, go test, jest, vitest, mocha, playwright), package managers and builds (pip, uv, poetry, npm, pnpm, yarn, go, cargo, vite, next, webpack, docker), listings and search. Generic passes: ANSI and progress removal (only with a real progress signal), exact-duplicate collapsing, number-only collapsing for build output and timestamped logs, line clipping, and head/tail truncation that keeps important lines from the middle. Language profiles trim library stack frames (site-packages, GOROOT/runtime, node_modules), collapse lock-file and generated-file diffs. The raw output is stashed locally and searchable.
+
+Claude Code hands command output to Claude in three different ways, and each needs its own hook point (all verified against Claude Code 2.1 with real sessions):
+
+| Command result | What Claude Code does | What Kompact does |
+|---|---|---|
+| Succeeds, under ~30K chars | `PostToolUse` with the full output | Replaces it via `updatedToolOutput` |
+| Succeeds, over ~30K chars | Saves it to a file, gives hooks only the first 30K chars, shows Claude a 2 KB preview | Reads the saved file, compacts the whole output, drops the file reference so Claude gets the compacted text instead of the preview (plain `cat`/`head` views keep the preview) |
+| Fails (non-zero exit) | Skips `PostToolUse`. `PostToolUseFailure` can only add context. The error text is cut to its first and last ~5K chars, which usually loses the failures at the end of a test run | **Shell prefix.** `CLAUDE_CODE_SHELL_PREFIX` points at `~/.kompact/bin/kompact-shell`, which Claude Code runs as `kompact-shell '<command>'`. Finite, noisy commands (tests, builds, linters, type checks, installs) run to completion, their output is compacted, and the exit code passes through unchanged. Everything else, and everything if Kompact is missing, runs untouched. Permission rules still apply to Claude's original command, because the prefix only acts when the command runs |
+
+Rewriting the command in `PreToolUse` was rejected after testing. Claude Code checks permissions against the rewritten command, so `pytest … | kompact filter` breaks the user's allow rules. It also refuses braces, subshells and `${PIPESTATUS}`, which are the only ways to keep the exit code through a pipe.
 
 ### 5.2 File reads (PreToolUse · Read)
 - **Outline first:** the first full read of a large source file returns its outline (symbols with line ranges, signatures, first docstring line) plus one graph line ("imported by …; tests: …"). Repeating the read returns the file.
@@ -52,7 +62,7 @@ Command-aware filters for git, test runners (pytest, go test, jest, vitest, moch
 ### 5.3 Code graph
 Incremental SQLite graph per project, outside the repo. Python via `ast`; Go and TS/JS/React via targeted parsers. Nodes: files/packages and symbols (functions, methods, classes, structs, interfaces, types, components, hooks, constants). Edges: imports (relative, aliased, `tsconfig` paths, workspace package names), calls, JSX renders, inheritance, decorators; type-only imports are marked.
 - Queries: `query` (topic search over names, docstrings and file names, with usage and callees), `callers`, `deps`, `impact` (dependents and tests to run), `path`, `explain`, `report` (core modules, key files, most used symbols, entry points, import cycles, tests by module), `unused` (dead-code candidates).
-- Used automatically: outline context, a budgeted code map at session start, refresh in the background at session start and after edits.
+- Used automatically: outline context, a budgeted code map the first time Claude searches or reads code (sessions that only run commands don't pay for it), refresh in the background at session start and after edits.
 
 ### 5.4 Reply style (SessionStart, and subagents)
 Two independent dials:
@@ -73,6 +83,8 @@ The preset sets every value; any value can be overridden globally or per project
 | Setting | Type | 1 Max quality | 2 Quality | 3 Balanced | 4 Savings | 5 Max savings |
 |---|---|---|---|---|---|---|
 | Compact command output | bool | on | on | on | on | on |
+| Compact failing commands too (shell prefix) | bool | on | on | on | on | on |
+| Let Kompact trim command output (only with the shell prefix) | bool | off | on | on | on | on |
 | Leave outputs smaller than (tokens) | int | 1500 | 1000 | 300 | 150 | 80 |
 | Max lines kept per output | int | 600 | 400 | 200 | 120 | 80 |
 | Longest line kept (chars) | int | 2000 | 1000 | 500 | 300 | 200 |
@@ -88,7 +100,7 @@ The preset sets every value; any value can be overridden globally or per project
 | Show usages in outlines | bool | off | on | on | on | on |
 | Skip unchanged re-reads | bool | on | on | on | on | on |
 | Code graph | bool | on | on | on | on | on |
-| Code map at session start (tokens) | int | 0 | 0 | 500 | 700 | 900 |
+| Code map on first search or read (tokens) | int | 0 | 0 | 500 | 700 | 900 |
 | Prose style | choice | off | lite | lite | full | ultra |
 | Code style | choice | normal | normal | lean | lean | lean |
 | Apply rules to subagents | bool | on | on | on | on | on |
@@ -107,7 +119,7 @@ General (not part of presets): show savings after each turn, status line, data r
 ## 8. Quality bar
 
 - Data safety tests: grep hits with percentages, coverage tables, kubectl rows, git subjects and `cat` output survive every level; failing tests and user frames survive every level.
-- Hooks: fail open, < 100 ms typical, no permission changes, idempotent install that never replaces a user's status line and keeps a settings backup.
+- Hooks: fail open, < 100 ms typical, no permission changes, idempotent install that never replaces a user's status line or shell prefix and keeps a settings backup. The shell prefix is written to user settings only (never a project's committed `.claude/settings.json`), costs nothing for commands it doesn't handle, and falls back to running the command untouched on any Kompact problem.
 - UI: works offline (bundled fonts), light and dark, phone width, keyboard focus, no console errors (Playwright check).
 - Evidence: real Claude Code A/B runs on Python, Go and TypeScript repos committed under `evidence/`.
 

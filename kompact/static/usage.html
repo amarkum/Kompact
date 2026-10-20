@@ -136,6 +136,7 @@ svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-w
 /plugin install kompact@kompact</code></pre></div>
       </div>
       <p class="muted">Windows: run <code>.\Kompact\install.ps1</code> from a clone, or use the VS Code extension. The CLI and the VS Code extension read the same <code>~/.claude/settings.json</code>, so one install covers both. A backup of that file is kept as <code>settings.json.kompact-backup</code>.</p>
+      <p class="muted">Setup adds hooks, a status line (if you don't have one) and, on macOS and Linux, Claude Code's <code>CLAUDE_CODE_SHELL_PREFIX</code> setting pointing at <code>~/.kompact/bin/kompact-shell</code>, which is what lets Kompact compact failing commands. It never replaces a status line or shell prefix you already have. Restart open Claude Code sessions after setup.</p>
       <p>Open the dashboard any time with <code>kompact ui</code>, or <b>Kompact: Open Dashboard</b> in VS Code.</p>
     </section>
 
@@ -143,8 +144,10 @@ svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-w
       <h2>What happens in a session</h2>
       <p>Kompact works through Claude Code hooks, so it acts on every tool call without Claude having to remember to use it. Your commands run exactly as typed; only what Claude reads changes.</p>
       <div class="flow">
-        <div class="step"><div class="when">Session starts</div><div class="what"><b>Short rules and a code map</b><span>About 150 tokens of reply rules for your level, plus an optional budgeted map of the most depended-on modules. The code graph is built or refreshed in the background.</span></div></div>
+        <div class="step"><div class="when">Session starts</div><div class="what"><b>Short rules</b><span>About 150 tokens of reply rules for your level. The code graph is built or refreshed in the background.</span></div></div>
         <div class="step"><div class="when">Claude runs a command</div><div class="what"><b>Output is compacted</b><span>Passing tests, progress bars, download chatter, library stack frames and lock-file diffs are removed. Errors, failures, your own frames and summaries stay. The full output is stashed and Claude is told how to get it.</span></div></div>
+        <div class="step"><div class="when">A command fails, or prints a lot</div><div class="what"><b>Still compacted, still complete</b><span>Claude Code cuts a failing command's output to its first and last few thousand characters, which usually drops the failures at the end of a test run, and it replaces very long output with a 2 KB preview. Kompact's shell prefix runs tests, builds, linters and installs to completion and hands Claude the failures and summary, with the exit code unchanged. Long outputs are compacted from Claude Code's saved copy.</span></div></div>
+        <div class="step"><div class="when">Claude first searches or reads code</div><div class="what"><b>Code map, once</b><span>A budgeted map of the most depended-on modules (Balanced and up). Sessions that only run commands don't pay for it.</span></div></div>
         <div class="step"><div class="when">Claude opens a big file</div><div class="what"><b>Outline first</b><span>The first full read of a large source file returns its outline with line ranges and who imports it. Claude then reads only the ranges it needs. Repeating the read returns the whole file.</span></div></div>
         <div class="step"><div class="when">Claude edits code</div><div class="what"><b>Graph refresh</b><span>Changed files are re-indexed in the background, so later lookups see the new code.</span></div></div>
         <div class="step"><div class="when">A subagent starts</div><div class="what"><b>Same rules</b><span>Subagents get the same prose and code rules as the main agent.</span></div></div>
@@ -251,7 +254,9 @@ kompact graph unused</code></pre>
       <h3>Claude can't run <code>kompact</code></h3>
       <p>Installs from VS Code or a clone add a launcher at <code>~/.kompact/bin/kompact</code>, which Claude can always call. Add <code>~/.kompact/bin</code> to your PATH if you want to type <code>kompact</code> yourself.</p>
       <h3>Turn it off</h3>
-      <p>Dashboard › Setup › <b>Disable</b>, or <code>kompact install --uninstall</code>. Your other hooks and your own status line are never touched.</p>
+      <p>Dashboard › Setup › <b>Disable</b>, or <code>kompact install --uninstall</code>. This removes the hooks, the status line and the shell prefix. Your other hooks and your own status line are never touched. To keep everything except the shell prefix, turn off <b>Compact failing commands too</b> on the dashboard or run <code>kompact install --no-shell-prefix</code>.</p>
+      <h3>Every command fails with <code>kompact-shell: not found</code></h3>
+      <p><code>~/.kompact</code> was deleted while Kompact was still set up. Remove the <code>CLAUDE_CODE_SHELL_PREFIX</code> line from <code>~/.claude/settings.json</code>, or reinstall and run <code>kompact install --uninstall</code>. If Kompact itself is broken or removed but the script is still there, commands simply run untouched.</p>
       <h3>Where is my data?</h3>
       <p>In <code>~/.kompact</code>: settings (<code>config.json</code>), the savings history and stashed outputs (<code>kompact.db</code>, pruned after 30 days by default) and code graphs (<code>graphs/</code>). Nothing is sent anywhere.</p>
     </section>
@@ -259,9 +264,9 @@ kompact graph unused</code></pre>
     <section id="faq">
       <h2>FAQ</h2>
       <h3>Does it change what my commands do?</h3>
-      <p>No. Commands run exactly as written, with your normal permissions. Kompact only changes the text Claude reads afterwards.</p>
+      <p>No. Commands run exactly as written, with your normal permissions: Claude Code checks Claude's command against your rules before Kompact is involved. Kompact only changes the text Claude reads afterwards. The one visible difference: for tests, builds, linters and installs, the shell prefix collects the output until the command finishes, so those lines don't stream live in the terminal. Servers, watch modes and every other command stream as usual, and the exit code is always the command's own.</p>
       <h3>Does it slow Claude Code down?</h3>
-      <p>Each hook takes about 50 to 90 ms, far less than a model turn. Code graphs build in under a second for most repos, in the background for big ones.</p>
+      <p>Each hook takes about 50 to 90 ms, far less than a model turn. The shell prefix adds about 50 ms to test, build and lint commands and nothing measurable to the rest. Code graphs build in under a second for most repos, in the background for big ones.</p>
       <h3>How is this different from graphify, ponytail or caveman?</h3>
       <p>Each of those covers one layer. Kompact covers command output, file reads, code navigation, reply length and code size together, acts automatically through hooks, keeps its own instructions small, and measures the result in real A/B sessions. The README has a feature-by-feature comparison.</p>
       <h3>Will Claude miss something important?</h3>

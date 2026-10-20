@@ -42,8 +42,22 @@ def post_bash(event: dict, cfg: dict) -> None:
     if any(words.startswith(c.strip()) for c in cfg.get("never_compact", []) if c.strip()):
         return
     out, err = resp.get("stdout") or "", resp.get("stderr") or ""
-    if "[kompact: " in out[-400:]:  # already compacted (e.g. hooks registered twice)
+    if "[kompact: " in out[-400:]:  # already compacted (shell prefix, or hooks registered twice)
         return
+    # Claude Code saves outputs over ~30K characters to a file and shows Claude a 2 KB preview of it;
+    # hooks get only the head. Compact the whole output instead, and drop the file reference so Claude
+    # sees the compacted text rather than the preview.
+    full = None
+    if resp.get("persistedOutputPath"):
+        if filters.classify(cmd) == "view":  # cat/head of a huge file: the preview and saved path serve Claude better
+            return
+        full = _persisted(resp)
+        if full is None:
+            return
+    shown = None
+    if full is not None:
+        shown = tokens.count(full[:2048]) + 60
+        out = full
     raw_tokens = tokens.count(out) + tokens.count(err)
     if raw_tokens < cfg["bash_min_tokens"]:
         return
@@ -52,13 +66,52 @@ def post_bash(event: dict, cfg: dict) -> None:
     sid = store.stash(cmd, out + ("\n--- stderr ---\n" + err if err else ""))
     new_out = filters.compress(cmd, out, code, stash_id=sid, opts=cfg) if out else ""
     new_err = filters.compress(cmd, err, code, stash_id=sid, opts=cfg) if err else ""
+    new_out = _fit(new_out, PERSIST_LIMIT) if full is not None else new_out
     kept = tokens.count(new_out) + tokens.count(new_err)
-    if kept > raw_tokens * 0.9:  # not worth changing what Claude sees
+    if kept > raw_tokens * 0.9 and full is None:  # not worth changing what Claude sees
         return
     new_out += f"\n[kompact: {raw_tokens}›{kept} tokens; full output: {installer.cli_name()} show {sid}]"
-    store.record("bash", raw_tokens, kept, cmd, event.get("session_id", ""), project=cfg["project"])
+    store.record("bash", raw_tokens if shown is None else shown, kept, cmd, event.get("session_id", ""),
+                 project=cfg["project"])
+    resp = {k: v for k, v in resp.items() if k not in ("persistedOutputPath", "persistedOutputSize")}
     _emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                   "updatedToolOutput": {**resp, "stdout": new_out, "stderr": new_err}}})
+
+
+PERSIST_READ = 8_000_000
+PERSIST_LIMIT = 25_000  # stay under Claude Code's ~30K-character limit, or it would save our text to a file too
+
+
+def _persisted(resp: dict):
+    path = resp.get("persistedOutputPath")
+    if not isinstance(path, str) or not path:
+        return None
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read(PERSIST_READ)
+    except OSError:
+        return None
+
+
+def _fit(text: str, limit: int) -> str:
+    """Keep whole lines from the head (2/3) and tail (1/3) of text within limit characters."""
+    if len(text) <= limit:
+        return text
+    lines = text.split("\n")
+    head, tail, size, i, j = [], [], 0, 0, len(lines) - 1
+    while i <= j:
+        from_head = len(head) < 2 * (len(tail) + 1)
+        ln = lines[i] if from_head else lines[j]
+        if size + len(ln) + 1 > limit - 80:
+            break
+        size += len(ln) + 1
+        if from_head:
+            head.append(ln)
+            i += 1
+        else:
+            tail.append(ln)
+            j -= 1
+    return "\n".join(head + [f"… {j - i + 1} lines omitted …"] + tail[::-1])
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +225,8 @@ def _read(path: str) -> str:
 def _rules(cfg: dict) -> str:
     tools = bool(cfg.get("bash") or cfg.get("read_outline") or cfg.get("graph"))
     return rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools,
-                       plain=bool(cfg.get("bash") and cfg.get("bash_plain")))
+                       plain=bool(cfg.get("bash") and cfg.get("bash_plain") and cfg.get("bash_wrap")
+                                  and installer.prefix_active()))
 
 
 def subagent_start(event: dict, cfg: dict) -> None:

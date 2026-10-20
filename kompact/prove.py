@@ -89,6 +89,8 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
     home = run_dir / "kompact"
     home.mkdir(parents=True)
     env = dict(os.environ, KOMPACT_HOME=str(home))
+    env.pop(installer.PREFIX_ENV, None)
+    env.pop("CLAUDE_CODE_SESSION_ID", None)  # when run from inside Claude Code; each run has its own session
     tools = list(task["tools"])
     session_id = str(uuid.uuid4())
     args = ["claude", "-p", task["prompt"], "--output-format", "json", "--max-turns", str(task.get("max_turns", 10)),
@@ -99,6 +101,11 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
         settings.write_text(json.dumps(hook_settings()))
         args += ["--settings", str(settings)]
         tools += [f"Bash({installer.cli_name()}:*)"]
+        prefix = run_dir / "kompact-shell"  # what `kompact setup` installs as ~/.kompact/bin/kompact-shell
+        prefix.write_text(installer.SHELL_PREFIX.format(py=sys.executable or "python3",
+                                                        script=Path(installer.__file__).with_name("_launch.py")))
+        prefix.chmod(0o755)
+        env[installer.PREFIX_ENV] = str(prefix)
     args += ["--allowedTools", ",".join(tools)]
     if model:
         args += ["--model", model]

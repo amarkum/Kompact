@@ -219,11 +219,21 @@ def cmd_estimate(a):
 
 def cmd_install(a):
     target = installer.install("project" if a.project else "user", statusline=not a.no_statusline,
-                               uninstall=a.uninstall)
+                               uninstall=a.uninstall, shell_prefix=not a.no_shell_prefix)
     print(f"{'Removed' if a.uninstall else 'Installed'} Kompact hooks in {target}")
     if not a.uninstall:
         print("New Claude Code sessions (CLI and VS Code) will use them. Settings: `kompact ui`.")
+        _prefix_note(installer.status())
     return 0
+
+
+def _prefix_note(st):
+    note = {"kompact": "Shell prefix: on (failing tests and builds are compacted too)",
+            "other": "Shell prefix: another tool already sets CLAUDE_CODE_SHELL_PREFIX, so failing commands are "
+                     "not compacted",
+            "missing": "Shell prefix: its script is missing; run `kompact setup` again",
+            "none": "Shell prefix: off (only commands that succeed are compacted)"}[st["shell_prefix"]]
+    print(f"  {note}")
 
 
 def cmd_setup(a):
@@ -233,6 +243,7 @@ def cmd_setup(a):
     print("✓ Kompact plugin is enabled; hooks are active." if st["plugin_enabled"] else f"✓ Hooks installed in {target}")
     print(f"  Claude Code CLI:   {'found' if st['claude_cli'] else 'not found'}")
     print(f"  VS Code extension: {st['vscode_extension'] or 'not found'} (uses the same settings)")
+    _prefix_note(st)
     if a.no_ui:
         return 0
     print("Opening the dashboard to choose your quality level…")
@@ -348,6 +359,8 @@ def main(argv=None):
     p.add_argument("--project", action="store_true", help="write .claude/settings.json instead of ~/.claude")
     p.add_argument("--uninstall", action="store_true")
     p.add_argument("--no-statusline", action="store_true")
+    p.add_argument("--no-shell-prefix", action="store_true",
+                   help="don't set CLAUDE_CODE_SHELL_PREFIX (then commands that fail are not compacted)")
     p.set_defaults(fn=cmd_install)
 
     p = sp.add_parser("statusline", help="(internal) Claude Code status line")
