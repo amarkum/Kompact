@@ -274,7 +274,8 @@ class HookTests(unittest.TestCase):
 
     def test_session_start_injects_rules(self):
         out = run_hook("session-start", {"session_id": "s", "source": "startup"})
-        self.assertIn("Token discipline", out["additionalContext"])
+        self.assertIn("[kompact]", out["additionalContext"])
+        self.assertIn("Lead with the answer", out["additionalContext"])
 
     def test_bad_input_fails_open(self):
         sys.stdin = io.StringIO("not json")
@@ -344,11 +345,11 @@ class PresetAndLanguageTests(unittest.TestCase):
         data["projects"][str(Path(d).resolve())] = {"preset": 5, "overrides": {}}
         config.write_file(data)
         g = config.load(tempfile.mkdtemp())
-        self.assertEqual((g["preset"], g["bash_max_lines"], g["style"]), (2, 77, "off"))
+        self.assertEqual((g["preset"], g["bash_max_lines"], g["style"], g["code_style"]), (2, 77, "lite", "normal"))
         sub = Path(d, "pkg")
         sub.mkdir()
         p = config.load(str(sub))
-        self.assertEqual((p["preset"], p["style"], p["languages"]), (5, "full", ["go"]))
+        self.assertEqual((p["preset"], p["style"], p["languages"]), (5, "ultra", ["go"]))
         self.assertEqual(p["bash_max_lines"], 77)  # global override still applies
 
     def test_detect_react(self):

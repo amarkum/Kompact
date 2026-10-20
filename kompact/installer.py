@@ -95,17 +95,24 @@ def status(project: str = "") -> dict:
 
 SKILL = """---
 name: kompact
-description: Kompact token saver. Use when the user says /kompact, asks how many tokens Kompact saved, or wants to change its quality vs tokens level or open its dashboard.
+description: Kompact token saver and code graph. Use when the user says /kompact (status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
-Kompact compacts tool output to save tokens. Run these with Bash and report the result briefly:
+Run these with Bash and report briefly. Kompact token saver.
 
-- Show savings: `{cmd} gain`
-- List the quality vs tokens levels: `{cmd} presets`
-- Change level (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings): `{cmd} config preset <N>`
-  Map words like "max savings", "balanced", "more quality" to the closest level.
-- Open the settings dashboard: run `{cmd} ui --no-browser` in the background and give the user the printed URL.
-- Raw output that Kompact compacted: `{cmd} show <id>`
+Levels: `{cmd} presets`; change with `{cmd} config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
+Savings: `{cmd} gain`. Dashboard: start `{cmd} ui --no-browser` in the background and give the user the URL.
+
+Code graph (local, instant):
+- `{cmd} graph query "words"` find code by topic; `{cmd} graph explain Name` one symbol, its users and tests
+- `{cmd} graph callers Name` · `{cmd} graph impact <file|Name>` what a change affects and which tests to run
+- `{cmd} graph report` overview · `{cmd} symbol Name` print a definition
+
+/kompact review: run `git diff HEAD`, then list concrete cuts, one line each (file:line, what to remove, why): code that duplicates an existing helper (check with graph query), options or abstractions nobody asked for, dead branches. Never cut validation, error handling, security or accessibility.
+/kompact audit: run `{cmd} graph unused` and `{cmd} graph report`; rank removals (likely dead first) with risks. Don't edit unless asked.
+/kompact debt: run `{cmd} debt` and summarize by severity.
+
+Compacted output in full: `{cmd} show <id>`; search earlier outputs: `{cmd} search "text"`.
 """
 
 
@@ -153,7 +160,7 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
                 skill.parent.rmdir()
             except OSError:
                 pass
-    elif not via_plugin and (not skill.exists() or "Kompact token saver" in skill.read_text()):
+    elif not via_plugin and (not skill.exists() or "Kompact token saver" in skill.read_text()):  # never clobber
         skill.parent.mkdir(parents=True, exist_ok=True)
         skill.write_text(SKILL.format(cmd=cli_name()))
     target.parent.mkdir(parents=True, exist_ok=True)

@@ -132,6 +132,10 @@ def cmd_graph(a):
         elif a.action == "map":
             graph.ensure(root)
             print(graph.session_map(root, a.budget or 800))
+        elif a.action == "unused":
+            print(graph.unused_text(root, a.budget or 1500))
+        elif a.action == "explain":
+            print(graph.explain_text(root, a.args[0] if a.args else "", a.budget or 1200))
         elif a.action == "stats":
             v = graph.viz(root)
             print(json.dumps({k: v[k] for k in ("files", "symbols", "refs", "units", "approx_source_tokens",
@@ -386,12 +390,18 @@ def main(argv=None):
     p.set_defaults(fn=cmd_config)
 
     p = sp.add_parser("graph", help="code graph: build, report, query, callers, deps, impact, path, map")
-    p.add_argument("action", choices=["build", "report", "query", "callers", "deps", "impact", "path", "map", "stats"])
+    p.add_argument("action", choices=["build", "report", "query", "callers", "deps", "impact", "path", "explain",
+                                      "unused", "map", "stats"])
     p.add_argument("args", nargs="*")
     p.add_argument("--root", help="project directory (default: current project)")
     p.add_argument("--budget", type=int, help="max tokens of output")
     p.add_argument("--full", action="store_true", help="rebuild from scratch")
     p.set_defaults(fn=cmd_graph)
+
+    p = sp.add_parser("debt", help="ledger of shortcut:/FIXME/HACK/TODO comments")
+    p.add_argument("--root")
+    p.set_defaults(fn=lambda a: print(__import__("kompact.graph", fromlist=["graph"]).debt_text(
+        config.project_root(a.root or os.getcwd()) or os.getcwd())) or 0)
 
     p = sp.add_parser("presets", help="list quality-vs-tokens levels")
     p.add_argument("--json", action="store_true")

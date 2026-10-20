@@ -21,23 +21,23 @@ PRESETS = {
     1: {"name": "Max quality", "blurb": "Only trims huge outputs and exact noise. Claude sees almost everything.",
         "bash": True, "bash_min_tokens": 1500, "bash_max_lines": 600, "max_line_chars": 2000, "grep_per_file": 50, "test_hide_passing": False, "test_boilerplate": False,
         "trim_stack_frames": False, "diff_context": -1, "git_log_compact": False, "read_outline": False,
-        "read_outline_lines": 1500, "graph": True, "session_map_tokens": 0, "read_graph_context": False, "read_dedupe": True, "style": "off"},
+        "read_outline_lines": 1500, "graph": True, "session_map_tokens": 0, "read_graph_context": False, "read_dedupe": True, "style": "off", "code_style": "normal", "subagent_rules": True, "never_compact": []},
     2: {"name": "Quality", "blurb": "Compacts noisy commands; big files are still read whole.",
         "bash": True, "bash_min_tokens": 1000, "bash_max_lines": 400, "max_line_chars": 1000, "grep_per_file": 25, "test_hide_passing": True, "test_boilerplate": False,
         "trim_stack_frames": False, "diff_context": -1, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 800, "graph": True, "session_map_tokens": 0, "read_graph_context": True, "read_dedupe": True, "style": "off"},
+        "read_outline_lines": 800, "graph": True, "session_map_tokens": 0, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "normal", "subagent_rules": True, "never_compact": []},
     3: {"name": "Balanced", "blurb": "Recommended. Outline-first reads, compact tool output, terse replies.",
         "bash": True, "bash_min_tokens": 300, "bash_max_lines": 200, "max_line_chars": 500, "grep_per_file": 12, "test_hide_passing": True, "test_boilerplate": False,
         "trim_stack_frames": True, "diff_context": -1, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 400, "graph": True, "session_map_tokens": 500, "read_graph_context": True, "read_dedupe": True, "style": "lite"},
+        "read_outline_lines": 400, "graph": True, "session_map_tokens": 500, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "lean", "subagent_rules": True, "never_compact": []},
     4: {"name": "Savings", "blurb": "Tighter caps, trimmed diff context, smaller file threshold.",
         "bash": True, "bash_min_tokens": 150, "bash_max_lines": 120, "max_line_chars": 300, "grep_per_file": 8, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 3, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 250, "graph": True, "session_map_tokens": 700, "read_graph_context": True, "read_dedupe": True, "style": "lite"},
+        "read_outline_lines": 250, "graph": True, "session_map_tokens": 700, "read_graph_context": True, "read_dedupe": True, "style": "full", "code_style": "lean", "subagent_rules": True, "never_compact": []},
     5: {"name": "Max savings", "blurb": "Most aggressive. Claude may need `kompact show` more often.",
         "bash": True, "bash_min_tokens": 80, "bash_max_lines": 80, "max_line_chars": 200, "grep_per_file": 5, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 1, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 150, "graph": True, "session_map_tokens": 900, "read_graph_context": True, "read_dedupe": True, "style": "full"},
+        "read_outline_lines": 150, "graph": True, "session_map_tokens": 900, "read_graph_context": True, "read_dedupe": True, "style": "ultra", "code_style": "lean", "subagent_rules": True, "never_compact": []},
 }
 KNOBS = [k for k in PRESETS[3] if k not in ("name", "blurb")]
 
@@ -68,8 +68,15 @@ KNOB_INFO = {
     "read_graph_context": ("Show usages in outlines", "Outlines also say which modules import the file and which "
                            "tests cover it.", "bool"),
     "read_dedupe": ("Skip unchanged re-reads", "Re-reading an unchanged file gets a short note (once).", "bool"),
-    "style": ("Reply style", "Rules added at session start: off, lite (no filler), full (terse + minimal code).",
-              "choice", ["off", "lite", "full"]),
+    "style": ("Prose style", "How Claude writes: off, lite (answer first, no recap), full (short sentences, no "
+              "narration), ultra (telegraphic). Code, commands and errors are never shortened.",
+              "choice", ["off", "lite", "full", "ultra"]),
+    "code_style": ("Code style", "How much code Claude writes: normal, lean (reuse first, smallest diff, check callers "
+                   "and tests), strict (also proposes a smaller alternative before building).",
+                   "choice", ["normal", "lean", "strict"]),
+    "subagent_rules": ("Apply rules to subagents", "Subagents get the same prose and code rules.", "bool"),
+    "never_compact": ("Never compact these commands", "Commands whose output is always passed through untouched, "
+                      "comma separated (e.g. terraform plan, kubectl describe).", "list"),
 }
 
 GENERAL = {"turn_summary": True, "statusline": True, "retention_days": 30}
@@ -128,6 +135,9 @@ def coerce(key: str, value):
         return max(info[3], min(info[4], int(value)))
     if info[2] == "choice" and value not in info[3]:
         raise ValueError(f"{key} must be one of {info[3]}")
+    if info[2] == "list":
+        items = value if isinstance(value, list) else str(value).split(",")
+        return [str(v).strip() for v in items if str(v).strip()][:50]
     return value
 
 

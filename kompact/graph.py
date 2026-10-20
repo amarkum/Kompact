@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS refs (file TEXT, scope TEXT, name TEXT, kind TEXT, li
 CREATE INDEX IF NOT EXISTS refs_name ON refs(name);
 CREATE INDEX IF NOT EXISTS refs_file ON refs(file);
 CREATE TABLE IF NOT EXISTS imports (file TEXT, target TEXT, resolved TEXT, names TEXT, type_only INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS idents (file TEXT, name TEXT, count INTEGER);
+CREATE INDEX IF NOT EXISTS idents_name ON idents(name);
 CREATE INDEX IF NOT EXISTS imports_file ON imports(file);
 CREATE INDEX IF NOT EXISTS imports_resolved ON imports(resolved);
 """
@@ -70,7 +72,7 @@ class _Conn(sqlite3.Connection):
             self.close()
 
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
 
 def connect(root: str) -> _Conn:
@@ -182,11 +184,12 @@ def parse_python(path: str, src: str):
                     walk(ast.Module(body=[child], type_ignores=[]), scope, cls)
                 continue
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                qual = f"{cls}.{n.name}" if cls else n.name
+                nested = bool(scope) and not cls  # a def inside a function body
+                qual = f"{cls}.{n.name}" if cls else (f"{scope}.{n.name}" if nested else n.name)
                 deco = "".join(f"@{_attr_tail(d) or ast.unparse(d)} " for d in n.decorator_list)
-                syms.append((n.name, "method" if cls else "function", cls or "", n.lineno, n.end_lineno,
-                             deco + _py_sig(n, lines), _first_doc_line(ast.get_docstring(n) or ""),
-                             int(not n.name.startswith("_"))))
+                syms.append((n.name, "method" if cls else "function", cls or (scope if nested else ""), n.lineno,
+                             n.end_lineno, deco + _py_sig(n, lines), _first_doc_line(ast.get_docstring(n) or ""),
+                             int(not n.name.startswith("_") and not nested)))
                 for d in n.decorator_list:
                     t = _attr_tail(d)
                     if t:
@@ -222,6 +225,21 @@ def parse_python(path: str, src: str):
                 walk(n, scope, cls)
 
     walk(tree, "", None)
+    idents = Counter()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Name):
+            idents[n.id] += 1
+        elif isinstance(n, ast.Attribute):
+            idents[n.attr] += 1
+        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            idents[n.name] += 1
+        elif isinstance(n, ast.alias):
+            idents[n.name.split(".")[-1]] += 1
+            if n.asname:
+                idents[n.asname] += 1
+        elif isinstance(n, ast.Constant) and isinstance(n.value, str) and re.fullmatch(r"[A-Za-z_]\w*", n.value):
+            idents[n.value] += 1  # __all__ entries, getattr(obj, "name"), string registries
+    IDENTS[path] = idents
     for n in tree.body:  # module-level CONSTANTS are symbols too
         if isinstance(n, (ast.Assign, ast.AnnAssign)):
             targets = n.targets if isinstance(n, ast.Assign) else [n.target]
@@ -255,9 +273,21 @@ GO_KEYWORDS = {"if", "for", "switch", "func", "return", "make", "len", "append",
                "clear", "uintptr", "any"}
 
 
+IDENTS = {}  # path -> Counter of identifier occurrences, filled by the parsers
+IDENT = re.compile(r"[A-Za-z_$][\w$]*")
+
+
+def _regex_idents(path: str, clean: str, src: str) -> None:
+    counts = Counter(IDENT.findall(clean))
+    for lit in re.findall(r"""["'`]([A-Za-z_$][\w$]*)["'`]""", src):  # string registries / reflection
+        counts[lit] += 1
+    IDENTS[path] = counts
+
+
 def parse_go(path: str, src: str):
     lines = src.splitlines()
     clean = _blank(src)
+    _regex_idents(path, clean, src)
     syms, refs, imps = [], [], []
     for m in GO_IMPORT_ONE.finditer(src):
         imps.append((m.group(2), 0, m.group(1) or "", 0))
@@ -332,6 +362,7 @@ TS_METHOD = re.compile(r"^(?P<ind>[ \t]+)(?:(?:public|private|protected|static|a
 def parse_ts(path: str, src: str):
     lines = src.splitlines()
     clean = _blank(src)
+    _regex_idents(path, clean, src)
     clines = clean.splitlines()
     syms, refs, imps, spans = [], [], [], []
     for m in TS_IMPORT.finditer(src):
@@ -343,12 +374,13 @@ def parse_ts(path: str, src: str):
     for m in re.finditer(r"^export\s*\{([^}]*)\}", clean, re.M):
         exported |= {p.split(" as ")[0].strip() for p in m.group(1).split(",") if p.strip()}
     for m in TS_DECL.finditer(clean):
-        if len(m.group("ind").expandtabs(4)) > 0 and m.group("kind") in ("const", "let", "var"):
+        nested = len(m.group("ind").expandtabs(4)) > 0
+        if nested and m.group("kind") in ("const", "let", "var"):
             continue
         line = clean.count("\n", 0, m.start()) + 1
         name, kind = m.group("name"), m.group("kind").rstrip("*")
         text = lines[line - 1]
-        is_exported = bool(m.group("exp")) or name in exported
+        is_exported = (bool(m.group("exp")) or name in exported) and not nested
         if kind in ("const", "let", "var"):
             if re.search(r"=\s*(async\s*)?(\([^)]*\)|[\w$]+)\s*(:\s*[^=]+)?=>|=\s*(async\s+)?function\b|"
                          r"=\s*(React\.)?(memo|forwardRef|lazy)\(|=\s*styled[.(]|=\s*create\w*\(", text):
@@ -568,7 +600,7 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
     parsed = skipped = errors = 0
     with connect(root) as db:
         if full:
-            for t in ("files", "symbols", "refs", "imports"):
+            for t in ("files", "symbols", "refs", "imports", "idents"):
                 db.execute(f"DELETE FROM {t}")
         known = {r[0]: (r[1], r[2]) for r in db.execute("SELECT path, mtime_ns, size FROM files")}
         current = set(all_files)
@@ -613,6 +645,7 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
             db.executemany("INSERT INTO refs VALUES (?,?,?,?,?)", [(f, *r) for r in refs])
             db.executemany("INSERT INTO imports VALUES (?,?,?,?,?)",
                            [(f, t, resolver.resolve(f, t, lvl, names), names, tonly) for t, lvl, names, tonly in imps])
+            db.executemany("INSERT INTO idents VALUES (?,?,?)", [(f, n, c) for n, c in IDENTS.pop(f, {}).items()])
             parsed += 1
         stats = {"files": len(all_files), "parsed": parsed, "unchanged": skipped, "errors": errors,
                  "seconds": round(time.time() - t0, 2), "built": time.time()}
@@ -625,7 +658,7 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
 
 
 def _forget(db, f):
-    for t, col in (("files", "path"), ("symbols", "file"), ("refs", "file"), ("imports", "file")):
+    for t, col in (("files", "path"), ("symbols", "file"), ("refs", "file"), ("imports", "file"), ("idents", "file")):
         db.execute(f"DELETE FROM {t} WHERE {col}=?", (f,))
 
 
@@ -1074,6 +1107,88 @@ def import_cycles(g: Graph, limit: int = 8):
     return out[:limit]
 
 
+IMPLICIT_METHODS = {
+    # called by the runtime or a framework, not by name in the repo
+    "String", "Error", "ServeHTTP", "Read", "Write", "Close", "Len", "Less", "Swap", "MarshalJSON", "UnmarshalJSON",
+    "MarshalText", "UnmarshalText", "Format", "Unwrap", "Is", "As", "Scan", "Value", "init", "main", "TestMain",
+    "setUp", "tearDown", "setUpClass", "tearDownClass", "asyncSetUp", "asyncTearDown", "run", "handle", "get", "post",
+    "put", "patch", "delete", "dispatch", "render", "componentDidMount", "componentDidUpdate", "componentWillUnmount",
+    "getDerivedStateFromProps", "shouldComponentUpdate", "constructor", "toString", "toJSON", "default", "handler",
+    "middleware", "loader", "action", "generateMetadata", "generateStaticParams", "getServerSideProps",
+    "getStaticProps", "getStaticPaths",
+}
+ROUTE_FILE = re.compile(r"(^|/)(pages|app)/.*\.(tsx?|jsx?)$|(^|/)(page|layout|route|loading|error|middleware)\.(tsx?|jsx?)$|"
+                        r"(^|/)(manage|wsgi|asgi|conftest|setup|__main__)\.py$|(^|/)migrations/")
+
+
+def unused(root: str):
+    """Symbols whose name appears nowhere else in the repo. Returns (likely_dead, maybe_public)."""
+    g = load(root)
+    with connect(g.root) as db:
+        totals = dict(db.execute("SELECT name, SUM(count) FROM idents GROUP BY name"))
+    defs = Counter(s["name"] for s in g.symbols)
+    dead, public = [], []
+    for s in g.symbols:
+        f, n = s["file"], s["name"]
+        info = g.files.get(f, {})
+        if info.get("lang") not in ("python", "go", "ts") or info.get("test") or info.get("generated") \
+                or AUX_FILE.search(f) or ROUTE_FILE.search(f):
+            continue
+        if n.startswith("__") or n in IMPLICIT_METHODS or re.match(r"(test|Test|Benchmark|Example|Fuzz)", n):
+            continue
+        if s["signature"].startswith("@"):  # decorated: registered with a framework (routes, fixtures, CLI)
+            continue
+        if s["kind"] == "method" and defs[n] > 1:  # an override / interface implementation
+            continue
+        if totals.get(n, 0) > defs[n]:  # used somewhere besides its own definition(s)
+            continue
+        (public if s["exported"] else dead).append(s)
+    key = lambda s: (s["file"], s["start"])  # noqa: E731
+    return sorted(dead, key=key), sorted(public, key=key)
+
+
+def unused_text(root: str, budget: int = 1500) -> str:
+    dead, public = unused(root)
+    if not dead and not public:
+        return "No unused functions, classes or methods found."
+    out = [f"Unused code candidates: {len(dead)} likely dead, {len(public)} exported but unreferenced"]
+    if dead:
+        out.append("likely dead (private or local; nothing references the name):")
+        out += [f"  {_loc(s)}  {s['kind']} {_qual(s)}" for s in dead]
+    if public:
+        out.append("exported but unreferenced in this repo (may be public API):")
+        out += [f"  {_loc(s)}  {s['kind']} {_qual(s)}" for s in public]
+    out.append("Check before deleting: dynamic calls, reflection and external users are not visible to the graph.")
+    return _fit(out, budget)
+
+
+DEBT = re.compile(r"(?:(?:^|\s)(?:#|//|/\*+|<!--)|^\s*\*)\s*(shortcut|FIXME|BUG|HACK|XXX|TODO)\b[\s:(\-]*(.*)", re.I)
+
+
+def debt_text(root: str, budget: int = 1500) -> str:
+    """Ledger of shortcut:/FIXME/HACK/TODO comments, most serious first."""
+    order = {"bug": 0, "fixme": 1, "hack": 2, "xxx": 3, "shortcut": 4, "todo": 5}
+    rows = []
+    for f in outline.list_files(root):
+        if Path(f).suffix not in outline.SOURCE_EXT or AUX_FILE.search(f):
+            continue
+        try:
+            text = Path(root, f).read_text(errors="replace") if os.path.getsize(Path(root, f)) < MAX_FILE_BYTES else ""
+        except OSError:
+            continue
+        for i, ln in enumerate(text.splitlines(), 1):
+            m = DEBT.search(ln)
+            if m:
+                rows.append((order.get(m.group(1).lower(), 9), m.group(1).upper(), f, i, m.group(2).strip()[:140]))
+    if not rows:
+        return "No shortcut:, TODO, FIXME, HACK or XXX comments found."
+    rows.sort()
+    counts = Counter(r[1] for r in rows)
+    out = ["Debt ledger: " + ", ".join(f"{n} {k}" for k, n in counts.most_common())]
+    out += [f"  {tag:<8} {f}:{line}  {text}" for _, tag, f, line, text in rows]
+    return _fit(out, budget)
+
+
 def explain_text(root: str, name: str, budget: int = 1200) -> str:
     """Everything about one symbol: where, what, who uses it, what it uses, its tests."""
     g = load(root)
@@ -1094,6 +1209,10 @@ def explain_text(root: str, name: str, budget: int = 1200) -> str:
         if tests:
             out.append("  tested in: " + ", ".join(tests[:6]))
     return _fit(out, budget)
+
+
+def _is_reexport(g: Graph, u: str) -> bool:
+    return bool(re.search(r"(^|/)(__init__\.pyi?|index\.[cm]?[jt]sx?|mod\.rs)$", u)) and bool(g.out_units.get(u))
 
 
 def _key_files(g: Graph, n: int):
@@ -1123,8 +1242,10 @@ def report(root: str, budget: int = 1800) -> str:
     out.append("\n## Core modules (most depended on)")
     for u in core:
         syms = _key_symbols(g, u)
+        if not syms and not _is_reexport(g, u):
+            continue
         out.append(f"- {u} — imported by {len(g.in_units.get(u, ()))}; "
-                   + ("key: " + ", ".join(syms[:6]) if syms else "re-exports / glue"))
+                   + ("key: " + ", ".join(syms[:6]) if syms else "re-exports"))
     if len(core) <= 3:  # one or few packages (typical Go): rank files instead
         out.append("\n## Key files")
         for f, names in _key_files(g, 8):
@@ -1175,7 +1296,10 @@ def session_map(root: str, budget: int = 600) -> str:
     else:
         for u in core:
             syms = _key_symbols(g, u)
-            lines.append(f"{u}: " + (", ".join(syms[:8]) if syms else "(re-exports)"))
+            if syms:
+                lines.append(f"{u}: " + ", ".join(syms[:8]))
+            elif _is_reexport(g, u):
+                lines.append(f"{u}: (re-exports)")
     return _fit(lines, budget)
 
 
@@ -1230,13 +1354,13 @@ def build_in_background(root: str) -> None:
     subprocess.Popen([sys.executable, str(launch), "graph", "build", "--root", root], **kwargs)
 
 
-def ensure(root: str, sync_limit: int = 1500) -> bool:
+def ensure(root: str, sync_limit: int = 1500, max_age: float = 60) -> bool:
     """Make sure a reasonably fresh graph exists. Small repos build inline (well under a
     second); big ones and refreshes happen in the background. Returns True if a graph exists."""
     if exists(root):
         with connect(root) as db:
             built = json.loads((db.execute("SELECT value FROM meta WHERE key='built'").fetchone() or ["{}"])[0])
-        if time.time() - built.get("built", 0) > 60:
+        if time.time() - built.get("built", 0) > max_age:
             build_in_background(root)
         return True
     if len(outline.list_files(root)) <= sync_limit:

@@ -36,7 +36,10 @@ def post_bash(event: dict, cfg: dict) -> None:
     cmd = (event.get("tool_input") or {}).get("command", "")
     if not isinstance(resp, dict) or "stdout" not in resp or resp.get("isImage"):
         return
-    if cmd.lstrip().startswith(("kompact ", "KOMPACT_RAW=1")) or "_launch.py" in cmd:
+    if cmd.lstrip().startswith(("kompact ", "KOMPACT_RAW=1", "~/.kompact/bin/kompact")) or "_launch.py" in cmd:
+        return
+    words = " ".join(filters.argv0(cmd))
+    if any(words.startswith(c.strip()) for c in cfg.get("never_compact", []) if c.strip()):
         return
     out, err = resp.get("stdout") or "", resp.get("stderr") or ""
     if "[kompact: " in out[-400:]:  # already compacted (e.g. hooks registered twice)
@@ -166,6 +169,26 @@ def _read(path: str) -> str:
 # Session lifecycle and per-turn summary
 
 
+def _rules(cfg: dict) -> str:
+    tools = bool(cfg.get("bash") or cfg.get("read_outline") or cfg.get("graph"))
+    return rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools)
+
+
+def subagent_start(event: dict, cfg: dict) -> None:
+    """Subagents get the same prose and code rules as the main agent (no code map)."""
+    if not cfg.get("subagent_rules", True):
+        return
+    text = rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools=False)
+    if text:
+        _emit({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": text}})
+
+
+def post_edit(event: dict, cfg: dict) -> None:
+    """Claude edited a file: refresh the code graph in the background (incremental, debounced)."""
+    if cfg.get("graph") and cfg.get("project") and graph.exists(cfg["project"]):
+        graph.ensure(cfg["project"], max_age=20)
+
+
 def pre_compact(event: dict, cfg: dict) -> None:
     store.mark_compacted(event.get("session_id", ""))
 
@@ -175,7 +198,7 @@ def session_start(event: dict, cfg: dict) -> None:
         store.mark_compacted(event.get("session_id", ""))
     elif event.get("source") == "startup":
         store.prune(cfg.get("retention_days", 30))
-    parts = [rules.STYLES.get(cfg["style"], "")]
+    parts = [_rules(cfg)]
     root = cfg.get("project")
     if cfg.get("graph") and root and event.get("source") in ("startup", "resume", "clear", "compact", None):
         try:
@@ -240,7 +263,7 @@ def stop(event: dict, cfg: dict) -> None:
 
 
 HANDLERS = {"post-bash": post_bash, "pre-read": pre_read, "pre-compact": pre_compact,
-            "session-start": session_start, "stop": stop}
+            "session-start": session_start, "stop": stop, "subagent-start": subagent_start, "post-edit": post_edit}
 
 
 def run(name: str) -> int:
