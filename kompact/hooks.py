@@ -1,5 +1,6 @@
-"""Claude Code hook handlers. Each reads the hook JSON on stdin and prints a
-JSON response (or nothing, which means "carry on unchanged").
+"""Claude Code hook handlers (used by both the CLI and the VS Code extension,
+which share ~/.claude/settings.json). Each reads the hook JSON on stdin and
+prints a JSON response, or nothing, meaning "carry on unchanged".
 
 Every handler fails open: any exception leaves the tool call untouched.
 """
@@ -9,13 +10,19 @@ import os
 import sys
 import time
 
-from . import config, filters, outline, rules, store, tokens
+from . import config, filters, langs, outline, rules, store, tokens
 
 TEXT_LIMIT = 2_000_000  # don't touch huge/binary files
+BINARY_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb", ".svg", ".ico", ".zip", ".gz"}
 
 
 def _emit(obj) -> None:
     sys.stdout.write(json.dumps(obj))
+
+
+def _fmt(n) -> str:
+    n = float(n)
+    return f"{n / 1e6:.1f}M" if abs(n) >= 1e6 else f"{n / 1e3:.1f}k" if abs(n) >= 1e3 else f"{n:.0f}"
 
 
 # ---------------------------------------------------------------------------
@@ -29,22 +36,24 @@ def post_bash(event: dict, cfg: dict) -> None:
     cmd = (event.get("tool_input") or {}).get("command", "")
     if not isinstance(resp, dict) or "stdout" not in resp or resp.get("isImage"):
         return
-    if cmd.lstrip().startswith(("kompact ", "KOMPACT_RAW=1")):
+    if cmd.lstrip().startswith(("kompact ", "KOMPACT_RAW=1")) or "_launch.py" in cmd:
         return
     out, err = resp.get("stdout") or "", resp.get("stderr") or ""
+    if "[kompact: " in out[-400:]:  # already compacted (e.g. hooks registered twice)
+        return
     raw_tokens = tokens.count(out) + tokens.count(err)
     if raw_tokens < cfg["bash_min_tokens"]:
         return
     failed = bool(resp.get("interrupted")) or bool(filters.IMPORTANT.search(err[-2000:] + out[-2000:]))
     code = 1 if failed else 0
     sid = store.stash(cmd, out + ("\n--- stderr ---\n" + err if err else ""))
-    new_out = filters.compress(cmd, out, code, stash_id=sid, max_lines=cfg["bash_max_lines"]) if out else ""
-    new_err = filters.compress(cmd, err, code, stash_id=sid, max_lines=cfg["bash_max_lines"]) if err else ""
+    new_out = filters.compress(cmd, out, code, stash_id=sid, opts=cfg) if out else ""
+    new_err = filters.compress(cmd, err, code, stash_id=sid, opts=cfg) if err else ""
     kept = tokens.count(new_out) + tokens.count(new_err)
     if kept > raw_tokens * 0.9:  # not worth changing what Claude sees
         return
     new_out += f"\n[kompact: {raw_tokens}→{kept} tokens; raw: kompact show {sid}]"
-    store.record("bash", raw_tokens, kept, cmd, event.get("session_id", ""))
+    store.record("bash", raw_tokens, kept, cmd, event.get("session_id", ""), project=cfg["project"])
     _emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                   "updatedToolOutput": {**resp, "stdout": new_out, "stderr": new_err}}})
 
@@ -66,8 +75,8 @@ def _deny(reason: str) -> None:
 def pre_read(event: dict, cfg: dict) -> None:
     ledger = []  # savings are logged after the reads transaction commits (one writer at a time)
     reason = _pre_read(event, cfg, ledger)
-    for args in ledger:
-        store.record(*args[:4], session=event.get("session_id", ""), force=args[4])
+    for feature, raw, kept, detail, force in ledger:
+        store.record(feature, raw, kept, detail, event.get("session_id", ""), force=force, project=cfg["project"])
     if reason:
         _deny(reason)
 
@@ -79,12 +88,13 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
     try:
         st = os.stat(path)
     except OSError:
-        return
-    if st.st_size > TEXT_LIMIT or os.path.splitext(path)[1].lower() in (".png", ".jpg", ".jpeg", ".gif", ".webp",
-                                                                       ".pdf", ".ipynb", ".svg"):
-        return
+        return None
+    ext = os.path.splitext(path)[1].lower()
+    if st.st_size > TEXT_LIMIT or ext in BINARY_EXT:
+        return None
     sig = f"{st.st_mtime_ns}:{st.st_size}:{inp.get('offset')}:{inp.get('limit')}"
     partial = inp.get("offset") is not None or inp.get("limit") is not None
+    source_ext = set(langs.merged(cfg["languages"], "ext")) | outline.SOURCE_EXT
 
     with store.connect() as db:
         row = db.execute("SELECT sig, state, pending FROM reads WHERE session=? AND path=?", (session, path)).fetchone()
@@ -93,32 +103,36 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
             db.execute("INSERT OR REPLACE INTO reads VALUES (?,?,?,?,?,?)", (session, path, sig, state, pending, time.time()))
 
         if row is None:
-            if cfg["read_outline"] and not partial and os.path.splitext(path)[1] in outline.SOURCE_EXT:
+            if cfg["read_outline"] and not partial and ext in source_ext:
                 text = _read(path)
                 n = text.count("\n") + 1
-                if n >= cfg["read_outline_lines"]:
+                gen = langs.generated_re(cfg["languages"])
+                is_gen = bool(gen and gen.search(path))
+                if n >= (min(150, cfg["read_outline_lines"]) if is_gen else cfg["read_outline_lines"]):
                     skel = outline.render_outline(path, text)
                     if skel:
-                        msg = (f"[kompact] {path} is {n} lines (~{tokens.count(text)} tokens). Outline below "
+                        kind = "a generated file" if is_gen else f"{n} lines"
+                        msg = (f"[kompact] {path} is {kind} (~{tokens.count(text)} tokens). Outline below "
                                f"(line ranges in brackets). Read only the ranges you need with offset/limit, "
                                f"or call Read again unchanged to get the whole file.\n\n{skel}")
                         raw, kept = tokens.count(text), tokens.count(msg)
-                        put("outlined", raw - kept)
-                        ledger.append(("read_outline", raw, kept, path, False))
-                        return msg
+                        if raw > kept * 1.5:
+                            put("outlined", raw - kept)
+                            ledger.append(("read_outline", raw, kept, path, False))
+                            return msg
             put("read")
-            return
+            return None
 
         prev_sig, state, pending = row
         if state == "outlined":
             if not partial:  # Claude wants the whole file after all: undo the claimed saving
                 ledger.append(("read_outline", 0, pending, path + " (full read anyway)", True))
             put("read")
-            return
+            return None
         if state == "dup":
             ledger.append(("read_dedupe", 0, pending, path + " (re-read anyway)", True))
             put("read")
-            return
+            return None
         if cfg["read_dedupe"] and prev_sig == sig:
             text = _read(path)
             if partial:
@@ -133,6 +147,7 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
                 ledger.append(("read_dedupe", raw, kept, path, False))
                 return msg
         put("read")
+        return None
 
 
 def _read(path: str) -> str:
@@ -141,34 +156,84 @@ def _read(path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Edits invalidate nothing explicitly (the signature includes mtime), but
-# compaction and /clear drop file contents from context, so forget reads then.
+# Session lifecycle and per-turn summary
 
 
-def reset_reads(event: dict, cfg: dict) -> None:
-    with store.connect() as db:
-        db.execute("DELETE FROM reads WHERE session=?", (event.get("session_id", ""),))
+def pre_compact(event: dict, cfg: dict) -> None:
+    store.mark_compacted(event.get("session_id", ""))
 
 
 def session_start(event: dict, cfg: dict) -> None:
     if event.get("source") in ("compact", "clear"):
-        reset_reads(event, cfg)
+        store.mark_compacted(event.get("session_id", ""))
     text = rules.STYLES.get(cfg["style"], "")
     if text:
         _emit({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}})
 
 
-HANDLERS = {"post-bash": post_bash, "pre-read": pre_read, "pre-compact": reset_reads,
-            "session-start": session_start}
+def _context_tokens(transcript_path: str) -> int:
+    """Size of the context Claude last saw, from the newest usage block in the transcript."""
+    try:
+        with open(transcript_path, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 400_000))
+            tail = f.read().decode("utf-8", "replace").splitlines()
+    except (OSError, TypeError):
+        return 0
+    for line in reversed(tail):
+        if '"usage"' not in line:
+            continue
+        try:
+            u = json.loads(line).get("message", {}).get("usage", {})
+        except ValueError:
+            continue
+        if u:
+            return int(u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0)
+                       + u.get("cache_creation_input_tokens", 0))
+    return 0
+
+
+def turn_message(turn: dict, totals: dict) -> str:
+    parts = []
+    if turn["saved"] > 0:
+        pct = 100 * turn["saved"] / turn["raw"] if turn["raw"] else 0
+        parts.append(f"−{_fmt(turn['saved'])} tokens this turn ({_fmt(turn['raw'])} → {_fmt(turn['kept'])}, −{pct:.0f}%)")
+    else:
+        parts.append("nothing to trim this turn")
+    if totals["saved"] > 0:
+        parts.append(f"session −{_fmt(totals['saved'])}")
+    ctx, live = totals.get("context", 0), totals.get("in_context_saved", 0)
+    if ctx and live > 0:
+        parts.append(f"context ≈{100 * live / (ctx + live):.0f}% smaller")
+    return "⚡ Kompact: " + " · ".join(parts)
+
+
+def stop(event: dict, cfg: dict) -> None:
+    if event.get("stop_hook_active"):
+        return
+    session = event.get("session_id", "")
+    ctx = _context_tokens(event.get("transcript_path", ""))
+    turn, totals = store.close_turn(session, cfg["project"], ctx)
+    msg = turn_message(turn, totals)
+    store.write_live({"ts": time.time(), "session": session, "project": cfg["project"], "preset": cfg["preset"],
+                      "preset_name": config.PRESETS[cfg["preset"]]["name"], "turn": turn, "session_totals": totals,
+                      "message": msg})
+    if cfg.get("turn_summary") and turn["saved"] > 0:
+        _emit({"systemMessage": msg})
+
+
+HANDLERS = {"post-bash": post_bash, "pre-read": pre_read, "pre-compact": pre_compact,
+            "session-start": session_start, "stop": stop}
 
 
 def run(name: str) -> int:
     try:
         event = json.load(sys.stdin)
-        HANDLERS[name](event, config.load())
+        HANDLERS[name](event, config.load(event.get("cwd") or os.getcwd()))
     except Exception as e:  # fail open, but leave a trace for `kompact doctor`
         try:
-            (store.home() / "hook-errors.log").open("a").write(f"{time.ctime()} {name}: {e!r}\n")
+            with (store.home() / "hook-errors.log").open("a") as f:
+                f.write(f"{time.ctime()} {name}: {e!r}\n")
         except OSError:
             pass
     return 0

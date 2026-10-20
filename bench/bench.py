@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from kompact import filters, tokens  # noqa: E402
+from kompact import config, filters, tokens  # noqa: E402
 
 DEFAULT = [
     "git log -n 40",
@@ -26,14 +26,16 @@ DEFAULT = [
 
 def main():
     repo, cmds = sys.argv[1], sys.argv[2:] or DEFAULT
+    opts = config.load(os.path.abspath(repo))  # honours KOMPACT_PRESET=1..5
+    print(f"preset {opts['preset']} ({config.PRESETS[opts['preset']]['name']}), languages: {opts['languages']}")
     total_r = total_k = 0
     print(f"{'command':<52}{'before':>8}{'after':>8}{'saved':>8}")
     for cmd in cmds:
         p = subprocess.run(cmd, shell=True, cwd=repo, capture_output=True, text=True, errors="replace")
         raw = p.stdout + p.stderr
-        out = filters.compress(cmd, raw, p.returncode, stash_id=1)
+        out = filters.compress(cmd, raw, p.returncode, stash_id=1, opts=opts)
         r, k = tokens.count(raw), tokens.count(out)
-        if r < 150:  # the hook leaves small outputs alone
+        if r < opts["bash_min_tokens"] or k > 0.9 * r:  # the hook leaves these alone
             k = r
         total_r, total_k = total_r + r, total_k + k
         print(f"{cmd[:50]:<52}{r:>8}{k:>8}{100 * (r - k) / max(r, 1):>7.0f}%")

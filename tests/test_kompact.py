@@ -11,7 +11,7 @@ from pathlib import Path
 TMP = tempfile.mkdtemp()
 os.environ["KOMPACT_HOME"] = os.path.join(TMP, "home")
 
-from kompact import estimate, filters, hooks, outline, store, tokens  # noqa: E402
+from kompact import config, estimate, filters, hooks, installer, langs, outline, server, store, tokens  # noqa: E402
 
 
 def run_hook(name, event):
@@ -80,11 +80,40 @@ class FilterTests(unittest.TestCase):
         self.assertIn("FAILED tests/a.py::t", filters.compress("pytest", raw, 0))
 
     def test_ansi_progress_and_repeats(self):
-        raw = "\x1b[32mok\x1b[0m\n" + "Downloading 10%\rDownloading 100%\n" + "same line\n" * 50 + "done"
+        raw = "\x1b[32mok\x1b[0m\n" + "Downloading ━━━━ 10%\rDownloading ━━━━━━━━ 100% 3.2 MB/s\n" + "same line\n" * 50 + "done"
         out = filters.compress("some-tool", raw)
         self.assertNotIn("\x1b", out)
         self.assertIn("same line  [x50]", out)
         self.assertNotIn("Downloading", out)
+
+    def test_data_with_percentages_is_kept(self):
+        grep = "\n".join(f"src/s{i}.css:{i}:  width: {i}%;" for i in range(30))
+        self.assertEqual(filters.compress("grep -rn width src", grep).count("width:"), 30)
+        log = "\n".join(f"abc{i:04d} speed up parser by {i}%" for i in range(30))
+        self.assertEqual(filters.compress("git log --oneline", log), log)
+        cov = "Name    Stmts   Miss  Cover\n" + "\n".join(f"src/m{i}.py   120   {i}   {99 - i}%" for i in range(20))
+        self.assertIn("src/m7.py   120   7   92%", filters.compress("pytest --cov", cov))
+        pods = "\n".join(f"api-{i}   1/1   Running   0   {i}m" for i in range(30))
+        self.assertEqual(filters.compress("kubectl get pods", pods), pods)
+
+    def test_real_progress_is_dropped(self):
+        raw = "\n".join(["Collecting flask", "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 3.0 MB/s eta 0:00:00",
+                         "  % Total    % Received", "100  1234  100  1234    0     0  12345      0 --:--:-- --:--:-- --:--:-- 12345",
+                         "45% building 120/300 modules", "Successfully installed flask-3.1"])
+        out = filters.compress("some-installer", raw)
+        self.assertNotIn("MB/s", out)
+        self.assertNotIn("--:--:--", out)
+        self.assertNotIn("45% building", out)
+        self.assertIn("Successfully installed flask-3.1", out)
+
+    def test_view_commands_stay_verbatim(self):
+        src = "\n".join(["x = '" + "a" * 900 + "'"] + [f"line {i}" for i in range(50)] * 2)
+        self.assertEqual(filters.compress("cat big.py", src), src)
+        self.assertIn("kompact show 3", filters.compress("cat huge.log", "\n".join(f"l{i}" for i in range(2000)), stash_id=3))
+
+    def test_log_lines_collapse_but_tables_do_not(self):
+        logs = "\n".join(f"2026-10-20 12:00:{i:02d} INFO heartbeat ok seq={i}" for i in range(40))
+        self.assertIn("similar lines", filters.compress("docker logs api", logs))
 
     def test_errors_survive_truncation(self):
         lines = [f"{chr(97 + i % 26) * 3}{chr(97 + i // 26 % 26)} entry" for i in range(1000)]
@@ -97,13 +126,13 @@ class FilterTests(unittest.TestCase):
         raw = "diff --git a/package-lock.json b/package-lock.json\nindex 1..2\n--- a/x\n+++ b/x\n" + "+x\n" * 300 + \
               "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n+real change\n"
         out = filters.compress("git diff", raw)
-        self.assertIn("package-lock.json: generated/lock file diff, +300", out)
+        self.assertIn("package-lock.json: lock file diff, +300", out)
         self.assertIn("+real change", out)
 
     def test_grep_caps_per_file(self):
         raw = "\n".join(f"src/a.py:{i}:match {i}" for i in range(40)) + "\nsrc/b.py:1:other"
         out = filters.compress("grep -rn match", raw)
-        self.assertIn("[src/a.py: +30 more matches]", out)
+        self.assertIn("[src/a.py: +28 more matches]", out)
         self.assertIn("src/b.py:1:other", out)
 
 
@@ -198,7 +227,8 @@ class HookTests(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.big = os.path.join(self.dir, "big.py")
-        Path(self.big).write_text("\n".join(f"def f{i}(x):\n    return x + {i}\n" for i in range(300)))
+        body = "".join(f"    y = x * {j}\n" for j in range(8))
+        Path(self.big).write_text("\n".join(f"def f{i}(x):\n{body}    return y + {i}\n" for i in range(60)))
         self.small = os.path.join(self.dir, "small.py")
         Path(self.small).write_text("def f(x):\n    return x\n" * 40)
 
@@ -219,7 +249,7 @@ class HookTests(unittest.TestCase):
         ev = {"session_id": "r1", "tool_input": {"file_path": self.big}}
         first = run_hook("pre-read", ev)
         self.assertEqual(first["permissionDecision"], "deny")
-        self.assertIn("def f12(x):  [L37-38]", first["permissionDecisionReason"])
+        self.assertIn("def f2(x):  [L23-32]", first["permissionDecisionReason"])
         self.assertIsNone(run_hook("pre-read", ev))  # retry gets the whole file
 
     def test_partial_read_never_blocked(self):
@@ -273,6 +303,180 @@ class EstimateTests(unittest.TestCase):
         self.assertGreater(s["saved_tool"], 0)
         # ingested at call index 1, so re-sent on 4 calls
         self.assertEqual(s["saved_billed"], s["saved_tool"] * 4)
+
+
+PY_TRACE = """Traceback (most recent call last):
+  File "/app/main.py", line 10, in <module>
+    run()
+  File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1157, in __call__
+    return self.main(*args, **kwargs)
+  File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1078, in main
+    rv = self.invoke(ctx)
+  File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 783, in invoke
+    return __callback(*args, **kwargs)
+  File "/app/cli.py", line 22, in run
+    load(path)
+  File "/usr/lib/python3.12/json/__init__.py", line 293, in load
+    return loads(fp.read())
+  File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"""
+
+
+class PresetAndLanguageTests(unittest.TestCase):
+    def setUp(self):
+        if config.path().exists():
+            config.path().unlink()
+
+    def test_presets_have_every_knob(self):
+        for p in config.PRESETS.values():
+            self.assertEqual(set(config.KNOBS) - set(p), set())
+        self.assertEqual(set(config.KNOB_INFO), set(config.KNOBS))
+
+    def test_overrides_and_project_preset(self):
+        d = tempfile.mkdtemp()
+        Path(d, "go.mod").write_text("module x")
+        data = config.read_file()
+        data["preset"] = 2
+        data["overrides"] = {"bash_max_lines": 77}
+        data["projects"][str(Path(d).resolve())] = {"preset": 5, "overrides": {}}
+        config.write_file(data)
+        g = config.load(tempfile.mkdtemp())
+        self.assertEqual((g["preset"], g["bash_max_lines"], g["style"]), (2, 77, "off"))
+        sub = Path(d, "pkg")
+        sub.mkdir()
+        p = config.load(str(sub))
+        self.assertEqual((p["preset"], p["style"], p["languages"]), (5, "full", ["go"]))
+        self.assertEqual(p["bash_max_lines"], 77)  # global override still applies
+
+    def test_detect_react(self):
+        d = tempfile.mkdtemp()
+        Path(d, "package.json").write_text('{"dependencies": {"react": "^18"}}')
+        Path(d, "tsconfig.json").write_text("{}")
+        self.assertEqual(langs.detect(d), ["typescript", "react"])
+
+    def test_python_library_frames(self):
+        out = filters.trim_frames(PY_TRACE.splitlines(), langs.library_frame_re(["python"]))
+        text = "\n".join(out)
+        self.assertIn("[… 3 library frames hidden …]", text)
+        self.assertIn('File "/app/cli.py", line 22', text)
+        self.assertIn("raw_decode", text)  # the frame that raised stays
+        self.assertIn("JSONDecodeError: Expecting value", text)
+
+    def test_go_and_node_frames(self):
+        from kompact import samples
+        cfg = dict(config.PRESETS[3], languages=[])
+        go = filters.compress("go test ./...", samples.SAMPLES[1]["text"], 1, opts=cfg)
+        self.assertIn("cart.go:58", go)
+        self.assertIn("library frames hidden", go)
+        self.assertNotIn("go: downloading", go)
+        vt = filters.compress("npx vitest run", samples.SAMPLES[2]["text"], 1, opts=cfg)
+        self.assertIn("useCart.test.ts:27:32", vt)
+        self.assertNotIn("node_modules/chai", vt)
+
+    def test_diff_context(self):
+        raw = "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,9 +1,9 @@\n" + "".join(f" l{i}\n" for i in range(8)) + "-old\n+new\n l9"
+        out = filters.compress("git diff", raw, opts={"diff_context": 1})
+        self.assertIn(" ⋯ 7 unchanged", out)
+        self.assertIn(" l7\n-old\n+new\n l9", out)
+
+    def test_presets_monotonic_on_samples(self):
+        sav = server.preset_savings()
+        self.assertTrue(sav[1] <= sav[2] <= sav[3] <= sav[4] <= sav[5])
+        self.assertLess(sav[1], sav[3])
+        self.assertGreater(sav[3], 60)
+        # Max quality never hides test results
+        rows = {r["id"]: r for r in server.preview({k: config.PRESETS[1][k] for k in config.KNOBS}, [])}
+        self.assertIn("test_endpoint_1 PASSED", rows["pytest"]["after"])
+
+
+class TurnAndSetupTests(unittest.TestCase):
+    def test_stop_summarises_turn(self):
+        ev = {"session_id": "turn1", "tool_input": {"command": "git log"}, "cwd": TMP,
+              "tool_response": {"stdout": GIT_LOG, "stderr": "", "interrupted": False, "isImage": False}}
+        run_hook("post-bash", ev)
+        transcript = Path(TMP, "t.jsonl")
+        transcript.write_text(json.dumps({"type": "assistant", "message": {"usage": {
+            "input_tokens": 5, "cache_read_input_tokens": 20000, "cache_creation_input_tokens": 995}}}) + "\n")
+        sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "transcript_path": str(transcript), "cwd": TMP}))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            hooks.run("stop")
+        sys.stdin = sys.__stdin__
+        msg = json.loads(buf.getvalue())["systemMessage"]
+        self.assertRegex(msg, r"⚡ Kompact: −[\d.]+k? tokens this turn")
+        self.assertIn("context ≈", msg)
+        live = store.read_live()
+        self.assertEqual(live["session"], "turn1")
+        from kompact import cli
+        sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "workspace": {"current_dir": TMP}}))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["statusline"])
+        sys.stdin = sys.__stdin__
+        self.assertRegex(buf.getvalue(), r"⚡ Kompact −[\d.]+k? · ctx −\d+% · last turn −[\d.]+k? · Balanced")
+        self.assertEqual(live["session_totals"]["context"], 21000)
+        # next turn with nothing compacted stays silent
+        sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "cwd": TMP}))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            hooks.run("stop")
+        sys.stdin = sys.__stdin__
+        self.assertEqual(buf.getvalue(), "")
+
+    def test_installer_roundtrip_keeps_other_hooks(self):
+        home = tempfile.mkdtemp()
+        old = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        try:
+            p = Path(home, ".claude", "settings.json")
+            p.parent.mkdir()
+            p.write_text(json.dumps({"model": "x", "statusLine": {"type": "command", "command": "mine"},
+                                     "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "notify"}]}]}}))
+            installer.install()
+            d = json.loads(p.read_text())
+            self.assertEqual(len(d["hooks"]["Stop"]), 2)
+            skill = Path(home, ".claude", "skills", "kompact", "SKILL.md")
+            self.assertIn("config preset", skill.read_text())
+            self.assertEqual(d["statusLine"]["command"], "mine")  # never replaced
+            self.assertTrue(installer.status()["hooks_installed"])
+            installer.install(uninstall=True)
+            d = json.loads(p.read_text())
+            self.assertEqual(d["hooks"], {"Stop": [{"hooks": [{"type": "command", "command": "notify"}]}]})
+            self.assertTrue(p.with_suffix(".json.kompact-backup").exists())
+            self.assertFalse(skill.exists())
+            # with the plugin enabled, only the status line is managed
+            d["enabledPlugins"] = {"kompact@kompact": True}
+            d.pop("statusLine")
+            p.write_text(json.dumps(d))
+            installer.install()
+            d = json.loads(p.read_text())
+            self.assertEqual(len(d["hooks"]["Stop"]), 1)
+            self.assertIn("statusline", d["statusLine"]["command"])
+            self.assertFalse(skill.exists())
+        finally:
+            os.environ["HOME"] = old
+
+    def test_server_requires_token(self):
+        import threading
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{httpd.server_address[1]}"
+        try:
+            st = json.load(urllib.request.urlopen(base + "/api/state"))
+            self.assertIn("presets", st)
+            body = json.dumps({"preset": 4}).encode()
+            req = urllib.request.Request(base + "/api/config", body, {"Content-Type": "application/json"})
+            with self.assertRaises(urllib.error.HTTPError):
+                urllib.request.urlopen(req)
+            req.add_header("X-Kompact-Token", server.TOKEN)
+            self.assertTrue(json.load(urllib.request.urlopen(req))["ok"])
+            self.assertEqual(config.read_file()["preset"], 4)
+        finally:
+            httpd.shutdown()
+            config.path().unlink()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kompact</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f6f4; --surface: #fcfcfb; --surface-2: #f0efec; --border: #e2e1dc;
+  --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #85847e;
+  --accent: #2a78d6; --accent-soft: #cde2fb; --accent-ink: #184f95;
+  --series-1: #2a78d6; --grid: #e8e7e2;
+  --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --crit: #d03b3b;
+  --code-bg: #f3f2ee; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8d8c85;
+    --accent: #3987e5; --accent-soft: #184f95; --accent-ink: #b7d3f6;
+    --series-1: #3987e5; --grid: #2b2b28; --good-ink: #5fd35f; --code-bg: #151514;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+  --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8d8c85;
+  --accent: #3987e5; --accent-soft: #184f95; --accent-ink: #b7d3f6;
+  --series-1: #3987e5; --grid: #2b2b28; --good-ink: #5fd35f; --code-bg: #151514;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+a { color: var(--accent); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px 48px; }
+header { display: flex; align-items: center; gap: 16px; padding: 18px 0 8px; flex-wrap: wrap; }
+.logo { font-weight: 700; font-size: 20px; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+.logo svg { color: var(--accent); }
+.ver { color: var(--ink-3); font-size: 12px; font-weight: 500; }
+.live { margin-left: auto; font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 6px 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live b { color: var(--good-ink); font-weight: 600; }
+.btn.icon { padding: 7px; display: grid; place-items: center; color: var(--ink-2); }
+@media (max-width: 700px) {
+  header .logo { flex: 1; }
+  .live { order: 3; margin-left: 0; width: 100%; white-space: normal; border-radius: 10px; }
+  nav button { padding: 10px 10px; }
+}
+nav { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 8px 0 20px; overflow-x: auto; }
+nav button { background: none; border: 0; padding: 10px 14px; font: inherit; color: var(--ink-2); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); }
+.card h2 { font-size: 15px; margin: 0 0 4px; }
+.card .sub { color: var(--ink-2); font-size: 13px; margin: 0 0 14px; }
+.grid { display: grid; gap: 16px; }
+.tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.two { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .two { grid-template-columns: 1fr; } }
+.tile .label { color: var(--ink-2); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.tile .value { font-size: 28px; font-weight: 650; letter-spacing: -.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tile .note { color: var(--ink-3); font-size: 12px; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+select, input[type="number"], input[type="text"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; }
+.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.small { padding: 4px 10px; font-size: 12px; font-weight: 500; }
+.btn:disabled { opacity: .55; cursor: default; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--ink); display: none; z-index: 5; min-width: 160px; }
+.tip .t { color: var(--ink-2); }
+.empty { color: var(--ink-3); text-align: center; padding: 36px 8px; font-size: 13px; }
+.bars { display: grid; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: 120px 1fr 64px; gap: 10px; align-items: center; font-size: 13px; }
+.bar-row .track { height: 10px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bar-row .fill { height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+.bar-row .num { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--ink-2); font-weight: 500; font-size: 12px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.slider-wrap { padding: 8px 4px 0; }
+.qs { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.stops { display: grid; grid-template-columns: repeat(5, 1fr); text-align: center; font-size: 12px; margin-top: 4px; }
+.stops button { background: none; border: 0; color: var(--ink-2); cursor: pointer; font: inherit; padding: 4px 2px; border-radius: 6px; }
+.stops button.on { color: var(--accent-ink); background: var(--accent-soft); font-weight: 600; }
+.preset-blurb { margin-top: 14px; display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+.preset-blurb .big { font-size: 22px; font-weight: 650; }
+.pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+.pill.good { color: var(--good-ink); }
+.pill.accent { background: var(--accent-soft); color: var(--accent-ink); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 4px 12px;
+  font: inherit; font-size: 13px; cursor: pointer; }
+.chip.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+.panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 860px) { .panes { grid-template-columns: 1fr; } }
+.pane h3 { font-size: 12px; margin: 0 0 6px; color: var(--ink-2); font-weight: 500; display: flex; justify-content: space-between; }
+pre.out { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 0; font-size: 11.5px;
+  line-height: 1.45; height: 380px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.knob { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: center; }
+.knob:last-child { border-bottom: 0; }
+@media (max-width: 600px) { .knob { grid-template-columns: 1fr; } }
+.knob .name { font-weight: 600; font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.knob .help { color: var(--ink-2); font-size: 12px; }
+.knob .ctl { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.knob .ctl input[type="range"] { flex: 1; }
+.knob .ctl .val { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.mod { font-size: 11px; color: var(--accent-ink); background: var(--accent-soft); padding: 0 6px; border-radius: 4px; font-weight: 500; }
+.reset { background: none; border: 0; color: var(--accent); cursor: pointer; font-size: 12px; padding: 0; }
+.switch { position: relative; width: 38px; height: 22px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: .15s; cursor: pointer; }
+.switch span::after { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+details > summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+details > summary::before { content: "▸"; color: var(--ink-3); transition: transform .15s; }
+details[open] > summary::before { transform: rotate(90deg); }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.check:last-child { border-bottom: 0; }
+.dot { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; color: #fff; margin-top: 2px; }
+.dot.ok { background: var(--good); } .dot.no { background: var(--ink-3); } .dot.warn { background: var(--warn); color: #000; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px;
+  border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.muted { color: var(--ink-2); }
+.small { font-size: 12px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.sep { height: 16px; }
+.hidden { display: none !important; }
+.radio { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+.radio label, .langs label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.langs { display: flex; gap: 16px; flex-wrap: wrap; }
+.langs label.det::after { content: "detected"; font-size: 11px; color: var(--good-ink); margin-left: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" fill="currentColor"/></svg>
+      Kompact <span class="ver" id="ver"></span>
+    </div>
+    <div class="live" id="live" title="Last turn">Waiting for your first Claude Code turn…</div>
+    <button class="btn icon" id="theme" title="Toggle light/dark" aria-label="Toggle light or dark theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+    </button>
+  </header>
+  <nav role="tablist">
+    <button role="tab" data-tab="overview" aria-selected="true">Savings</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Quality vs tokens</button>
+    <button role="tab" data-tab="projects" aria-selected="false">Projects &amp; languages</button>
+    <button role="tab" data-tab="setup" aria-selected="false">Setup</button>
+  </nav>
+
+  <!-- ============ SAVINGS ============ -->
+  <section id="tab-overview">
+    <div class="toolbar">
+      <select id="range" aria-label="Time range">
+        <option value="1">Last 24 hours</option><option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option><option value="365">Last year</option>
+      </select>
+      <select id="projFilter" aria-label="Project"><option value="">All projects</option></select>
+    </div>
+    <div class="grid tiles">
+      <div class="card tile"><div class="label">Tokens kept out of context</div><div class="value" id="tSaved">–</div><div class="note" id="tSavedNote"></div></div>
+      <div class="card tile"><div class="label">Tool output reduced</div><div class="value" id="tPct">–</div><div class="note" id="tPctNote"></div></div>
+      <div class="card tile"><div class="label">Last turn</div><div class="value" id="tTurn">–</div><div class="note" id="tTurnNote"></div></div>
+      <div class="card tile"><div class="label">Context now</div><div class="value" id="tCtx">–</div><div class="note" id="tCtxNote"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Tokens saved per turn</h2><p class="sub">Each bar is one Claude reply. Hover a bar for before → after.</p></div>
+        <button class="btn small" id="tblToggle" aria-pressed="false">Table view</button>
+      </div>
+      <div class="chart" id="turnChart"></div>
+      <div id="turnTable" class="hidden"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="grid two">
+      <div class="card"><h2>Biggest wins</h2><p class="sub">Commands whose output shrank the most.</p><div id="topTable"></div></div>
+      <div class="card"><h2>Where savings come from</h2><p class="sub">Share of tokens saved, by feature.</p><div class="bars" id="featBars"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <h2>What would Kompact have saved on your past sessions?</h2>
+      <p class="sub">Replays your Claude Code history (~/.claude/projects) through the current filters. Nothing leaves your machine.</p>
+      <div class="row"><button class="btn" id="estBtn">Run estimate</button><span class="muted small" id="estOut"></span></div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="tab-settings" class="hidden">
+    <div class="card">
+      <h2>Quality vs tokens</h2>
+      <p class="sub">One setting for everything. Move right to save more tokens; move left to give Claude more of the raw output.</p>
+      <div class="slider-wrap">
+        <div class="qs"><span>◀ More quality</span><span>More savings ▶</span></div>
+        <input type="range" min="1" max="5" step="1" id="preset" aria-label="Quality versus token savings">
+        <div class="stops" id="stops"></div>
+      </div>
+      <div class="preset-blurb">
+        <span class="big" id="pName"></span>
+        <span class="pill good" id="pSave"></span>
+        <span class="muted" id="pBlurb"></span>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Live preview</h2><p class="sub">What Claude receives with these settings. Samples are realistic Python, Go, React and TypeScript outputs.</p></div>
+        <span class="pill accent" id="pvStat"></span>
+      </div>
+      <div class="chips" id="sampleChips"></div>
+      <div class="panes">
+        <div class="pane"><h3><span>What Claude sees</span><span id="pvAfter"></span></h3><pre class="out" id="pvA"></pre></div>
+        <div class="pane"><h3><span>Original output</span><span id="pvBefore"></span></h3><pre class="out" id="pvB"></pre></div>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <details id="adv">
+        <summary>Advanced settings <span class="muted small" id="advCount" style="font-weight:400"></span></summary>
+        <p class="sub" style="margin-top:8px">Each setting starts at the preset's value. Change any of them; "reset" returns it to the preset.</p>
+        <div id="knobs"></div>
+        <div class="row" style="margin-top:12px"><button class="btn small" id="resetAll">Reset all to preset</button></div>
+      </details>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <h2>In Claude Code</h2>
+      <div class="knob"><div><div class="name">Show savings after every turn</div><div class="help">A one-line "⚡ Kompact: −8.2k tokens this turn…" note under Claude's reply.</div></div>
+        <div class="ctl"><label class="switch"><input type="checkbox" id="gTurn"><span></span></label></div></div>
+      <div class="knob"><div><div class="name">Status line</div><div class="help">Running savings in the Claude Code terminal status line (CLI). Never replaces an existing status line.</div></div>
+        <div class="ctl"><label class="switch"><input type="checkbox" id="gStatus"><span></span></label></div></div>
+    </div>
+  </section>
+
+  <!-- ============ PROJECTS ============ -->
+  <section id="tab-projects" class="hidden">
+    <div class="card">
+      <h2>Languages</h2>
+      <p class="sub">Language profiles decide which files get outline-first reads, which files count as generated, which stack frames are library noise, and which lock files are collapsed.</p>
+      <div class="radio">
+        <label><input type="radio" name="lmode" value="auto"> Auto-detect per project (recommended)</label>
+        <label><input type="radio" name="lmode" value="manual"> Always use these languages</label>
+      </div>
+      <div class="langs" id="langs"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <h2>Projects</h2>
+      <p class="sub">Every repo you've used with Kompact. Give a project its own quality level; otherwise it uses the global one.</p>
+      <div id="projTable"></div>
+      <div class="row" style="margin-top:12px">
+        <input type="text" id="newProj" placeholder="/path/to/repo" style="flex:1;min-width:200px" aria-label="Project path">
+        <button class="btn small" id="addProj">Add project</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section id="tab-setup" class="hidden">
+    <div class="card">
+      <h2>Connect to Claude Code</h2>
+      <p class="sub">The Claude Code CLI and the VS Code extension read the same settings file, so one switch covers both.</p>
+      <div id="checks"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="enableBtn">Enable Kompact</button>
+        <button class="btn" id="disableBtn">Disable</button>
+        <span class="muted small" id="setupMsg"></span>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="card">
+      <h2>How it works</h2>
+      <table>
+        <tr><th>Hook</th><th>What Kompact does</th></tr>
+        <tr><td class="mono">PostToolUse · Bash</td><td>Compacts command output before Claude reads it. The raw output is kept locally; Claude can run <code>kompact show &lt;id&gt;</code>.</td></tr>
+        <tr><td class="mono">PreToolUse · Read</td><td>First read of a big file returns its outline with line ranges; reading again returns the whole file. Unchanged re-reads get a short note once.</td></tr>
+        <tr><td class="mono">SessionStart</td><td>Adds the reply-style rules for your quality level.</td></tr>
+        <tr><td class="mono">Stop</td><td>Totals the turn's savings and shows them under Claude's reply, in the status line and in VS Code.</td></tr>
+      </table>
+      <p class="muted small" style="margin-top:12px">Settings: <span class="mono" id="homePath"></span></p>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const TOKEN = "__KOMPACT_TOKEN__";
+const $ = (id) => document.getElementById(id);
+let S = null;            // /api/state
+let cfg = null;          // config file being edited
+let sampleId = "pytest";
+let pvTimer = null, saveTimer = null;
+
+const fmt = (n) => { n = +n || 0; const a = Math.abs(n);
+  return a >= 1e6 ? (n / 1e6).toFixed(1) + "M" : a >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n)); };
+const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const toast = (msg) => { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1600); };
+const shortPath = (p) => { const parts = (p || "").split(/[\\/]/).filter(Boolean); return parts.slice(-2).join("/") || p; };
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Kompact-Token": TOKEN }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+/* ---------- theme ---------- */
+(() => { try { const t = localStorage.getItem("kompact-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+$("theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("kompact-theme", next); } catch (e) {}
+};
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll("section[id^=tab-]").forEach((s) => s.classList.toggle("hidden", s.id !== "tab-" + b.dataset.tab));
+  if (b.dataset.tab === "overview" && typeof turnChart === "function") turnChart(lastTurns);
+  try { localStorage.setItem("kompact-tab", b.dataset.tab); } catch (e) {}
+});
+
+/* ---------- effective knobs ---------- */
+const presetKnobs = (p) => Object.fromEntries(S.knob_order.map((k) => [k, S.presets[p][k]]));
+const effective = () => Object.assign(presetKnobs(cfg.preset), cfg.overrides || {});
+
+function scheduleSave(body, msg = "Saved") {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { const r = await api("/api/config", body); cfg = r.config; toast(msg); } catch (e) { toast("Couldn't save: " + e.message); }
+  }, 250);
+}
+
+/* ---------- settings tab ---------- */
+function renderPreset() {
+  const p = cfg.preset, P = S.presets[p];
+  $("preset").value = p;
+  $("stops").innerHTML = [1, 2, 3, 4, 5].map((i) => `<button data-p="${i}" class="${i === p ? "on" : ""}">${esc(S.presets[i].name)}</button>`).join("");
+  $("stops").querySelectorAll("button").forEach((b) => b.onclick = () => setPreset(+b.dataset.p));
+  $("pName").textContent = P.name;
+  $("pBlurb").textContent = P.blurb;
+  $("pSave").textContent = `≈${S.preset_savings[p]}% fewer tokens on the samples`;
+}
+function setPreset(p) {
+  cfg.preset = p; renderPreset(); renderKnobs(); schedulePreview();
+  scheduleSave({ preset: p }, `${S.presets[p].name} saved`);
+}
+$("preset").oninput = (e) => setPreset(+e.target.value);
+
+function renderKnobs() {
+  const eff = effective(), base = presetKnobs(cfg.preset), ov = cfg.overrides || {};
+  $("advCount").textContent = Object.keys(ov).length ? `${Object.keys(ov).length} changed from preset` : "";
+  $("knobs").innerHTML = S.knob_order.map((k) => {
+    const [label, help, type, a, b, step] = S.knobs[k];
+    const v = eff[k], changed = k in ov && ov[k] !== base[k];
+    let ctl;
+    if (type === "bool") ctl = `<label class="switch"><input type="checkbox" data-k="${k}" ${v ? "checked" : ""} aria-label="${esc(label)}"><span></span></label>`;
+    else if (type === "int") ctl = `<input type="range" data-k="${k}" min="${a}" max="${b}" step="${step}" value="${v}" aria-label="${esc(label)}"><span class="val">${v === -1 ? "all" : v}</span>`;
+    else ctl = `<select data-k="${k}" aria-label="${esc(label)}">${a.map((o) => `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+    return `<div class="knob"><div><div class="name">${esc(label)} ${changed ? `<span class="mod">changed</span><button class="reset" data-reset="${k}">reset</button>` : ""}</div>
+      <div class="help">${esc(help)}</div></div><div class="ctl">${ctl}</div></div>`;
+  }).join("");
+  $("knobs").querySelectorAll("[data-k]").forEach((el) => {
+    const k = el.dataset.k;
+    const handler = () => {
+      let v = el.type === "checkbox" ? el.checked : el.type === "range" ? +el.value : el.value;
+      if (el.type === "range") el.nextElementSibling.textContent = v === -1 ? "all" : v;
+      cfg.overrides = cfg.overrides || {};
+      if (v === presetKnobs(cfg.preset)[k]) delete cfg.overrides[k]; else cfg.overrides[k] = v;
+      schedulePreview();
+      scheduleSave({ overrides: cfg.overrides });
+      if (el.type !== "range") renderKnobs();
+    };
+    el.addEventListener(el.type === "range" ? "input" : "change", handler);
+    if (el.type === "range") el.addEventListener("change", renderKnobs);
+  });
+  $("knobs").querySelectorAll("[data-reset]").forEach((b) => b.onclick = () => {
+    delete cfg.overrides[b.dataset.reset]; renderKnobs(); schedulePreview(); scheduleSave({ overrides: cfg.overrides });
+  });
+}
+$("resetAll").onclick = () => { cfg.overrides = {}; renderKnobs(); schedulePreview(); scheduleSave({ overrides: {} }, "Reset to preset"); };
+
+function schedulePreview() { clearTimeout(pvTimer); pvTimer = setTimeout(runPreview, 120); }
+async function runPreview() {
+  const langs = cfg.languages.mode === "manual" ? cfg.languages.selected : [];
+  const r = await api("/api/preview", { knobs: effective(), languages: langs });
+  const all = r.samples, raw = all.reduce((a, s) => a + s.raw, 0), kept = all.reduce((a, s) => a + s.kept, 0);
+  $("pvStat").textContent = `All samples: ${fmt(raw)} → ${fmt(kept)} tokens (−${pct(raw - kept, raw)})`;
+  $("sampleChips").innerHTML = all.map((s) => `<button class="chip ${s.id === sampleId ? "on" : ""}" data-s="${s.id}">${esc(s.label)}</button>`).join("");
+  $("sampleChips").querySelectorAll("button").forEach((b) => b.onclick = () => { sampleId = b.dataset.s; runPreview(); });
+  const s = all.find((x) => x.id === sampleId) || all[0];
+  $("pvA").textContent = s.after; $("pvB").textContent = s.before;
+  $("pvAfter").textContent = `${fmt(s.kept)} tokens (−${pct(s.raw - s.kept, s.raw)})`;
+  $("pvBefore").textContent = `${fmt(s.raw)} tokens`;
+}
+
+$("gTurn").onchange = (e) => scheduleSave({ general: { turn_summary: e.target.checked } });
+$("gStatus").onchange = async (e) => {
+  scheduleSave({ general: { statusline: e.target.checked } });
+  if (S.setup.hooks_installed || S.setup.plugin_enabled) { try { const r = await api("/api/setup", { action: "install", statusline: e.target.checked }); S.setup = r.setup; renderSetup(); } catch (err) { toast(err.message); } }
+};
+
+/* ---------- projects tab ---------- */
+function renderLangs() {
+  const mode = cfg.languages.mode || "auto", sel = cfg.languages.selected || [];
+  document.querySelectorAll("input[name=lmode]").forEach((r) => r.checked = r.value === mode);
+  const detected = new Set(S.projects.flatMap((p) => p.detected));
+  $("langs").innerHTML = Object.entries(S.languages).map(([k, label]) =>
+    `<label class="${mode === "auto" && detected.has(k) ? "det" : ""}"><input type="checkbox" value="${k}" ${sel.includes(k) || (mode === "auto" && detected.has(k)) ? "checked" : ""} ${mode === "auto" ? "disabled" : ""}> ${esc(label)}</label>`).join("");
+  $("langs").querySelectorAll("input").forEach((c) => c.onchange = () => {
+    cfg.languages.selected = [...$("langs").querySelectorAll("input:checked")].map((x) => x.value);
+    scheduleSave({ languages: cfg.languages }); schedulePreview();
+  });
+}
+document.querySelectorAll("input[name=lmode]").forEach((r) => r.onchange = () => {
+  cfg.languages.mode = r.value;
+  if (r.value === "manual" && !cfg.languages.selected.length) cfg.languages.selected = [...new Set(S.projects.flatMap((p) => p.detected))];
+  renderLangs(); scheduleSave({ languages: cfg.languages }); schedulePreview();
+});
+
+function renderProjects() {
+  const rows = S.projects;
+  if (!rows.length) { $("projTable").innerHTML = `<div class="empty">No projects yet. They appear here after your first Claude Code session with Kompact enabled.</div>`; return; }
+  const opts = (cur) => `<option value="">Use global (${esc(S.presets[cfg.preset].name)})</option>` +
+    [1, 2, 3, 4, 5].map((i) => `<option value="${i}" ${cur === i ? "selected" : ""}>${i} · ${esc(S.presets[i].name)}</option>`).join("");
+  $("projTable").innerHTML = `<table><tr><th>Project</th><th>Languages</th><th>Quality level</th></tr>` + rows.map((p, i) =>
+    `<tr><td><span title="${esc(p.path)}">${esc(shortPath(p.path))}</span><div class="muted small mono">${esc(p.path)}</div></td>
+     <td>${p.detected.length ? p.detected.map((l) => `<span class="pill">${esc(S.languages[l] || l)}</span>`).join(" ") : '<span class="muted small">—</span>'}</td>
+     <td><select data-i="${i}" aria-label="Quality level for ${esc(p.path)}">${opts(p.override ? p.override.preset : null)}</select></td></tr>`).join("") + `</table>`;
+  $("projTable").querySelectorAll("select").forEach((sel) => sel.onchange = () => {
+    const p = rows[+sel.dataset.i];
+    p.override = sel.value ? { preset: +sel.value, overrides: {} } : null;
+    scheduleSave({ project: { path: p.path, override: p.override } }, "Project saved");
+  });
+}
+$("addProj").onclick = () => {
+  const path = $("newProj").value.trim(); if (!path) return;
+  S.projects.unshift({ path, detected: [], override: { preset: cfg.preset, overrides: {} } });
+  $("newProj").value = ""; renderProjects();
+  scheduleSave({ project: { path, override: { preset: cfg.preset, overrides: {} } } }, "Project added");
+};
+
+/* ---------- setup tab ---------- */
+function renderSetup() {
+  const st = S.setup;
+  const item = (ok, title, detail, warn) => `<div class="check"><span class="dot ${ok ? "ok" : warn ? "warn" : "no"}">${ok ? "✓" : warn ? "!" : "–"}</span><div><div><b>${title}</b></div><div class="muted small">${detail}</div></div></div>`;
+  const hooksOk = st.hooks_installed || st.plugin_enabled;
+  $("checks").innerHTML =
+    item(!!st.claude_cli, "Claude Code CLI", st.claude_cli ? esc(st.claude_cli) : "Not found on PATH (fine if you only use VS Code).") +
+    item(!!(st.vscode_extension || st.cursor_extension), "Claude Code for VS Code", esc(st.vscode_extension || st.cursor_extension || "Not detected. Kompact still works once it's installed: it uses the same settings.")) +
+    item(hooksOk, "Kompact hooks", st.plugin_enabled ? "Active through the Kompact plugin." : st.hooks_installed ? `Installed in ${esc(st.settings_file)}` :
+      `Not installed. Enabling adds 5 hooks to ${esc(st.settings_file)} (a backup is kept).`) +
+    item(st.statusline === "kompact", "Status line", st.statusline === "kompact" ? "Showing Kompact savings in the CLI." :
+      st.statusline === "other" ? "You already have a status line; Kompact leaves it alone." : "Off.", st.statusline === "other");
+  $("enableBtn").disabled = st.plugin_enabled;
+  $("enableBtn").textContent = st.hooks_installed ? "Re-install hooks" : "Enable Kompact";
+  $("disableBtn").disabled = !st.hooks_installed;
+  $("homePath").textContent = S.home + "/config.json";
+}
+async function setup(action) {
+  $("setupMsg").textContent = "Working…";
+  try {
+    const r = await api("/api/setup", { action, statusline: cfg.general.statusline });
+    S.setup = r.setup; renderSetup();
+    $("setupMsg").textContent = action === "install" ? "Done. New Claude Code sessions (CLI and VS Code) will use Kompact." : "Kompact hooks removed.";
+  } catch (e) { $("setupMsg").textContent = e.message; }
+}
+$("enableBtn").onclick = () => setup("install");
+$("disableBtn").onclick = () => setup("uninstall");
+
+/* ---------- savings tab ---------- */
+let showTable = false;
+$("tblToggle").onclick = () => { showTable = !showTable; $("tblToggle").setAttribute("aria-pressed", showTable); $("tblToggle").textContent = showTable ? "Chart view" : "Table view";
+  $("turnChart").classList.toggle("hidden", showTable); $("turnTable").classList.toggle("hidden", !showTable); };
+
+let lastTurns = [];
+window.addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(() => turnChart(lastTurns), 150); });
+function turnChart(turns) {
+  lastTurns = turns;
+  const el = $("turnChart");
+  if (!turns.length) { el.innerHTML = `<div class="empty">No turns recorded yet. Use Claude Code with Kompact enabled and each reply shows up here.</div>`; return; }
+  const W = Math.max(280, el.clientWidth || 1000), H = W < 500 ? 200 : 260, L = 44, B = 26, T = 10, R = 8;
+  const max = Math.max(...turns.map((t) => Math.max(0, t.raw - t.kept)), 1);
+  const nice = (v) => { const p = Math.pow(10, Math.floor(Math.log10(v))); return [1, 2, 2.5, 5, 10].map((m) => m * p).find((x) => x >= v); };
+  const top = nice(max), ticks = [0, top / 2, top];
+  const n = turns.length, slot = (W - L - R) / n, bw = Math.max(2, Math.min(28, slot - 2));
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Tokens saved per turn, ${n} turns">`;
+  ticks.forEach((t) => s += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/>` +
+    `<text x="${L - 6}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)">${fmt(t)}</text>`);
+  turns.forEach((t, i) => {
+    const v = Math.max(0, t.raw - t.kept), x = L + i * slot + (slot - bw) / 2, h = Math.max(v ? 2 : 0, y(0) - y(v)), r = Math.min(4, bw / 2, h);
+    const y0 = y(0), y1 = y0 - h;
+    if (h > 0) s += `<path d="M${x},${y0} V${y1 + r} Q${x},${y1} ${x + r},${y1} H${x + bw - r} Q${x + bw},${y1} ${x + bw},${y1 + r} V${y0} Z" fill="var(--series-1)"/>`;
+    s += `<rect x="${L + i * slot}" y="${T}" width="${slot}" height="${H - T - B}" fill="transparent" data-i="${i}"/>`;
+  });
+  const every = Math.ceil(n / Math.max(3, Math.floor(W / 90)));
+  turns.forEach((t, i) => { if (i % every === 0 || i === n - 1) s += `<text x="${L + i * slot + slot / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${n - i === 1 ? "now" : "−" + (n - 1 - i)}</text>`; });
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-3)"/></svg><div class="tip" id="tip"></div>`;
+  el.innerHTML = s;
+  const tip = $("tip");
+  el.querySelectorAll("rect[data-i]").forEach((r) => {
+    r.addEventListener("mousemove", (e) => {
+      const t = turns[+r.dataset.i], v = t.raw - t.kept, box = el.getBoundingClientRect();
+      const feats = Object.entries(t.features || {}).filter(([, x]) => x > 0).map(([k, x]) => `${k} −${fmt(x)}`).join(", ");
+      tip.innerHTML = `<div><b>−${fmt(v)} tokens</b> (−${pct(v, t.raw)})</div><div class="t">${fmt(t.raw)} → ${fmt(t.kept)} tool output</div>` +
+        (t.context ? `<div class="t">context ${fmt(t.context)}</div>` : "") + (feats ? `<div class="t">${esc(feats)}</div>` : "") +
+        `<div class="t">${esc(shortPath(t.project))} · ${new Date(t.ts * 1000).toLocaleString()}</div>`;
+      tip.style.display = "block";
+      const x = e.clientX - box.left + 12, w = tip.offsetWidth;
+      tip.style.left = Math.min(x, box.width - w - 4) + "px"; tip.style.top = (e.clientY - box.top - 10) + "px";
+    });
+    r.addEventListener("mouseleave", () => tip.style.display = "none");
+  });
+  $("turnTable").innerHTML = `<table><tr><th>When</th><th>Project</th><th class="num">Before</th><th class="num">After</th><th class="num">Saved</th></tr>` +
+    turns.slice().reverse().map((t) => `<tr><td>${new Date(t.ts * 1000).toLocaleString()}</td><td>${esc(shortPath(t.project))}</td><td class="num">${fmt(t.raw)}</td><td class="num">${fmt(t.kept)}</td><td class="num">−${fmt(t.raw - t.kept)} (${pct(t.raw - t.kept, t.raw)})</td></tr>`).join("") + `</table>`;
+}
+
+async function loadStats() {
+  const st = await api(`/api/stats?days=${$("range").value}&project=${encodeURIComponent($("projFilter").value)}`);
+  $("tSaved").textContent = fmt(st.saved);
+  $("tSavedNote").textContent = `${st.events} compactions · ${st.sessions} sessions`;
+  $("tPct").textContent = pct(st.saved, st.raw);
+  $("tPctNote").textContent = `${fmt(st.raw)} → ${fmt(st.kept)} tokens`;
+  const live = st.live || {}, lt = live.turn, tot = live.session_totals || {};
+  if (lt) {
+    $("tTurn").textContent = lt.saved > 0 ? "−" + fmt(lt.saved) : "0";
+    $("tTurnNote").textContent = lt.saved > 0 ? `${fmt(lt.raw)} → ${fmt(lt.kept)} (−${pct(lt.saved, lt.raw)})` : "nothing to trim";
+    $("live").innerHTML = esc(live.message || "").replace(/(−[\d.]+[kM]? tokens this turn)/, "<b>$1</b>");
+  }
+  if (tot.context) {
+    const smaller = tot.in_context_saved > 0 ? Math.round(100 * tot.in_context_saved / (tot.context + tot.in_context_saved)) : 0;
+    $("tCtx").textContent = fmt(tot.context);
+    $("tCtxNote").textContent = smaller ? `≈${smaller}% smaller than without Kompact` : "tokens in the current session";
+  }
+  turnChart(st.turns);
+  $("topTable").innerHTML = st.top.length ? `<table><tr><th>Command</th><th class="num">Runs</th><th class="num">Before</th><th class="num">After</th></tr>` +
+    st.top.map((t) => `<tr><td class="mono small">${esc(t.cmd.slice(0, 70))}</td><td class="num">${t.runs}</td><td class="num">${fmt(t.raw)}</td><td class="num">${fmt(t.kept)}</td></tr>`).join("") + `</table>`
+    : `<div class="empty">Nothing yet.</div>`;
+  const totalSaved = st.features.reduce((a, f) => a + Math.max(0, f.raw - f.kept), 0);
+  const names = { bash: "Command output", read_outline: "Outline-first reads", read_dedupe: "Skipped re-reads", run: "kompact run" };
+  $("featBars").innerHTML = st.features.length ? st.features.map((f) => { const v = Math.max(0, f.raw - f.kept);
+    return `<div class="bar-row"><span>${esc(names[f.feature] || f.feature)}</span><div class="track"><div class="fill" style="width:${totalSaved ? 100 * v / totalSaved : 0}%"></div></div><span class="num">${fmt(v)}</span></div>`; }).join("")
+    : `<div class="empty">Nothing yet.</div>`;
+}
+$("range").onchange = loadStats; $("projFilter").onchange = loadStats;
+
+$("estBtn").onclick = async () => {
+  $("estBtn").disabled = true; $("estOut").textContent = "Replaying your sessions…";
+  try {
+    const e = await api("/api/estimate", {});
+    $("estOut").innerHTML = e.calls ? `${e.sessions} sessions: <b>${pct(e.saved_tool, e.tool_tokens)}</b> of tool output, <b>${pct(e.saved_billed, e.billed)}</b> of billed tokens, <b>${pct(e.saved_cost, e.cost)}</b> of cost.`
+      : "No Claude Code history found on this machine.";
+  } catch (err) { $("estOut").textContent = err.message; }
+  $("estBtn").disabled = false;
+};
+
+/* ---------- boot ---------- */
+async function boot() {
+  S = await api("/api/state");
+  cfg = S.config;
+  $("ver").textContent = "v" + S.version;
+  $("projFilter").innerHTML = `<option value="">All projects</option>` + S.projects.map((p) => `<option value="${esc(p.path)}">${esc(shortPath(p.path))}</option>`).join("");
+  $("gTurn").checked = cfg.general.turn_summary !== false;
+  $("gStatus").checked = cfg.general.statusline !== false;
+  renderPreset(); renderKnobs(); renderLangs(); renderProjects(); renderSetup();
+  runPreview(); loadStats();
+  try { const t = localStorage.getItem("kompact-tab"); if (t) document.querySelector(`nav button[data-tab=${t}]`)?.click(); } catch (e) {}
+  if (!S.setup.hooks_installed && !S.setup.plugin_enabled) document.querySelector("nav button[data-tab=setup]").click();
+  setInterval(loadStats, 4000);
+}
+boot().catch((e) => { document.body.insertAdjacentHTML("afterbegin", `<p style="padding:16px;color:var(--crit)">Couldn't load Kompact: ${esc(e.message)}</p>`); });
+</script>
+</body>
+</html>

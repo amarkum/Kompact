@@ -3,12 +3,10 @@
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
-from pathlib import Path
 
-from . import __version__, config, estimate, filters, hooks, outline, store, tokens
+from . import __version__, config, estimate, filters, hooks, installer, outline, store, tokens
 
 
 def _bar(frac: float, width: int = 24) -> str:
@@ -38,7 +36,7 @@ def cmd_run(a):
     p = subprocess.run(cmd, shell=True, capture_output=True, text=True, errors="replace")
     raw = p.stdout + (("\n" + p.stderr) if p.stderr else "")
     sid = store.stash(cmd, raw)
-    out = filters.compress(cmd, raw, p.returncode, stash_id=sid)
+    out = filters.compress(cmd, raw, p.returncode, stash_id=sid, opts=config.load(os.getcwd()))
     r, k = tokens.count(raw), tokens.count(out)
     store.record("run", r, k, cmd)
     print(out)
@@ -50,7 +48,7 @@ def cmd_run(a):
 def cmd_filter(a):
     """Compact stdin as if it were the output of --cmd."""
     raw = sys.stdin.read()
-    print(filters.compress(a.cmd or "", raw, a.exit_code))
+    print(filters.compress(a.cmd or "", raw, a.exit_code, opts=config.load(os.getcwd())))
     return 0
 
 
@@ -122,7 +120,7 @@ def cmd_gain(a):
         return 0
     tr = sum(r[2] for r in rows)
     tk = sum(r[3] for r in rows)
-    print(f"Kompact live savings  (tool output entering Claude's context)\n")
+    print("Kompact live savings  (tool output entering Claude's context)\n")
     print(f"  {'feature':<14}{'events':>8}{'before':>10}{'after':>10}{'saved':>9}")
     for f, n, r, k in rows:
         print(f"  {f:<14}{n:>8}{_fmt(r):>10}{_fmt(k):>10}{_pct(r - k, r):>9}")
@@ -177,52 +175,97 @@ def cmd_estimate(a):
 # ---------------------------------------------------------------------------
 
 
-def _hook_entries(exe: str):
-    def h(sub):
-        return [{"type": "command", "command": f"{exe} hook {sub}", "timeout": 10}]
-    return {
-        "PostToolUse": [{"matcher": "Bash", "hooks": h("post-bash")}],
-        "PreToolUse": [{"matcher": "Read", "hooks": h("pre-read")}],
-        "PreCompact": [{"hooks": h("pre-compact")}],
-        "SessionStart": [{"hooks": h("session-start")}],
-    }
-
-
 def cmd_install(a):
-    target = Path(".claude/settings.json") if a.project else Path.home() / ".claude" / "settings.json"
-    exe = shutil.which("kompact") or f"{sys.executable} -m kompact"
-    settings = json.loads(target.read_text()) if target.exists() else {}
-    hooks_cfg = settings.setdefault("hooks", {})
-    for event, entries in _hook_entries(exe).items():
-        lst = [e for e in hooks_cfg.get(event, []) if "kompact" not in json.dumps(e)]
-        if not a.uninstall:
-            lst += entries
-        if lst:
-            hooks_cfg[event] = lst
-        else:
-            hooks_cfg.pop(event, None)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(settings, indent=2) + "\n")
+    target = installer.install("project" if a.project else "user", statusline=not a.no_statusline,
+                               uninstall=a.uninstall)
     print(f"{'Removed' if a.uninstall else 'Installed'} Kompact hooks in {target}")
     if not a.uninstall:
-        print("Restart Claude Code (or open /hooks) to pick them up. `kompact gain` shows live savings.")
+        print("New Claude Code sessions (CLI and VS Code) will use them. Settings: `kompact ui`.")
+    return 0
+
+
+def cmd_setup(a):
+    """One-step setup: enable hooks for CLI + VS Code, then open the dashboard."""
+    target = installer.install(statusline=config.read_file()["general"].get("statusline", True))
+    st = installer.status()
+    print("✓ Kompact plugin is enabled; hooks are active." if st["plugin_enabled"] else f"✓ Hooks installed in {target}")
+    print(f"  Claude Code CLI:   {'found' if st['claude_cli'] else 'not found'}")
+    print(f"  VS Code extension: {st['vscode_extension'] or 'not found'} (uses the same settings)")
+    if a.no_ui:
+        return 0
+    print("Opening the dashboard to choose your quality level…")
+    from . import server
+    server.serve(a.port, open_browser=True)
+    return 0
+
+
+def cmd_ui(a):
+    from . import server
+    server.serve(a.port, open_browser=not a.no_browser)
+    return 0
+
+
+def cmd_statusline(a):
+    """Claude Code statusLine command: one line of running savings for this session."""
+    try:
+        event = json.loads(sys.stdin.read() or "{}")
+    except ValueError:
+        event = {}
+    sid = event.get("session_id", "")
+    cfg = config.load((event.get("workspace") or {}).get("current_dir") or event.get("cwd") or os.getcwd())
+    name = config.PRESETS[cfg["preset"]]["name"]
+    tot = store.session_totals(sid) if sid else {}
+    if tot.get("saved", 0) > 0:
+        parts = [f"⚡ Kompact −{hooks._fmt(tot['saved'])}"]
+        if tot["context"] and tot["in_context_saved"] > 0:
+            parts.append(f"ctx −{100 * tot['in_context_saved'] / (tot['context'] + tot['in_context_saved']):.0f}%")
+        if tot["last_turn_saved"] > 0:
+            parts.append(f"last turn −{hooks._fmt(tot['last_turn_saved'])}")
+        parts.append(name)
+        print(" · ".join(parts))
+    else:
+        print(f"⚡ Kompact · {name}")
     return 0
 
 
 def cmd_config(a):
     if a.key and a.value is not None:
-        config.save(a.key, a.value)
-    print(json.dumps(config.load(), indent=2))
+        try:
+            config.save(a.key, a.value)
+        except (KeyError, ValueError) as e:
+            print(f"unknown or invalid setting: {e}", file=sys.stderr)
+            return 1
+    eff = config.load(os.getcwd())
+    print(f"preset {eff['preset']} · {config.PRESETS[eff['preset']]['name']}   languages: {', '.join(eff['languages']) or '-'}")
+    for k in config.KNOBS:
+        print(f"  {k:<20} {eff[k]}")
+    print(f"(edit in the dashboard: kompact ui · file: {config.path()})")
+    return 0
+
+
+def cmd_presets(a):
+    from . import server
+    data = config.read_file()
+    presets = {p: {"name": v["name"], "blurb": v["blurb"]} for p, v in config.PRESETS.items()}
+    savings = server.preset_savings()
+    if a.json:
+        print(json.dumps({"current": data["preset"], "presets": presets, "savings": savings}))
+        return 0
+    for p, v in presets.items():
+        mark = "●" if p == data["preset"] else " "
+        print(f" {mark} {p} {v['name']:<12} ≈{savings[p]:>2}% on samples  {v['blurb']}")
+    print("Change with `kompact config preset N` or in the dashboard (`kompact ui`).")
     return 0
 
 
 def cmd_doctor(a):
     print(f"kompact {__version__}  python {sys.version.split()[0]}  home {store.home()}")
     print(f"tokenizer: {'tiktoken' if tokens._ENC else 'heuristic (pip install tiktoken for exact counts)'}")
-    print(f"sqlite fts5: {'yes' if store.connect().fts else 'no (search falls back to LIKE)'}")
-    for p in (Path.home() / ".claude/settings.json", Path(".claude/settings.json")):
-        if p.exists():
-            print(f"{p}: {'hooks installed' if 'kompact' in p.read_text() else 'no kompact hooks'}")
+    with store.connect() as db:
+        print(f"sqlite fts5: {'yes' if db.fts else 'no (search falls back to LIKE)'}")
+    st = installer.status()
+    for k, v in st.items():
+        print(f"{k}: {v}")
     log = store.home() / "hook-errors.log"
     if log.exists():
         print("recent hook errors:\n" + "".join(log.read_text().splitlines(True)[-5:]))
@@ -245,10 +288,24 @@ def main(argv=None):
     p = sp.add_parser("gain", help="live savings recorded by the hooks")
     p.set_defaults(fn=cmd_gain)
 
+    p = sp.add_parser("setup", help="one-step setup: enable for Claude Code (CLI + VS Code) and open the dashboard")
+    p.add_argument("--no-ui", action="store_true")
+    p.add_argument("--port", type=int, default=7420)
+    p.set_defaults(fn=cmd_setup)
+
+    p = sp.add_parser("ui", help="open the settings & savings dashboard")
+    p.add_argument("--port", type=int, default=7420)
+    p.add_argument("--no-browser", action="store_true")
+    p.set_defaults(fn=cmd_ui)
+
     p = sp.add_parser("install", help="add Kompact hooks to Claude Code settings")
     p.add_argument("--project", action="store_true", help="write .claude/settings.json instead of ~/.claude")
     p.add_argument("--uninstall", action="store_true")
+    p.add_argument("--no-statusline", action="store_true")
     p.set_defaults(fn=cmd_install)
+
+    p = sp.add_parser("statusline", help="(internal) Claude Code status line")
+    p.set_defaults(fn=cmd_statusline)
 
     p = sp.add_parser("map", help="ranked repo skeleton within a token budget")
     p.add_argument("root", nargs="?", default=".")
@@ -285,10 +342,14 @@ def main(argv=None):
     p.add_argument("--max", type=int, default=15)
     p.set_defaults(fn=cmd_search)
 
-    p = sp.add_parser("config", help="show or set config (kompact config style full)")
+    p = sp.add_parser("config", help="show or set config (kompact config preset 4); easier: kompact ui")
     p.add_argument("key", nargs="?")
     p.add_argument("value", nargs="?")
     p.set_defaults(fn=cmd_config)
+
+    p = sp.add_parser("presets", help="list quality-vs-tokens levels")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_presets)
 
     p = sp.add_parser("hook", help="(internal) Claude Code hook entrypoint")
     p.add_argument("name", choices=list(hooks.HANDLERS))

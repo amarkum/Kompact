@@ -37,7 +37,7 @@ def transcripts(root=None, project=None):
     return sorted(glob.glob(pattern, recursive=True), key=os.path.getmtime)
 
 
-def analyze_file(path: str, stats: dict) -> None:
+def analyze_file(path: str, stats: dict, opts=None) -> None:
     calls = []            # ordered unique API calls: (usage dict)
     seen_ids = set()
     pending = {}          # tool_use_id -> (name, input)
@@ -91,9 +91,9 @@ def analyze_file(path: str, stats: dict) -> None:
         stats["tool_tokens"] += t
         stats["tool_by_name"][name] += t
         saved, feature = 0, None
-        if name == "Bash" and t >= 150:
+        if name == "Bash" and t >= (opts or {}).get("bash_min_tokens", 150):
             cmd = inp.get("command", "")
-            new = filters.compress(cmd, text, 1 if is_err else 0, stash_id=1)
+            new = filters.compress(cmd, text, 1 if is_err else 0, stash_id=1, opts=opts)
             kept = tokens.count(new) + 15  # + the "[kompact: …]" footer
             if kept < t * 0.9:
                 saved, feature = t - kept, "bash:" + filters.classify(cmd)
@@ -101,11 +101,12 @@ def analyze_file(path: str, stats: dict) -> None:
         elif name == "Read":
             p = inp.get("file_path", "")
             key = (p, inp.get("offset"), inp.get("limit"))
-            if key in reads and reads[key] == text:
+            if key in reads and reads[key] == text and (opts or {}).get("read_dedupe", True):
                 saved, feature = max(0, t - 60), "read:dedupe"
-            elif inp.get("offset") is None and inp.get("limit") is None and os.path.splitext(p)[1] in outline.SOURCE_EXT:
+            elif (opts or {}).get("read_outline", True) and inp.get("offset") is None and inp.get("limit") is None \
+                    and os.path.splitext(p)[1] in outline.SOURCE_EXT:
                 src = LINE_NO.sub("", text)
-                if src.count("\n") + 1 >= 400:
+                if src.count("\n") + 1 >= (opts or {}).get("read_outline_lines", 400):
                     skel = tokens.count(outline.render_outline(p, src)) + 60
                     saved = max(0, int(t * (1 - OUTLINE_FOLLOWUP)) - skel)
                     feature = "read:outline"
@@ -122,7 +123,11 @@ def analyze_file(path: str, stats: dict) -> None:
             stats["count_feature"][feature] += 1
 
 
-def run(root=None, project=None, limit=None, style_pct=None):
+def run(root=None, project=None, limit=None, style_pct=None, opts=None):
+    """Replay transcripts. `opts` are effective settings (config.load()); defaults to the current global config."""
+    if opts is None:
+        from . import config
+        opts = config.load()
     stats = defaultdict(float)
     stats.update(tool_by_name=defaultdict(int), by_feature=defaultdict(int), count_feature=defaultdict(int), top_cmds=[])
     files = transcripts(root, project)
@@ -130,7 +135,7 @@ def run(root=None, project=None, limit=None, style_pct=None):
         files = files[-limit:]
     for f in files:
         try:
-            analyze_file(f, stats)
+            analyze_file(f, stats, opts)
         except OSError:
             continue
     stats["files"] = len(files)

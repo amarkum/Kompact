@@ -1,7 +1,7 @@
 {
   "name": "kompact",
   "displayName": "Kompact",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cut the tokens Claude Code spends on noise: compacted Bash output, outline-first file reads, read dedupe, terse style rules, and a savings estimator.",
   "author": { "name": "Amar Kumar" },
   "repository": "https://github.com/amarkum/Kompact",

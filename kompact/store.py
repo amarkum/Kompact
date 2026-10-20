@@ -1,5 +1,7 @@
-"""Local SQLite store: savings ledger, stashed raw outputs (FTS5), read tracker."""
+"""Local SQLite store: savings ledger, per-turn summaries, stashed raw outputs
+(FTS5), and the Read tracker. Lives in ~/.kompact (override with KOMPACT_HOME)."""
 
+import json
 import os
 import sqlite3
 import time
@@ -8,7 +10,7 @@ from pathlib import Path
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     ts REAL, session TEXT, feature TEXT, detail TEXT,
-    raw_tokens INTEGER, kept_tokens INTEGER
+    raw_tokens INTEGER, kept_tokens INTEGER, project TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS stash (
     id INTEGER PRIMARY KEY, ts REAL, cmd TEXT, output TEXT
@@ -16,6 +18,14 @@ CREATE TABLE IF NOT EXISTS stash (
 CREATE TABLE IF NOT EXISTS reads (
     session TEXT, path TEXT, sig TEXT, state TEXT, pending INTEGER DEFAULT 0, ts REAL,
     PRIMARY KEY (session, path)
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    session TEXT PRIMARY KEY, project TEXT, started REAL, last_turn REAL, compacted REAL DEFAULT 0,
+    turns INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS turns (
+    session TEXT, idx INTEGER, ts REAL, project TEXT, raw_tokens INTEGER, kept_tokens INTEGER,
+    context_tokens INTEGER, features TEXT
 );
 """
 
@@ -27,12 +37,22 @@ def home() -> Path:
 
 
 class _Conn(sqlite3.Connection):
+    """`with connect() as db:` commits (or rolls back) and then closes."""
     fts = False
+
+    def __exit__(self, *exc):
+        try:
+            return super().__exit__(*exc)
+        finally:
+            self.close()
 
 
 def connect() -> _Conn:
     db = sqlite3.connect(home() / "kompact.db", timeout=5, factory=_Conn)
     db.executescript(SCHEMA)
+    if "project" not in {r[1] for r in db.execute("PRAGMA table_info(events)")}:  # created by v0.1
+        db.execute("ALTER TABLE events ADD COLUMN project TEXT DEFAULT ''")
+    db.execute("CREATE INDEX IF NOT EXISTS events_session ON events(session, ts)")
     try:
         db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS stash_fts USING fts5(output, content='stash', content_rowid='id')")
         db.fts = True
@@ -41,12 +61,85 @@ def connect() -> _Conn:
     return db
 
 
-def record(feature: str, raw: int, kept: int, detail: str = "", session: str = "", force: bool = False) -> None:
+def record(feature: str, raw: int, kept: int, detail: str = "", session: str = "", force: bool = False,
+           project: str = "") -> None:
     """Log a saving. `force` allows negative entries (reversing an earlier estimate)."""
     if raw <= kept and not force:
         return
     with connect() as db:
-        db.execute("INSERT INTO events VALUES (?,?,?,?,?,?)", (time.time(), session, feature, detail[:200], raw, kept))
+        db.execute("INSERT INTO events (ts, session, feature, detail, raw_tokens, kept_tokens, project) "
+                   "VALUES (?,?,?,?,?,?,?)", (time.time(), session, feature, detail[:200], raw, kept, project))
+
+
+# ---------------------------------------------------------------------------
+# turns
+
+
+def close_turn(session: str, project: str, context_tokens: int = 0):
+    """Summarise savings since the previous turn ended. Returns (turn, session_totals)."""
+    now = time.time()
+    with connect() as db:
+        row = db.execute("SELECT last_turn, compacted, turns FROM sessions WHERE session=?", (session,)).fetchone()
+        if row is None:
+            db.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?)", (session, project, now, 0, 0, 0))
+            row = (0, 0, 0)
+        last, compacted, n = row
+        feats = db.execute("SELECT feature, SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE session=? AND ts>? "
+                           "GROUP BY feature", (session, last or 0)).fetchall()
+        raw = sum(f[1] for f in feats)
+        kept = sum(f[2] for f in feats)
+        by_feature = {f[0]: f[1] - f[2] for f in feats}
+        n += 1
+        db.execute("UPDATE sessions SET last_turn=?, turns=?, project=? WHERE session=?", (now, n, project, session))
+        db.execute("INSERT INTO turns VALUES (?,?,?,?,?,?,?,?)",
+                   (session, n, now, project, raw, kept, context_tokens, json.dumps(by_feature)))
+        tot = db.execute("SELECT COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0) FROM events "
+                         "WHERE session=?", (session,)).fetchone()
+        live = db.execute("SELECT COALESCE(SUM(raw_tokens - kept_tokens),0) FROM events WHERE session=? AND ts>?",
+                          (session, compacted or 0)).fetchone()[0]
+    turn = {"idx": n, "raw": raw, "kept": kept, "saved": raw - kept, "features": by_feature}
+    totals = {"raw": tot[0], "kept": tot[1], "saved": tot[0] - tot[1], "in_context_saved": live,
+              "context": context_tokens}
+    return turn, totals
+
+
+def session_totals(session: str) -> dict:
+    """Savings so far for one session (for status lines when several sessions run at once)."""
+    with connect() as db:
+        tot = db.execute("SELECT COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0) FROM events WHERE session=?",
+                         (session,)).fetchone()
+        row = db.execute("SELECT compacted FROM sessions WHERE session=?", (session,)).fetchone()
+        live = db.execute("SELECT COALESCE(SUM(raw_tokens - kept_tokens),0) FROM events WHERE session=? AND ts>?",
+                          (session, (row[0] if row else 0) or 0)).fetchone()[0]
+        last = db.execute("SELECT raw_tokens, kept_tokens, context_tokens FROM turns WHERE session=? ORDER BY idx DESC "
+                          "LIMIT 1", (session,)).fetchone()
+    return {"raw": tot[0], "kept": tot[1], "saved": tot[0] - tot[1], "in_context_saved": live,
+            "context": last[2] if last else 0, "last_turn_saved": (last[0] - last[1]) if last else 0}
+
+
+def mark_compacted(session: str) -> None:
+    with connect() as db:
+        db.execute("UPDATE sessions SET compacted=? WHERE session=?", (time.time(), session))
+        db.execute("DELETE FROM reads WHERE session=?", (session,))
+
+
+def write_live(payload: dict) -> None:
+    """Small JSON file the VS Code extension and the status line read."""
+    p = home() / "live.json"
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload))
+    os.replace(tmp, p)
+
+
+def read_live() -> dict:
+    try:
+        return json.loads((home() / "live.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# stash
 
 
 def stash(cmd: str, output: str) -> int:

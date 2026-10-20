@@ -2,8 +2,9 @@
 
 Each filter takes the (ANSI-stripped) output lines and returns fewer lines that
 carry the same information for an agent. Errors, failures and summaries are
-always preserved; progress bars, passing tests, download chatter and repeated
-lines are not.
+always preserved; progress bars, passing tests, download chatter, library
+stack frames and repeated lines are not. How aggressive each step is comes
+from the quality-vs-tokens preset (see config.PRESETS).
 """
 
 import os
@@ -11,9 +12,15 @@ import re
 import shlex
 from collections import OrderedDict
 
+from . import langs
+
 ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*(\x07|\x1b\\)|\x1b[=>]")
 IMPORTANT = re.compile(r"error|fail|fatal|exception|traceback|panic|denied|not found|cannot|unable|warning: |assert", re.I)
 MAX_LINE = 300
+
+DEFAULT_OPTS = {"bash_max_lines": 200, "max_line_chars": 500, "grep_per_file": 12, "test_hide_passing": True, "test_boilerplate": False,
+                "trim_stack_frames": True,
+                "diff_context": -1, "git_log_compact": True, "languages": []}
 
 # ---------------------------------------------------------------------------
 # command classification
@@ -21,7 +28,11 @@ MAX_LINE = 300
 
 WRAPPERS = {"sudo", "time", "nice", "env", "npx", "bunx", "pnpx", "command"}
 RUN_PREFIXES = (("uv", "run"), ("poetry", "run"), ("pipenv", "run"), ("python", "-m"), ("python3", "-m"),
-                ("bundle", "exec"), ("npm", "exec"), ("pnpm", "exec"), ("yarn", "exec"))
+                ("bundle", "exec"), ("npm", "exec"), ("pnpm", "exec"), ("yarn", "exec"), ("pdm", "run"),
+                ("hatch", "run"), ("rye", "run"))
+BUILD_TOOLS = {"npm", "pnpm", "yarn", "pip", "pip3", "uv", "poetry", "pdm", "cargo", "go", "mvn", "gradle", "gradlew",
+               "docker", "apt", "apt-get", "brew", "bundle", "composer", "make", "cmake", "tsc", "bun", "conda",
+               "vite", "next", "webpack", "turbo", "nx", "rollup", "esbuild", "parcel", "expo", "docker-compose"}
 
 
 def argv0(cmd: str):
@@ -58,21 +69,23 @@ def classify(cmd: str) -> str:
             return "grep"
         if sub == "ls-files":
             return "listing"
-    if p in ("pytest", "jest", "vitest", "mocha", "ava", "tap", "rspec", "phpunit", "ctest", "tox", "nox"):
+    if p in ("pytest", "py.test", "jest", "vitest", "mocha", "ava", "tap", "rspec", "phpunit", "ctest", "tox", "nox",
+             "playwright", "cypress", "gotestsum", "unittest"):
         return "test"
     if p in ("go", "cargo", "dotnet", "mix", "deno", "bun", "swift") and sub == "test":
         return "test"
-    if p in ("npm", "pnpm", "yarn") and (sub == "test" or (sub == "run" and len(w) > 2 and "test" in w[2])):
+    if p in ("npm", "pnpm", "yarn") and ("test" in sub or (sub == "run" and len(w) > 2 and "test" in w[2])):
         return "test"
-    if p in ("make", "gradle", "gradlew", "./gradlew", "mvn", "mvnw") and any("test" in x for x in w[1:]):
+    if p in ("make", "gradle", "gradlew", "mvn", "mvnw", "turbo", "nx") and any("test" in x for x in w[1:]):
         return "test"
-    if p in ("npm", "pnpm", "yarn", "pip", "pip3", "uv", "poetry", "cargo", "go", "mvn", "gradle", "gradlew",
-             "docker", "apt", "apt-get", "brew", "bundle", "composer", "make", "cmake", "tsc", "bun", "conda"):
+    if p in BUILD_TOOLS:
         return "build"
     if p in ("find", "fd", "tree") or (p == "ls" and any(a.startswith("-") and "R" in a for a in w[1:])):
         return "listing"
     if p in ("grep", "egrep", "rg", "ag", "ack"):
         return "grep"
+    if p in ("cat", "head", "tail", "nl", "bat", "less", "more", "type") or (p == "sed" and "-n" in w[1:]):
+        return "view"
     return "generic"
 
 
@@ -93,29 +106,48 @@ def clean(text: str):
     return lines
 
 
-PROGRESS = re.compile(r"(\d{1,3}(\.\d+)?%|[█▓▒░#=>\-]{8,}|\d+(\.\d+)?\s?[kMG]i?B/s|[⠁-⣿])")
+# A progress line needs a real progress signal: a bar, a spinner, curl's meter, or a
+# transfer speed next to a percentage/count. A bare "50%" is data, not progress.
+BAR = re.compile(r"[█▓▒░━■▇▆▅▄▃▂▁]{3,}|\[[#=>\-.\s]{6,}\]|[⠁-⣿]|--:--:--")
+SPEED = re.compile(r"\d+(\.\d+)?\s?[kKMG]i?B/s|\beta\b|\bETA\b|\d+(\.\d+)?\s?it/s")
+PCT_OR_COUNT = re.compile(r"\b\d{1,3}(\.\d+)?%|\b\d+/\d+\b")
+LEADING_PCT = re.compile(r"^\s*\d{1,3}%\s")  # webpack/vite "45% building …"
+TEST_RESULT = re.compile(r"\b(PASS|PASSED|FAIL|FAILED|SKIP|SKIPPED|XFAIL|XPASS|ERROR|ok)\b")
+
+
+def is_progress(ln: str) -> bool:
+    if len(ln) >= 200 or IMPORTANT.search(ln) or TEST_RESULT.search(ln) or ln.startswith(("+", "-", "@@")):
+        return False
+    return bool(BAR.search(ln) or LEADING_PCT.match(ln) or (SPEED.search(ln) and PCT_OR_COUNT.search(ln)))
 
 
 def drop_progress(lines):
-    return [ln for ln in lines if not (PROGRESS.search(ln) and not IMPORTANT.search(ln) and len(ln) < 200)]
+    """Drop progress bars and download meters (never data, test results, diff lines or errors)."""
+    return [ln for ln in lines if not is_progress(ln)]
 
 
 def _shape(ln: str) -> str:
     return re.sub(r"0x[0-9a-f]+|\d+(\.\d+)?", "#", ln)
 
 
-def collapse_repeats(lines, min_run: int = 4, shapes: bool = True):
-    """Collapse runs of identical lines ("[x50]"), and - for log-like output only -
-    runs of lines that differ just in numbers ("… 120 similar lines …")."""
+LOG_LINE = re.compile(r"^\s*[\[(]?(\d{2,4}[-/.]\d{2}[-/.]\d{2}|\d{2}:\d{2}:\d{2}|#\d+ \d)")
+
+
+def collapse_repeats(lines, min_run: int = 4, shapes: str = "none"):
+    """Collapse runs of identical lines ("[x50]"). With shapes="all" (build output) or
+    "logs" (timestamped log lines only), also collapse runs of lines that differ just
+    in numbers ("… 120 similar lines …"); never for tables or data, where the
+    numbers are the information."""
     out, i = [], 0
     while i < len(lines):
         j = i + 1
         exact = True
-        while j < len(lines) and (lines[j] == lines[i] or (shapes and _shape(lines[j]) == _shape(lines[i]))):
+        shape_ok = shapes == "all" or (shapes == "logs" and bool(LOG_LINE.match(lines[i])))
+        while j < len(lines) and (lines[j] == lines[i] or (shape_ok and _shape(lines[j]) == _shape(lines[i]))):
             exact &= lines[j] == lines[i]
             j += 1
         run = j - i
-        if run >= min_run and lines[i].strip():
+        if run >= (min_run if exact else max(min_run, 6)) and lines[i].strip():
             if exact:
                 out.append(f"{lines[i]}  [x{run}]")
             else:
@@ -140,14 +172,83 @@ def cap(lines, max_lines: int, head: int, tail: int, stash_id=None):
     keep = [ln for ln in middle if IMPORTANT.search(ln)][:30]
     ref = f"; full output: kompact show {stash_id}" if stash_id else ""
     note = f"… {len(middle) - len(keep)} lines omitted{ref} …"
-    return lines[:head] + [note] + keep + ([f"… (end of omitted section) …"] if keep else []) + lines[-tail:]
+    return lines[:head] + [note] + keep + (["… (end of omitted section) …"] if keep else []) + lines[-tail:]
+
+
+# ---------------------------------------------------------------------------
+# stack traces: collapse frames that live in libraries / the runtime
+
+PY_FRAME = re.compile(r'^\s*File "([^"]+)", line \d+')
+PYTEST_FRAME = re.compile(r"^(\S+\.py):\d+: in \S+")
+NODE_FRAME = re.compile(r"^\s+at \S")
+GO_FUNC = re.compile(r"^([\w./*()\-\[\]{},]+\(.*\)|created by .+)$")
+GO_FILE = re.compile(r"^\t\S+\.go:\d+")
+
+
+def _frames(lines):
+    """Yield (start, end, header_text, innermost_last) for each stack frame found in lines."""
+    i, n = 0, len(lines)
+    while i < n:
+        ln = lines[i]
+        if PY_FRAME.match(ln):
+            ind = len(ln) - len(ln.lstrip())
+            j = i + 1
+            while j < n and lines[j].strip() and len(lines[j]) - len(lines[j].lstrip()) > ind \
+                    and not PY_FRAME.match(lines[j]):
+                j += 1
+            yield i, j, ln, True
+            i = j
+        elif PYTEST_FRAME.match(ln):
+            j = i + 1
+            while j < n and not PYTEST_FRAME.match(lines[j]) and not lines[j].startswith(("E ", "_ _", "=", "___")):
+                j += 1
+            yield i, j, ln, True
+            i = j
+        elif NODE_FRAME.match(ln):
+            yield i, i + 1, ln, False
+            i += 1
+        elif GO_FUNC.match(ln) and i + 1 < n and GO_FILE.match(lines[i + 1]):
+            yield i, i + 2, lines[i + 1], False
+            i += 2
+        else:
+            i += 1
+
+
+def trim_frames(lines, lib_re):
+    if lib_re is None:
+        return lines
+    frames = list(_frames(lines))
+    if len(frames) < 3:
+        return lines
+    out, pos, k = [], 0, 0
+    while k < len(frames):
+        s, e, head, innermost_last = frames[k]
+        if not lib_re.search(head):
+            k += 1
+            continue
+        # gather a run of consecutive library frames
+        run = [frames[k]]
+        while k + len(run) < len(frames) and frames[k + len(run)][0] == run[-1][1] \
+                and lib_re.search(frames[k + len(run)][2]):
+            run.append(frames[k + len(run)])
+        nxt = k + len(run)
+        ends_trace = nxt >= len(frames) or frames[nxt][0] != run[-1][1]
+        if len(run) >= 2:
+            # Python prints the raising frame last; keep it. Go/Node print it first.
+            hide = run[:-1] if ends_trace and innermost_last else run
+            out += lines[pos:hide[0][0]]
+            out.append(f"{' ' * (len(head) - len(head.lstrip()))}[… {len(hide)} library frames hidden …]")
+            pos = hide[-1][1]
+        k = nxt
+    out += lines[pos:]
+    return out
 
 
 # ---------------------------------------------------------------------------
 # specific filters
 
 
-def f_git_status(lines, _):
+def f_git_status(lines, opts):
     if not any(ln.startswith(("On branch", "HEAD detached", "Changes", "Untracked", "nothing to commit")) for ln in lines):
         return lines  # already short format
     out, section, groups = [], None, OrderedDict()
@@ -172,8 +273,8 @@ def f_git_status(lines, _):
     return out
 
 
-def f_git_log(lines, _):
-    if not lines or not lines[0].startswith("commit "):
+def f_git_log(lines, opts):
+    if not opts["git_log_compact"] or not lines or not lines[0].startswith("commit "):
         return lines
     out, cur = [], None
     for ln in lines:
@@ -191,8 +292,8 @@ def f_git_log(lines, _):
             cur["extra"] = " (merge)"
         elif ln.startswith("    ") and cur["msg"] is None and ln.strip():
             cur["msg"] = ln.strip()
-        elif re.match(r"^\s*\S.*\|\s+\d+", ln) or re.match(r"^\s*\d+ files? changed", ln):
-            cur["extra"] += " | " + ln.strip() if "changed" in ln else ""
+        elif re.match(r"^\s*\d+ files? changed", ln):
+            cur["extra"] += " | " + ln.strip()
     if cur:
         out.append(cur)
     return [f"{c['sha']} {_short_date(c['date'])} {c['author']}: {c['msg'] or ''}{c['extra']}" for c in out]
@@ -203,21 +304,21 @@ def _short_date(d: str) -> str:
     return f"{m.group(3)}-{m.group(1)}-{int(m.group(2)):02d}" if m else d
 
 
-LOCKFILES = re.compile(r"(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|go\.sum|Gemfile\.lock|composer\.lock|uv\.lock|\.min\.(js|css)|\.map)$")
-
-
-def f_git_diff(lines, _):
-    out, skipping, added, removed, name = [], False, 0, 0, ""
+def f_git_diff(lines, opts):
+    lock_re = langs.lockfile_re(opts["languages"])
+    gen_re = langs.generated_re(opts["languages"])
+    out, skipping, added, removed, name, why = [], False, 0, 0, "", ""
 
     def flush():
         if skipping:
-            out.append(f"[{name}: generated/lock file diff, +{added} -{removed} lines omitted]")
+            out.append(f"[{name}: {why} diff, +{added} -{removed} lines omitted]")
 
     for ln in lines:
         if ln.startswith("diff --git"):
             flush()
             name = ln.split(" b/")[-1]
-            skipping = bool(LOCKFILES.search(name))
+            why = "lock file" if lock_re.search(name) else "generated file" if gen_re and gen_re.search(name) else ""
+            skipping = bool(why)
             added = removed = 0
             out.append(ln)
             continue
@@ -229,25 +330,77 @@ def f_git_diff(lines, _):
             continue
         out.append(ln)
     flush()
+    ctx = opts["diff_context"]
+    return trim_diff_context(out, ctx) if ctx is not None and ctx >= 0 else out
+
+
+def trim_diff_context(lines, ctx: int):
+    """Keep only `ctx` unchanged lines around each change inside hunks."""
+    out, hunk = [], []
+
+    def flush():
+        if not hunk:
+            return
+        changed = [i for i, ln in enumerate(hunk) if ln[:1] in "+-"]
+        keep = set()
+        for i in changed:
+            keep.update(range(i - ctx, i + ctx + 1))
+        gap = 0
+        for i, ln in enumerate(hunk):
+            if i in keep or ln[:1] not in " " or ln.startswith("\\"):
+                if gap:
+                    out.append(f" ⋯ {gap} unchanged")
+                    gap = 0
+                out.append(ln)
+            else:
+                gap += 1
+        if gap:
+            out.append(f" ⋯ {gap} unchanged")
+        hunk.clear()
+
+    in_hunk = False
+    for ln in lines:
+        if ln.startswith("@@"):
+            flush()
+            out.append(ln)
+            in_hunk = True
+        elif in_hunk and (ln[:1] in " +-\\" or ln == "") and not ln.startswith(("diff --git", "--- ", "+++ ")):
+            hunk.append(ln if ln else " ")
+        else:
+            flush()
+            in_hunk = ln.startswith("@@")
+            out.append(ln)
+    flush()
     return out
 
 
-GIT_NOISE = re.compile(r"^(remote: )?(Enumerating|Counting|Compressing|Writing|Receiving|Resolving|Total \d|Delta compression|Unpacking|Updating files|Filtering content)")
+GIT_NOISE = re.compile(r"^(remote: )?(Enumerating|Counting|Compressing|Writing|Receiving|Resolving|Total \d|"
+                       r"Delta compression|Unpacking|Updating files|Filtering content)")
 
 
-def f_git_net(lines, _):
+def f_git_net(lines, opts):
     return [ln for ln in lines if not GIT_NOISE.match(ln)]
 
 
 PASSING = re.compile(
-    r"(\bPASS(ED)?\b(?!.*\bFAIL)|^\s*[✓✔√]|^\s*ok\s|^--- PASS|^=== (RUN|PAUSE|CONT)|\.\.\. ok$|^\s*test \S+ \.\.\. ok"
-    r"|^\s+✓|^PASS\s|\bpassed\b.*\d+ms$|^\s*\.+\s*\[\s*\d+%\]$)")
+    r"(\bPASS(ED)?\b(?!.*\bFAIL)|^\s*[✓✔√]|^\s*ok\s|^--- PASS|^=== (RUN|PAUSE|CONT|NAME)|\.\.\. ok$|^\s*test \S+ \.\.\. ok"
+    r"|^\?\s+\S+\s+\[no test files\]|^PASS\s|\bpassed\b.*\d+ms$|^\s*\.+\s*\[\s*\d+%\]$)")
+FAILED = re.compile(r"\b(FAILED|FAIL|failed|failures?|ERROR|panicked|panic:)\b")
 
 
-def f_test(lines, code):
-    kept = [ln for ln in lines if not PASSING.search(ln)]
+TEST_BOILER = re.compile(
+    r"^(platform \w+ -- Python|rootdir:|configfile:|plugins:|cachedir:|collected \d+ items?|"
+    r"=+ (test session starts|short test summary info) =+$|(_ )+_?$|\s*⎯{5,}|\s*RUN\s+v\d|\s+Start at\s|\s+Duration\s)")
+
+
+def f_test(lines, opts):
+    if not opts["test_hide_passing"]:
+        return lines
+    kept = [ln for ln in lines if not PASSING.search(ln) and not (BUILD_NOISE.match(ln) and not IMPORTANT.search(ln))]
+    if opts["test_boilerplate"]:
+        kept = [ln for ln in kept if not TEST_BOILER.match(ln)]
     dropped = len(lines) - len(kept)
-    failed = code != 0 or any(re.search(r"\b(FAILED|FAIL|failed|failures?|ERROR|panicked)\b", ln) for ln in kept)
+    failed = any(FAILED.search(ln) for ln in kept)
     if not failed and len(kept) > 40:
         # green run: the summary at the bottom is what matters
         kept = [f"… {len(kept) - 25} lines of passing-run output omitted …"] + kept[-25:]
@@ -261,11 +414,13 @@ BUILD_NOISE = re.compile(
     r"Compiling|Checking|Fresh|Installing collected|Preparing metadata|Building wheel|Created wheel|Stored in directory|"
     r"Resolving|Resolved|Prepared|Audited|Get:\d|Hit:\d|Ign:\d|Reading (package|state)|Building dependency tree|"
     r"Unpacking|Selecting previously|Setting up|Processing triggers|\[INFO\] Download|Progress \(\d|"
+    r"go: (downloading|finding|extracting)|"
     r"#\d+ (sha256|extracting|resolve|transferring|DONE|CACHED|\[internal\])|npm (http|timing|sill|verb))", re.I)
+PKG_LINE = re.compile(r"^\s*([+\-~]) ([\w.\-\[\]]+)[=@ ]=?\s*v?[\w.+\-]+$")  # uv / pnpm "+ pkg==1.2" lines
 
 
-def f_build(lines, _):
-    out, warned = [], OrderedDict()
+def f_build(lines, opts):
+    out, warned, pkgs = [], OrderedDict(), {"+": [], "-": [], "~": []}
     for ln in lines:
         if BUILD_NOISE.match(ln) and not IMPORTANT.search(ln):
             continue
@@ -273,13 +428,21 @@ def f_build(lines, _):
         if m:
             warned[m.group(2)] = 1
             continue
+        m = PKG_LINE.match(ln)
+        if m:
+            pkgs[m.group(1)].append(m.group(2))
+            continue
         out.append(ln)
+    for sign, label in (("+", "added"), ("-", "removed"), ("~", "changed")):
+        if pkgs[sign]:
+            names = pkgs[sign]
+            out.append(f"[{len(names)} packages {label}: {', '.join(names[:10])}{' …' if len(names) > 10 else ''}]")
     if warned:
         out.append(f"[{len(warned)} deprecation warnings: {', '.join(list(warned)[:8])}{' …' if len(warned) > 8 else ''}]")
     return out
 
 
-def f_listing(lines, _):
+def f_listing(lines, opts):
     if len(lines) <= 60:
         return lines
     by_dir = OrderedDict()
@@ -303,14 +466,15 @@ def f_listing(lines, _):
     return out
 
 
-def f_grep(lines, _):
+def f_grep(lines, opts):
+    limit = opts["grep_per_file"]
     per_file, out, hidden = {}, [], {}
     for ln in lines:
         m = re.match(r"^([^:\s][^:]*):(\d+[:-])?", ln)
         f = m.group(1) if m else None
         if f:
             per_file[f] = per_file.get(f, 0) + 1
-            if per_file[f] > 10:
+            if per_file[f] > limit:
                 hidden[f] = hidden.get(f, 0) + 1
                 continue
         out.append(ln)
@@ -325,16 +489,26 @@ FILTERS = {"git_status": f_git_status, "git_log": f_git_log, "git_diff": f_git_d
 # ---------------------------------------------------------------------------
 
 
-def compress(cmd: str, output: str, exit_code: int = 0, stash_id=None, max_lines: int = 200) -> str:
+def compress(cmd: str, output: str, exit_code: int = 0, stash_id=None, opts=None, max_lines=None) -> str:
     """Compress a command's combined output. Pure function; safe on any input."""
+    o = dict(DEFAULT_OPTS)
+    o.update({k: v for k, v in (opts or {}).items() if k in DEFAULT_OPTS})
+    if max_lines:
+        o["bash_max_lines"] = max_lines
     kind = classify(cmd)
     lines = clean(output)
+    m = o["bash_max_lines"]
+    if kind == "view":  # Claude asked to see this file: keep it verbatim, only cap huge ones
+        m *= 2
+        return "\n".join(cap(lines, m, head=m // 2, tail=m // 3, stash_id=stash_id))
     if kind in FILTERS and not _piped(cmd):
-        lines = FILTERS[kind](lines, exit_code)
+        lines = FILTERS[kind](lines, o)
+    if o["trim_stack_frames"] and kind != "git_diff":
+        lines = trim_frames(lines, langs.library_frame_re(o["languages"]))
     lines = drop_progress(lines)
-    lines = collapse_repeats(lines, shapes=kind in ("generic", "build"))
-    lines = truncate_long(lines)
-    lines = cap(lines, max_lines, head=max_lines // 2, tail=max_lines // 3, stash_id=stash_id)
+    lines = collapse_repeats(lines, shapes={"build": "all", "generic": "logs", "test": "logs"}.get(kind, "none"))
+    lines = truncate_long(lines, o["max_line_chars"])
+    lines = cap(lines, m, head=m // 2, tail=m // 3, stash_id=stash_id)
     return "\n".join(lines)
 
 
