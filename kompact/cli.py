@@ -104,6 +104,44 @@ def cmd_symbol(a):
     return 0
 
 
+def cmd_graph(a):
+    from . import graph
+    root = config.project_root(a.root or os.getcwd()) or os.getcwd()
+    if a.action == "build":
+        graph.build(root, quiet=False, full=a.full)
+        return 0
+    if a.action in ("query", "callers", "deps", "impact") and not a.args:
+        print(f"usage: kompact graph {a.action} <{'words' if a.action == 'query' else 'name or path'}>", file=sys.stderr)
+        return 2
+    try:
+        if a.action == "report":
+            print(graph.report(root, a.budget or 1800))
+        elif a.action == "query":
+            print(graph.query(root, " ".join(a.args), a.budget or 1500))
+        elif a.action == "callers":
+            print(graph.callers_text(root, a.args[0], a.budget or 1200))
+        elif a.action == "deps":
+            print(graph.deps_text(root, a.args[0], a.budget or 1200))
+        elif a.action == "impact":
+            print(graph.impact_text(root, a.args[0], a.budget or 1200))
+        elif a.action == "path":
+            if len(a.args) != 2:
+                print("usage: kompact graph path <from> <to>", file=sys.stderr)
+                return 2
+            print(graph.path_text(root, a.args[0], a.args[1]))
+        elif a.action == "map":
+            graph.ensure(root)
+            print(graph.session_map(root, a.budget or 800))
+        elif a.action == "stats":
+            v = graph.viz(root)
+            print(json.dumps({k: v[k] for k in ("files", "symbols", "refs", "units", "approx_source_tokens",
+                                                "map_tokens", "meta")}, indent=2))
+    except FileNotFoundError as e:
+        print(e, file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_hook(a):
     return hooks.run(a.name)
 
@@ -346,6 +384,14 @@ def main(argv=None):
     p.add_argument("key", nargs="?")
     p.add_argument("value", nargs="?")
     p.set_defaults(fn=cmd_config)
+
+    p = sp.add_parser("graph", help="code graph: build, report, query, callers, deps, impact, path, map")
+    p.add_argument("action", choices=["build", "report", "query", "callers", "deps", "impact", "path", "map", "stats"])
+    p.add_argument("args", nargs="*")
+    p.add_argument("--root", help="project directory (default: current project)")
+    p.add_argument("--budget", type=int, help="max tokens of output")
+    p.add_argument("--full", action="store_true", help="rebuild from scratch")
+    p.set_defaults(fn=cmd_graph)
 
     p = sp.add_parser("presets", help="list quality-vs-tokens levels")
     p.add_argument("--json", action="store_true")

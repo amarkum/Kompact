@@ -10,7 +10,7 @@ import os
 import sys
 import time
 
-from . import config, filters, installer, langs, outline, rules, store, tokens
+from . import config, filters, graph, installer, langs, outline, rules, store, tokens
 
 TEXT_LIMIT = 2_000_000  # don't touch huge/binary files
 BINARY_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb", ".svg", ".ico", ".zip", ".gz"}
@@ -110,6 +110,13 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
                 is_gen = bool(gen and gen.search(path))
                 if n >= (min(150, cfg["read_outline_lines"]) if is_gen else cfg["read_outline_lines"]):
                     skel = outline.render_outline(path, text)
+                    if skel and cfg.get("read_graph_context") and cfg.get("graph") and cfg["project"]:
+                        try:
+                            ctx = graph.file_context(cfg["project"], path)
+                        except Exception:  # the graph is an optional extra
+                            ctx = ""
+                        if ctx:
+                            skel = f"{skel}\n\n{ctx}"
                     if skel:
                         kind = "a generated file" if is_gen else f"{n} lines"
                         msg = (f"[kompact] Not an error: {path} is {kind} (~{tokens.count(text)} tokens), so here is "
@@ -168,7 +175,15 @@ def session_start(event: dict, cfg: dict) -> None:
         store.mark_compacted(event.get("session_id", ""))
     elif event.get("source") == "startup":
         store.prune(cfg.get("retention_days", 30))
-    text = rules.STYLES.get(cfg["style"], "")
+    parts = [rules.STYLES.get(cfg["style"], "")]
+    root = cfg.get("project")
+    if cfg.get("graph") and root and event.get("source") in ("startup", "resume", "clear", "compact", None):
+        try:
+            if graph.ensure(root) and cfg.get("session_map_tokens", 0) > 0:
+                parts.append(graph.session_map(root, cfg["session_map_tokens"]))
+        except Exception as e:  # never block a session on the graph
+            (store.home() / "hook-errors.log").open("a").write(f"{time.ctime()} graph: {e!r}\n")
+    text = "\n\n".join(p for p in parts if p)
     if text:
         _emit({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}})
 
