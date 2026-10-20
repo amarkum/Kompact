@@ -10,6 +10,7 @@ from pathlib import Path
 HOOKS = [  # (event, matcher, handler)
     ("PostToolUse", "Bash", "post-bash"),
     ("PostToolUse", "Edit|Write|NotebookEdit", "post-edit"),
+    ("PostToolUse", "Grep|Glob|Read", "post-explore"),
     ("PreToolUse", "Read", "pre-read"),
     ("PreCompact", None, "pre-compact"),
     ("SessionStart", None, "session-start"),
@@ -203,6 +204,7 @@ def selftest() -> list:
         "stop": {"stop_hook_active": False},
         "pre-compact": {"trigger": "manual"},
         "post-edit": {"tool_name": "Edit", "tool_input": {"file_path": str(big)}},
+        "post-explore": {"tool_name": "Grep", "tool_input": {"pattern": "handler"}},
     }
     checks = {
         "post-bash": lambda o: "updatedToolOutput" in o.get("hookSpecificOutput", {}),

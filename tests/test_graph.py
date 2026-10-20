@@ -324,9 +324,12 @@ class HookIntegrationTests(unittest.TestCase):
         config.write_file(data)
         try:
             out = self._hook("session-start", {"session_id": "gs", "source": "startup", "cwd": root})
-            ctx = out["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("Code map of", ctx)
+            self.assertNotIn("Code map of", out["hookSpecificOutput"]["additionalContext"])  # not paid up front
+            ev = {"session_id": "gs", "cwd": root, "tool_name": "Grep", "tool_input": {"pattern": "price"}}
+            ctx = self._hook("post-explore", ev)["hookSpecificOutput"]["additionalContext"]
+            self.assertIn("Code map of", ctx)  # first search of the session gets the map
             self.assertIn("shop/pricing.py", ctx)
+            self.assertIsNone(self._hook("post-explore", ev))  # only once per session
             out = self._hook("pre-read", {"session_id": "gs", "cwd": root,
                                           "tool_input": {"file_path": str(Path(root, "shop/big.py"))}})
             reason = out["hookSpecificOutput"]["permissionDecisionReason"]
@@ -343,7 +346,7 @@ class HookIntegrationTests(unittest.TestCase):
         with redirect_stdout(buf):
             hooks.run(name)
         sys.stdin = sys.__stdin__
-        return json.loads(buf.getvalue())
+        return json.loads(buf.getvalue()) if buf.getvalue() else None
 
 
 if __name__ == "__main__":

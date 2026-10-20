@@ -20,6 +20,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Grep|Glob|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompact\" hook post-explore",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PreToolUse": [

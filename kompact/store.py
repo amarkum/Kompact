@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     session TEXT PRIMARY KEY, project TEXT, started REAL, last_turn REAL, compacted REAL DEFAULT 0,
     turns INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS flags (
+    session TEXT, key TEXT, ts REAL, PRIMARY KEY (session, key)
+);
 CREATE TABLE IF NOT EXISTS turns (
     session TEXT, idx INTEGER, ts REAL, project TEXT, raw_tokens INTEGER, kept_tokens INTEGER,
     context_tokens INTEGER, features TEXT
@@ -129,13 +132,22 @@ def prune(retention_days: float) -> None:
         for table in ("events", "turns"):
             db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
         db.execute("DELETE FROM reads WHERE ts < ?", (time.time() - 2 * 86400,))
+        db.execute("DELETE FROM flags WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM sessions WHERE COALESCE(NULLIF(last_turn, 0), started) < ?", (cutoff,))
+
+
+def once(session: str, key: str) -> bool:
+    """True the first time (session, key) is seen; False afterwards (until compaction resets it)."""
+    with connect() as db:
+        cur = db.execute("INSERT OR IGNORE INTO flags VALUES (?,?,?)", (session, key, time.time()))
+        return cur.rowcount == 1
 
 
 def mark_compacted(session: str) -> None:
     with connect() as db:
         db.execute("UPDATE sessions SET compacted=? WHERE session=?", (time.time(), session))
         db.execute("DELETE FROM reads WHERE session=?", (session,))
+        db.execute("DELETE FROM flags WHERE session=?", (session,))
 
 
 def write_live(payload: dict) -> None:

@@ -171,7 +171,8 @@ def _read(path: str) -> str:
 
 def _rules(cfg: dict) -> str:
     tools = bool(cfg.get("bash") or cfg.get("read_outline") or cfg.get("graph"))
-    return rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools)
+    return rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools,
+                       plain=bool(cfg.get("bash") and cfg.get("bash_plain")))
 
 
 def subagent_start(event: dict, cfg: dict) -> None:
@@ -181,6 +182,22 @@ def subagent_start(event: dict, cfg: dict) -> None:
     text = rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name(), tools=False)
     if text:
         _emit({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": text}})
+
+
+def post_explore(event: dict, cfg: dict) -> None:
+    """The first time Claude searches or reads code in a session, add the code map.
+
+    Sessions that only run commands never pay for it."""
+    budget = cfg.get("session_map_tokens", 0)
+    root = cfg.get("project")
+    if budget <= 0 or not cfg.get("graph") or not root or not graph.exists(root):
+        return
+    if not store.once(event.get("session_id", ""), "code-map"):
+        return
+    text = graph.session_map(root, budget)
+    if text:
+        store.record("code_map", 0, 0, root, event.get("session_id", ""), force=True, project=root)
+        _emit({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}})
 
 
 def post_edit(event: dict, cfg: dict) -> None:
@@ -202,8 +219,7 @@ def session_start(event: dict, cfg: dict) -> None:
     root = cfg.get("project")
     if cfg.get("graph") and root and event.get("source") in ("startup", "resume", "clear", "compact", None):
         try:
-            if graph.ensure(root) and cfg.get("session_map_tokens", 0) > 0:
-                parts.append(graph.session_map(root, cfg["session_map_tokens"]))
+            graph.ensure(root)  # build or refresh; the map itself is given on first exploration
         except Exception as e:  # never block a session on the graph
             (store.home() / "hook-errors.log").open("a").write(f"{time.ctime()} graph: {e!r}\n")
     text = "\n\n".join(p for p in parts if p)
@@ -263,7 +279,8 @@ def stop(event: dict, cfg: dict) -> None:
 
 
 HANDLERS = {"post-bash": post_bash, "pre-read": pre_read, "pre-compact": pre_compact,
-            "session-start": session_start, "stop": stop, "subagent-start": subagent_start, "post-edit": post_edit}
+            "session-start": session_start, "stop": stop, "subagent-start": subagent_start, "post-edit": post_edit,
+            "post-explore": post_explore}
 
 
 def run(name: str) -> int:

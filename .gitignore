@@ -6,4 +6,4 @@ vscode/python/
 vscode/LICENSE
 dist/*
 !dist/*.vsix
-evidence/runs/
+evidence*/runs/

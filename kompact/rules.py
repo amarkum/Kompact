@@ -38,11 +38,18 @@ TOOLS = [
 ]
 
 
-def build(prose: str = "lite", code: str = "lean", cli: str = "kompact", tools: bool = True) -> str:
+PLAIN = ("Run commands plainly; don't trim their output with | head, | tail or | grep. Kompact drops the noise and "
+         "keeps every failure, so one run is enough.")
+
+
+def build(prose: str = "lite", code: str = "lean", cli: str = "kompact", tools: bool = True,
+          plain: bool = False) -> str:
     lines = list(PROSE.get(prose, []))
     if lines:
         lines.append(KEEP)
     lines += CODE.get(code, [])
+    if plain:
+        lines.append(PLAIN)
     if tools:
         lines += TOOLS
     if not lines:

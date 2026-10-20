@@ -83,7 +83,8 @@ def _tool_trace(session_id: str) -> list:
     return out
 
 
-def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, model=None, budget=1.0) -> dict:
+def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, model=None, budget=1.0,
+             overrides=None) -> dict:
     run_dir = work / f"{task['id']}-{condition}-{uuid.uuid4().hex[:6]}"
     home = run_dir / "kompact"
     home.mkdir(parents=True)
@@ -93,7 +94,7 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
     args = ["claude", "-p", task["prompt"], "--output-format", "json", "--max-turns", str(task.get("max_turns", 10)),
             "--session-id", session_id, "--max-budget-usd", str(budget), "--strict-mcp-config"]
     if condition == "kompact":
-        (home / "config.json").write_text(json.dumps({"preset": preset}))
+        (home / "config.json").write_text(json.dumps({"preset": preset, "overrides": overrides or {}}))
         settings = run_dir / "settings.json"
         settings.write_text(json.dumps(hook_settings()))
         args += ["--settings", str(settings)]
@@ -228,8 +229,14 @@ def main(argv=None) -> int:
     ap.add_argument("--model")
     ap.add_argument("--budget", type=float, default=1.0, help="max USD per run (passed to claude)")
     ap.add_argument("--parallel", type=int, default=1, help="tasks to run at the same time")
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                    help="override a Kompact setting for the runs, e.g. --set bash_plain=true")
     a = ap.parse_args(argv)
     tasks = json.loads(Path(a.tasks).read_text())["tasks"]
+    overrides = {}
+    for kv in a.set:
+        k, _, v = kv.partition("=")
+        overrides[k] = config.coerce(k, v)
     if a.only:
         keep = set(a.only.split(","))
         tasks = [t for t in tasks if t["id"] in keep]
@@ -254,7 +261,7 @@ def main(argv=None) -> int:
                 for condition in ("baseline", "kompact"):  # interleaved so drift affects both equally
                     if have.get((task["id"], condition), 0) > rep:
                         continue
-                    r = run_once(task, repo, condition, work, a.preset, a.model, a.budget)
+                    r = run_once(task, repo, condition, work, a.preset, a.model, a.budget, overrides)
                     with lock:
                         results.append(r)
                         results_file.write_text(json.dumps({"results": results}, indent=1))
@@ -267,7 +274,8 @@ def main(argv=None) -> int:
 
     with ThreadPoolExecutor(max_workers=max(1, a.parallel)) as pool:
         list(pool.map(do_task, tasks))
-    meta = {"kompact_version": __version__, "preset": a.preset, "reps": a.reps, "claude_version": claude_version,
+    meta = {"kompact_version": __version__, "preset": a.preset, "overrides": overrides, "reps": a.reps,
+            "claude_version": claude_version,
             "models": sorted({m for r in results for m in r.get("models", [])}), "date": time.strftime("%Y-%m-%d")}
     results_file.write_text(json.dumps({"meta": meta, "results": results}, indent=1))
     (out / "REPORT.md").write_text(report_md(results, meta))
