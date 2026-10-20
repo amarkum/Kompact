@@ -1,31 +1,69 @@
 {
   "name": "kompact",
   "displayName": "Kompact: Claude Code token saver",
-  "description": "Cut the tokens Claude Code spends on noise. Quality-vs-tokens slider, per-turn savings in the status bar, and a settings dashboard.",
+  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. Quality-vs-tokens levels, per-turn savings in the status bar, and a settings dashboard.",
   "version": "0.3.0",
   "publisher": "amarkum",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/amarkum/Kompact" },
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["AI", "Other"],
-  "keywords": ["claude", "claude code", "tokens", "cost", "context"],
-  "activationEvents": ["onStartupFinished"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amarkum/Kompact"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "tokens",
+    "cost",
+    "context"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      { "command": "kompact.openDashboard", "title": "Kompact: Open Dashboard" },
-      { "command": "kompact.choosePreset", "title": "Kompact: Choose Quality vs Tokens Level" },
-      { "command": "kompact.enable", "title": "Kompact: Enable for Claude Code" },
-      { "command": "kompact.disable", "title": "Kompact: Disable for Claude Code" },
-      { "command": "kompact.showLastTurn", "title": "Kompact: Show Last Turn Savings" },
-      { "command": "kompact.openInBrowser", "title": "Kompact: Open Dashboard in Browser" }
+      {
+        "command": "kompact.openDashboard",
+        "title": "Kompact: Open Dashboard"
+      },
+      {
+        "command": "kompact.choosePreset",
+        "title": "Kompact: Choose Quality vs Tokens Level"
+      },
+      {
+        "command": "kompact.enable",
+        "title": "Kompact: Enable for Claude Code"
+      },
+      {
+        "command": "kompact.disable",
+        "title": "Kompact: Disable for Claude Code"
+      },
+      {
+        "command": "kompact.showLastTurn",
+        "title": "Kompact: Show Last Turn Savings"
+      },
+      {
+        "command": "kompact.openInBrowser",
+        "title": "Kompact: Open Dashboard in Browser"
+      }
     ],
     "configuration": {
       "title": "Kompact",
       "properties": {
         "kompact.turnSummary": {
           "type": "string",
-          "enum": ["statusBar", "notification", "off"],
+          "enum": [
+            "statusBar",
+            "notification",
+            "off"
+          ],
           "enumDescriptions": [
             "Briefly show the turn's savings in the status bar",
             "Show a notification after every Claude Code turn",
@@ -46,5 +84,6 @@
         }
       }
     }
-  }
+  },
+  "icon": "icon.png"
 }

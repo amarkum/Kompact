@@ -6,6 +6,10 @@ Cut the tokens **Claude Code** spends on noise: test runs, installs, git output 
 - **Quality vs tokens:** pick a level from *Max quality* to *Max savings* (`Kompact: Choose Quality vs Tokens Level`), or fine-tune every setting in the dashboard.
 - **See the savings:** the status bar shows tokens saved this session and how much smaller the context is. After every Claude reply, the turn's savings flash by (or show as a notification; see `kompact.turnSummary`).
 - **Dashboard:** `Kompact: Open Dashboard` shows per-turn savings, a live before/after preview on Python, Go, React and TypeScript output, per-project levels, and language settings.
+- **Failing runs too:** Claude Code cuts a failing command's output down to its first and last few thousand characters. Kompact's shell prefix runs tests, builds and linters to completion and hands Claude the failures and summary, with the exit code unchanged.
+- **Code graph:** functions, classes, imports and calls for Python, Go, TypeScript and React, indexed locally. Claude uses it to find code and check what a change affects, and you can browse it in the dashboard.
+
+Measured in 54 real Claude Code sessions: −11% tokens and −8% cost at the default level, with the same answers. See the [evidence](https://github.com/amarkum/Kompact/tree/main/evidence).
 
 Requires Python 3.9+ (no packages needed). Nothing leaves your machine.
 
