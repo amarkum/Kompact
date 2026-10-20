@@ -24,6 +24,8 @@ irm https://raw.githubusercontent.com/amarkum/Kompact/main/install.ps1 | iex
 ```
 This enables Kompact for Claude Code and opens the dashboard. No pip and no dependencies; it only needs Python 3.9+.
 
+> **Private repo?** `curl` can't fetch from a private repo. Teammates with access run `git clone https://github.com/amarkum/Kompact && ./Kompact/install.sh` (Windows: `.\Kompact\install.ps1`) to install from the clone, or set `GITHUB_TOKEN` before the one-liner. You can also just share the `.vsix` file.
+
 **Claude Code plugin**
 ```
 /plugin marketplace add amarkum/Kompact
@@ -80,6 +82,13 @@ Kompact detects each repo's languages (`pyproject.toml` / `requirements.txt` →
 | Build/install noise | pip, uv, poetry | `go: downloading` | npm, pnpm, yarn, vite, next, webpack |
 
 Example: a Python traceback through Flask, Werkzeug and your code becomes your frames plus `[… 11 library frames hidden …]` and the frame that raised. A Go panic keeps `cart.go:58` and drops the `testing`/`runtime` frames.
+
+## Verified in a real Claude Code session
+
+Tested end to end with headless Claude Code 2.1.304 and these hooks:
+- **Bash compaction:** Claude received the compacted `git log -n 30` (1,097 → 455 tokens) and still correctly counted all 30 commits.
+- **Outline-first read:** Claude asked for all of `sansio/app.py` (1,015 lines) and got the outline instead (8.7k → 1.7k tokens). From the outline alone it correctly located `add_url_rule` at lines 606–662.
+- **Style rules and per-turn summary:** the `SessionStart` rules were injected, and the `Stop` hook recorded `−642 tokens this turn (−59%)`.
 
 ## How it works
 

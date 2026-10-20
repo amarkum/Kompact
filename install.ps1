@@ -17,12 +17,24 @@ foreach ($c in @(@("py", "-3"), @("python"), @("python3"))) {
 }
 if (-not $Py) { throw "Kompact needs Python 3.9 or newer (https://www.python.org/downloads/)." }
 
-Write-Host "Downloading Kompact ($Repo@$Ref)..."
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("kompact-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
-$Zip = Join-Path $Tmp "kompact.zip"
-Invoke-WebRequest -Uri "https://codeload.github.com/$Repo/zip/$Ref" -OutFile $Zip
-Expand-Archive -Path $Zip -DestinationPath $Tmp
+if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "kompact\_launch.py"))) {
+  # Run from a checkout (git clone ... ; .\install.ps1): install that copy
+  Write-Host "Installing Kompact from $PSScriptRoot..."
+  Copy-Item -Recurse -Path $PSScriptRoot -Destination (Join-Path $Tmp "src")
+  Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $Tmp "src\.git")
+} else {
+  Write-Host "Downloading Kompact ($Repo@$Ref)..."
+  $Zip = Join-Path $Tmp "kompact.zip"
+  if ($env:GITHUB_TOKEN) {
+    Invoke-WebRequest -Uri "https://api.github.com/repos/$Repo/zipball/$Ref" -OutFile $Zip -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
+  } else {
+    Invoke-WebRequest -Uri "https://codeload.github.com/$Repo/zip/$Ref" -OutFile $Zip
+  }
+  Expand-Archive -Path $Zip -DestinationPath $Tmp
+  Remove-Item $Zip
+}
 $Src = Get-ChildItem -Path $Tmp -Directory | Select-Object -First 1
 if (Test-Path $Dest) { Remove-Item -Recurse -Force $Dest }
 New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null

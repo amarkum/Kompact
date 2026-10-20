@@ -17,10 +17,25 @@ for c in python3 python; do
 done
 [ -n "$PY" ] || { echo "Kompact needs Python 3.9 or newer (python3)." >&2; exit 1; }
 
-echo "Downloading Kompact ($REPO@$REF)…"
+# Run from a checkout (`git clone … && ./install.sh`)? Install that copy; otherwise download.
+SRC=""
+case "$0" in
+  *install.sh) d="$(cd "$(dirname "$0")" && pwd)"; [ -f "$d/kompact/_launch.py" ] && SRC="$d" ;;
+esac
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$TMP"
+if [ -n "$SRC" ]; then
+  echo "Installing Kompact from $SRC…"
+  mkdir -p "$TMP/src" && cp -R "$SRC/." "$TMP/src/" && rm -rf "$TMP/src/.git"
+else
+  echo "Downloading Kompact ($REPO@$REF)…"
+  if [ -n "${GITHUB_TOKEN:-}" ]; then  # private repo: use the API with a token
+    curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/$REPO/tarball/$REF" | tar -xz -C "$TMP"
+  else
+    curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$TMP"
+  fi
+fi
+[ "$(cd "$DEST" 2>/dev/null && pwd)" = "$SRC" ] && { echo "Run install.sh from a clone outside $DEST." >&2; exit 1; }
 rm -rf "$DEST"
 mkdir -p "$(dirname "$DEST")"
 mv "$TMP"/*/ "$DEST"
