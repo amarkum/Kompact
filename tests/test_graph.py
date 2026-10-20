@@ -309,6 +309,20 @@ class TsGraphTests(unittest.TestCase):
         self.assertIn("src/components/Price.tsx", res["affected"])
         self.assertIn("tests/price.test.tsx", res["tests"])
 
+    def test_symbol_impact_separates_users_from_importers(self):
+        files = dict(TS)
+        files["src/components/Badge.tsx"] = ('import { usePrice } from "@/lib/format";\n'
+                                             'export const Badge = () => <b>{usePrice(1)}</b>;\n')
+        root = make_repo(files)
+        graph.build(root)
+        res, _ = graph.impact(root, "formatPrice")
+        self.assertEqual(res["affected"], ["src/components/Price.tsx"])  # callers of callers are not listed
+        self.assertEqual(res["importers_only"], ["src/components/Badge.tsx"])
+        self.assertIn("tests/price.test.tsx", res["tests"])
+        text = graph.impact_text(root, "formatPrice")
+        self.assertIn("uses it: src/components/Price.tsx", text)
+        self.assertIn("import its module but not formatPrice: src/components/Badge.tsx", text)
+
 
 class HookIntegrationTests(unittest.TestCase):
     def test_outline_carries_graph_context_and_session_map(self):

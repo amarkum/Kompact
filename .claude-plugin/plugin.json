@@ -2,9 +2,16 @@
   "name": "kompact",
   "displayName": "Kompact",
   "version": "0.3.0",
-  "description": "Cut the tokens Claude Code spends on noise: compacted Bash output, outline-first file reads, read dedupe, terse style rules, and a savings estimator.",
-  "author": { "name": "Amar Kumar" },
+  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first file reads, a local code graph, terse reply and lean-code rules, and per-turn savings.",
+  "author": {
+    "name": "Amar Kumar"
+  },
   "repository": "https://github.com/amarkum/Kompact",
   "license": "MIT",
-  "keywords": ["tokens", "cost", "context", "compression"]
+  "keywords": [
+    "tokens",
+    "cost",
+    "context",
+    "compression"
+  ]
 }

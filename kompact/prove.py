@@ -27,6 +27,9 @@ from pathlib import Path
 from . import __version__, config, installer
 
 
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+
+
 def hook_settings() -> dict:
     cmd = installer.launcher()
     hooks = {}
@@ -97,10 +100,13 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
             "--session-id", session_id, "--max-budget-usd", str(budget), "--strict-mcp-config"]
     if condition == "kompact":
         (home / "config.json").write_text(json.dumps({"preset": preset, "overrides": overrides or {}}))
-        settings = run_dir / "settings.json"
-        settings.write_text(json.dumps(hook_settings()))
-        args += ["--settings", str(settings)]
-        tools += [f"Bash({installer.cli_name()}:*)"]
+        if (PLUGIN_ROOT / ".claude-plugin" / "plugin.json").exists():  # exactly what a plugin user gets: hooks + skill
+            args += ["--plugin-dir", str(PLUGIN_ROOT)]
+        else:
+            settings = run_dir / "settings.json"
+            settings.write_text(json.dumps(hook_settings()))
+            args += ["--settings", str(settings)]
+        tools += sorted({"Bash(kompact:*)", f"Bash({installer.cli_name()}:*)"})
         prefix = run_dir / "kompact-shell"  # what `kompact setup` installs as ~/.kompact/bin/kompact-shell
         prefix.write_text(installer.SHELL_PREFIX.format(py=sys.executable or "python3",
                                                         script=Path(installer.__file__).with_name("_launch.py")))

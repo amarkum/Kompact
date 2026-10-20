@@ -966,7 +966,7 @@ def impact(root: str, target: str, depth: int = 3):
         files = {val} if kind == "file" else set(g.unit_files.get(val, []))
         names = {s["name"] for f in files for s in g.by_file[f] if s["exported"] and len(s["name"]) > 3}
     start = {g.unit_of(f) for f in files}
-    direct = set()
+    direct, importers = set(), set()
     for n in names:
         for f in g.ref_files.get(n, ()):
             if f in files:
@@ -974,11 +974,22 @@ def impact(root: str, target: str, depth: int = 3):
             u = g.unit_of(f)
             if u in start or start & g.out_units.get(u, set()):
                 direct.add(f)
-    for u in start:  # importers count as direct users even without a resolved symbol reference
+    for u in start:
         for v in g.in_units.get(u, ()):
-            direct.update(g.unit_files.get(v, ()))
-    tests = sorted(f for f in direct if g.files[f]["test"] and not AUX_FILE.search(f))
+            importers.update(g.unit_files.get(v, ()))
+    if kind == "symbol":  # a symbol's users are the files that name it; other importers use other names
+        if importers and names:  # importing it by name, re-exporting it or using it as a type also counts
+            with connect(g.root) as db:
+                q = ",".join("?" * len(names))
+                named = {r[0] for r in db.execute(f"SELECT DISTINCT file FROM idents WHERE name IN ({q})", list(names))}
+            direct |= importers & named
+        others = importers - direct - files
+    else:  # a file's importers are affected even without a resolved symbol reference
+        direct |= importers
+        others = set()
+    tests = sorted(f for f in direct | others if g.files[f]["test"] and not AUX_FILE.search(f))
     direct_code = sorted(f for f in direct if not g.files[f]["test"])
+
     levels = [direct_code] if direct_code else []
     seen = start | {g.unit_of(f) for f in direct}
     frontier = {g.unit_of(f) for f in direct_code}
@@ -995,9 +1006,12 @@ def impact(root: str, target: str, depth: int = 3):
         if code:
             levels.append(code)
         frontier = nxt
+    if kind == "symbol":  # callers of callers aren't affected by a change to this symbol; their tests still run
+        levels = levels[:1]
     affected = sorted({f for lvl in levels for f in lvl})
-    return {"target": target, "files": sorted(files), "levels": levels, "affected": affected,
-            "tests": sorted(set(tests))}, g
+    return {"target": target, "kind": kind, "files": sorted(files), "levels": levels, "affected": affected,
+            "tests": sorted(set(tests)),
+            "importers_only": sorted(f for f in others if not g.files[f]["test"] and f not in affected)}, g
 
 
 def impact_text(root: str, target: str, budget: int = 1200) -> str:
@@ -1005,12 +1019,20 @@ def impact_text(root: str, target: str, budget: int = 1200) -> str:
     if res is None:
         return f"{target}: not found (give a file path, package dir, Name or Class.method)"
     aux = [f for f in res["affected"] if AUX_FILE.search(f)]
-    out = [f"impact of {target}: {len(res['affected']) - len(aux)} dependent files, {len(res['tests'])} test files"
-           + (f", {len(aux)} in examples/tooling" if aux else "")]
+    symbol = res["kind"] == "symbol"
+    users = len(res["levels"][0]) if res["levels"] else 0
+    head = (f"{users} files use it" + (f", {len(res['affected']) - users - len(aux)} more through them"
+                                         if len(res["affected"]) - users - len(aux) > 0 else "")) if symbol \
+        else f"{len(res['affected']) - len(aux)} dependent files"
+    out = [f"impact of {target}: {head}, {len(res['tests'])} test files" + (f", {len(aux)} in examples/tooling" if aux else "")]
     for i, lvl in enumerate(res["levels"], 1):
         code = [f for f in lvl if not AUX_FILE.search(f)]
         if code:
-            out.append(f"  {'direct' if i == 1 else f'{i} hops'}: " + ", ".join(code[:25]) + (" …" if len(code) > 25 else ""))
+            label = ("uses it" if symbol else "direct") if i == 1 else f"{i} hops"
+            out.append(f"  {label}: " + ", ".join(code[:25]) + (" …" if len(code) > 25 else ""))
+    others = [f for f in res["importers_only"] if not AUX_FILE.search(f)]
+    if others:
+        out.append(f"  import its module but not {target}: " + ", ".join(others[:15]) + (" …" if len(others) > 15 else ""))
     if res["tests"]:
         out.append("  tests to run: " + ", ".join(res["tests"][:20]) + (" …" if len(res["tests"]) > 20 else ""))
     return _fit(out, budget)

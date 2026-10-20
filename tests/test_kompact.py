@@ -47,6 +47,21 @@ class FilterTests(unittest.TestCase):
         self.assertIn("Commit message number 7", out)
         self.assertLess(tokens.count(out), tokens.count(GIT_LOG) * 0.5)
 
+    def test_git_log_keeps_stat_files_and_patches(self):
+        stat = "".join(f"commit {i:040x}\nAuthor: Dev <d@x.io>\nDate:   Mon Oct 5 12:00:00 2026 +0000\n\n"
+                       f"    Change {i}\n\n    Body line.\n\n src/app_{i % 3}.py | 4 ++--\n docs/x.md      | 1 +\n"
+                       f" 2 files changed, 3 insertions(+), 2 deletions(-)\n\n" for i in range(12))
+        out = filters.compress("git log -n 12 --stat", stat)
+        self.assertEqual(out.count(" src/app_0.py | 4 ++--"), 4)  # per-file lines are what --stat asked for
+        self.assertNotIn("Body line.", out)
+        self.assertIn("Change 5 | 2 files changed", out)
+        patch = ("commit " + "a" * 40 + "\nAuthor: Dev <d@x.io>\nDate:   Mon Oct 5 12:00:00 2026 +0000\n\n    Fix\n\n"
+                 "diff --git a/x.py b/x.py\n--- a/x.py\n+++ b/x.py\n@@ -1,2 +1,2 @@\n def f():\n"
+                 "-    return 1\n+    return 2\n         nested = True\n")
+        out = filters.compress("git log -p -n 1", patch)
+        self.assertIn("         nested = True", out)  # indented context inside a patch is not message text
+        self.assertIn("+    return 2", out)
+
     def test_git_log_custom_format_untouched(self):
         raw = "abc123 one\ndef456 two"
         self.assertEqual(filters.compress("git log --format=%h", raw), raw)

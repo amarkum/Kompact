@@ -282,6 +282,8 @@ def f_git_status(lines, opts):
 
 
 def f_git_log(lines, opts):
+    """One line per commit (sha, date, author, subject). Whatever follows the message (--stat,
+    --name-only, --name-status and --numstat file lines, or the patch for -p) is kept as is."""
     if not opts["git_log_compact"] or not lines or not lines[0].startswith("commit "):
         return lines
     out, cur = [], None
@@ -289,22 +291,33 @@ def f_git_log(lines, opts):
         if ln.startswith("commit "):
             if cur:
                 out.append(cur)
-            cur = {"sha": ln.split()[1][:9], "author": "", "date": "", "msg": None, "extra": ""}
+            cur = {"sha": ln.split()[1][:9], "author": "", "date": "", "msg": None, "extra": "", "files": [],
+                   "patch": False}
         elif cur is None:
             continue
-        elif ln.startswith("Author:"):
+        elif cur["patch"] or ln.startswith("diff --git "):
+            cur["patch"] = True
+            cur["files"].append(ln)
+        elif ln.startswith("Author:") and cur["msg"] is None:
             cur["author"] = re.sub(r"\s*<.*>", "", ln[7:].strip())
-        elif ln.startswith("Date:"):
+        elif ln.startswith("Date:") and cur["msg"] is None:
             cur["date"] = ln[5:].strip()
-        elif ln.startswith("Merge:"):
+        elif ln.startswith("Merge:") and cur["msg"] is None:
             cur["extra"] = " (merge)"
-        elif ln.startswith("    ") and cur["msg"] is None and ln.strip():
-            cur["msg"] = ln.strip()
+        elif ln.startswith("    "):
+            if cur["msg"] is None and ln.strip():
+                cur["msg"] = ln.strip()
         elif re.match(r"^\s*\d+ files? changed", ln):
             cur["extra"] += " | " + ln.strip()
+        elif ln.strip():
+            cur["files"].append(ln)
     if cur:
         out.append(cur)
-    return [f"{c['sha']} {_short_date(c['date'])} {c['author']}: {c['msg'] or ''}{c['extra']}" for c in out]
+    res = []
+    for c in out:
+        res.append(f"{c['sha']} {_short_date(c['date'])} {c['author']}: {c['msg'] or ''}{c['extra']}")
+        res.extend(c["files"])
+    return res
 
 
 def _short_date(d: str) -> str:
