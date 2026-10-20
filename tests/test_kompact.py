@@ -407,7 +407,7 @@ class TurnAndSetupTests(unittest.TestCase):
             hooks.run("stop")
         sys.stdin = sys.__stdin__
         msg = json.loads(buf.getvalue())["systemMessage"]
-        self.assertRegex(msg, r"⚡ Kompact: −[\d.]+k? tokens this turn")
+        self.assertRegex(msg, r"Kompact: −[\d.]+k? tokens this turn \([\d.]+k? › [\d.]+k?")
         self.assertIn("context ≈", msg)
         live = store.read_live()
         self.assertEqual(live["session"], "turn1")
@@ -417,7 +417,7 @@ class TurnAndSetupTests(unittest.TestCase):
         with redirect_stdout(buf):
             cli.main(["statusline"])
         sys.stdin = sys.__stdin__
-        self.assertRegex(buf.getvalue(), r"⚡ Kompact −[\d.]+k? · ctx −\d+% · last turn −[\d.]+k? · Balanced")
+        self.assertRegex(buf.getvalue(), r"Kompact −[\d.]+k? · ctx −\d+% · last turn −[\d.]+k? · Balanced")
         self.assertEqual(live["session_totals"]["context"], 21000)
         # next turn with nothing compacted stays silent
         sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "cwd": TMP}))

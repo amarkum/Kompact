@@ -205,13 +205,13 @@ index 11aa22b..33cc44d 100644
 
 
 SAMPLES = [
-    {"id": "pytest", "lang": "python", "label": "Python · pytest -v (1 failure)", "cmd": "pytest -v", "text": _pytest()},
-    {"id": "gotest", "lang": "go", "label": "Go · go test -v ./... (panic)", "cmd": "go test -v ./...", "text": _gotest()},
-    {"id": "vitest", "lang": "react", "label": "React · vitest run (1 failure)", "cmd": "npx vitest run",
+    {"id": "pytest", "short": "pytest", "lang": "python", "label": "Python · pytest -v (1 failure)", "cmd": "pytest -v", "text": _pytest()},
+    {"id": "gotest", "short": "go test", "lang": "go", "label": "Go · go test -v ./... (panic)", "cmd": "go test -v ./...", "text": _gotest()},
+    {"id": "vitest", "short": "vitest", "lang": "react", "label": "React · vitest run (1 failure)", "cmd": "npx vitest run",
      "text": _vitest()},
-    {"id": "build", "lang": "typescript", "label": "TypeScript · npm install && npm run build",
+    {"id": "build", "short": "npm build", "lang": "typescript", "label": "TypeScript · npm install && npm run build",
      "cmd": "npm install && npm run build", "text": _npm_build()},
-    {"id": "gitdiff", "lang": "typescript", "label": "git diff (with lock file)", "cmd": "git diff",
+    {"id": "gitdiff", "short": "git diff", "lang": "typescript", "label": "git diff (with lock file)", "cmd": "git diff",
      "text": _gitdiff()},
-    {"id": "gitlog", "lang": "any", "label": "git log -n 24", "cmd": "git log -n 24", "text": _gitlog()},
+    {"id": "gitlog", "short": "git log", "lang": "any", "label": "git log -n 24", "cmd": "git log -n 24", "text": _gitlog()},
 ]

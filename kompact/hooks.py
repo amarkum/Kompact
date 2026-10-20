@@ -237,7 +237,7 @@ def turn_message(turn: dict, totals: dict) -> str:
     parts = []
     if turn["saved"] > 0:
         pct = 100 * turn["saved"] / turn["raw"] if turn["raw"] else 0
-        parts.append(f"−{_fmt(turn['saved'])} tokens this turn ({_fmt(turn['raw'])} → {_fmt(turn['kept'])}, −{pct:.0f}%)")
+        parts.append(f"−{_fmt(turn['saved'])} tokens this turn ({_fmt(turn['raw'])} › {_fmt(turn['kept'])}, −{pct:.0f}%)")
     else:
         parts.append("nothing to trim this turn")
     if totals["saved"] > 0:
@@ -245,7 +245,7 @@ def turn_message(turn: dict, totals: dict) -> str:
     ctx, live = totals.get("context", 0), totals.get("in_context_saved", 0)
     if ctx and live > 0:
         parts.append(f"context ≈{100 * live / (ctx + live):.0f}% smaller")
-    return "⚡ Kompact: " + " · ".join(parts)
+    return "Kompact: " + " · ".join(parts)
 
 
 def stop(event: dict, cfg: dict) -> None:

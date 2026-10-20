@@ -41,7 +41,7 @@ def cmd_run(a):
     store.record("run", r, k, cmd)
     print(out)
     if r > k:
-        print(f"[kompact: {r}→{k} tokens; raw: kompact show {sid}]", file=sys.stderr)
+        print(f"[kompact: {r}›{k} tokens; full output: kompact show {sid}]", file=sys.stderr)
     return p.returncode
 
 
@@ -173,7 +173,7 @@ def cmd_gain(a):
     if top:
         print("\n  biggest wins:")
         for d, r, k in top:
-            print(f"    {_fmt(r):>6} → {_fmt(k):<6} {d[:70]}")
+            print(f"    {_fmt(r):>6} › {_fmt(k):<6} {d[:70]}")
     return 0
 
 
@@ -204,9 +204,9 @@ def cmd_estimate(a):
     for f, v in sorted(s["by_feature"].items(), key=lambda x: -x[1]):
         print(f"    {f:<18}{int(s['count_feature'][f]):>6}×  {_fmt(v):>8}  {_pct(v, billed)}")
     if s["top_cmds"]:
-        print("\n  biggest single wins (tokens before → after, Bash):")
+        print("\n  biggest single wins (tokens before › after, Bash):")
         for _, cmd, r, k in sorted(s["top_cmds"], reverse=True)[:6]:
-            print(f"    {_fmt(r):>6} → {_fmt(k):<6} {cmd}")
+            print(f"    {_fmt(r):>6} › {_fmt(k):<6} {cmd}")
     print("\n  Method: Bash/Read results replayed through Kompact's filters; savings weighted by how many later API"
           "\n  calls would re-send them (cache reads at 0.1×, writes 1.25×, output 5× input price). Read-outline"
           f"\n  assumes {int(estimate.OUTLINE_FOLLOWUP * 100)}% of the file is still read afterwards. Output-style savings are an assumption,"
@@ -258,7 +258,7 @@ def cmd_statusline(a):
     name = config.PRESETS[cfg["preset"]]["name"]
     tot = store.session_totals(sid) if sid else {}
     if tot.get("saved", 0) > 0:
-        parts = [f"⚡ Kompact −{hooks._fmt(tot['saved'])}"]
+        parts = [f"Kompact −{hooks._fmt(tot['saved'])}"]
         if tot["context"] and tot["in_context_saved"] > 0:
             parts.append(f"ctx −{100 * tot['in_context_saved'] / (tot['context'] + tot['in_context_saved']):.0f}%")
         if tot["last_turn_saved"] > 0:
@@ -266,7 +266,7 @@ def cmd_statusline(a):
         parts.append(name)
         print(" · ".join(parts))
     else:
-        print(f"⚡ Kompact · {name}")
+        print(f"Kompact · {name}")
     return 0
 
 

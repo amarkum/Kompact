@@ -41,7 +41,7 @@ Existing tools each attack one layer and over-claim. Independent tests found pon
 
 ## 5. Feature layers
 
-### 5.1 Command output (PostToolUse · Bash → `updatedToolOutput`)
+### 5.1 Command output (PostToolUse · Bash › `updatedToolOutput`)
 Command-aware filters for git, test runners (pytest, go test, jest, vitest, mocha, playwright), package managers and builds (pip, uv, poetry, npm, pnpm, yarn, go, cargo, vite, next, webpack, docker), listings and search. Generic passes: ANSI and progress removal (only with a real progress signal), exact-duplicate collapsing, number-only collapsing for build output and timestamped logs, line clipping, and head/tail truncation that keeps important lines from the middle. Language profiles trim library stack frames (site-packages, GOROOT/runtime, node_modules), collapse lock-file and generated-file diffs. The raw output is stashed locally and searchable.
 
 ### 5.2 File reads (PreToolUse · Read)

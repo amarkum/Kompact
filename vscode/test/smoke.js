@@ -64,10 +64,10 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
 
   writeLive({ ts: 1, session: "s1", project: "/work/shop", preset_name: "Balanced",
     turn: { saved: 1200, raw: 2000, kept: 800 }, session_totals: { saved: 5000, context: 30000, in_context_saved: 5000 },
-    message: "⚡ Kompact: −1.2k tokens this turn" });
+    message: "Kompact: −1.2k tokens this turn" });
   ext.activate(ctx);
   await sleep(100);
-  assert.match(statusItem.text, /\$\(zap\) −5\.0k · ctx −14%/, "status bar shows session savings");
+  assert.match(statusItem.text, /\$\(fold\) −5\.0k · ctx −14%/, "status bar shows session savings");
   assert.ok(calls.info.some((m) => m.includes("Enable it?")), "first run offers to enable");
   for (const id of ["kompact.openDashboard", "kompact.choosePreset", "kompact.enable", "kompact.disable", "kompact.menu"])
     assert.ok(commands[id], `command ${id} registered`);
@@ -81,7 +81,7 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   // a new turn is announced in the status bar
   writeLive({ ts: 2, session: "s1", project: "/work/shop/api", preset_name: "Balanced",
     turn: { saved: 3000, raw: 4000, kept: 1000 }, session_totals: { saved: 8000, context: 32000, in_context_saved: 8000 },
-    message: "⚡ Kompact: −3.0k tokens this turn (4.0k → 1.0k, −75%)" });
+    message: "Kompact: −3.0k tokens this turn (4.0k › 1.0k, −75%)" });
   await sleep(2500);
   assert.ok(calls.statusMsg.some((m) => m.includes("−3.0k tokens this turn")), "turn summary flashed");
   assert.match(statusItem.text, /−8\.0k/);
@@ -89,7 +89,7 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   // turns from other windows' projects are not announced here
   const before = calls.statusMsg.length;
   writeLive({ ts: 3, session: "s2", project: "/elsewhere/repo", turn: { saved: 999, raw: 2000, kept: 1001 },
-    session_totals: { saved: 999 }, message: "⚡ Kompact: other window" });
+    session_totals: { saved: 999 }, message: "Kompact: other window" });
   await sleep(2500);
   assert.strictEqual(calls.statusMsg.length, before, "other project's turn ignored");
 

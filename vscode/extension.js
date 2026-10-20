@@ -144,16 +144,16 @@ function renderStatus(live) {
   const turn = (live && live.turn) || {};
   if (live && inThisWindow(live.project) && tot.saved > 0) {
     const ctxPct = tot.context && tot.in_context_saved > 0 ? Math.round(100 * tot.in_context_saved / (tot.context + tot.in_context_saved)) : 0;
-    status.text = `$(zap) −${fmt(tot.saved)}` + (ctxPct ? ` · ctx −${ctxPct}%` : "");
+    status.text = `$(fold) −${fmt(tot.saved)}` + (ctxPct ? ` · ctx −${ctxPct}%` : "");
     const md = new vscode.MarkdownString(
       `**Kompact** · ${live.preset_name || ""}\n\n` +
-      (turn.saved > 0 ? `Last turn: **−${fmt(turn.saved)} tokens** (${fmt(turn.raw)} → ${fmt(turn.kept)})\n\n` : "Last turn: nothing to trim\n\n") +
+      (turn.saved > 0 ? `Last turn: **−${fmt(turn.saved)} tokens** (${fmt(turn.raw)} › ${fmt(turn.kept)})\n\n` : "Last turn: nothing to trim\n\n") +
       `This session: −${fmt(tot.saved)} tokens` + (ctxPct ? `, context ≈${ctxPct}% smaller` : "") +
       `\n\n[Open dashboard](command:kompact.openDashboard) · [Change level](command:kompact.choosePreset)`);
     md.isTrusted = true;
     status.tooltip = md;
   } else {
-    status.text = "$(zap) Kompact";
+    status.text = "$(fold) Kompact";
     status.tooltip = "Kompact: click for the dashboard or to change the quality vs tokens level";
   }
   status.show();

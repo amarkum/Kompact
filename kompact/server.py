@@ -15,10 +15,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, config, estimate, filters, installer, langs, samples, store, tokens
+import difflib
+import mimetypes
+
+from . import __version__, config, estimate, filters, graph, installer, langs, samples, store, tokens
 
 TOKEN = secrets.token_urlsafe(24)
 UI_FILE = Path(__file__).with_name("ui.html")
+STATIC = Path(__file__).with_name("static")
 
 
 # ---------------------------------------------------------------------------
@@ -36,8 +40,23 @@ def preview(knobs: dict, languages) -> list:
             text = filters.compress(s["cmd"], s["text"], 0, stash_id=42, opts=cfg)
             if tokens.count(text) > raw * 0.9:
                 text = s["text"]
-        out.append({"id": s["id"], "label": s["label"], "lang": s["lang"], "cmd": s["cmd"], "raw": raw,
-                    "kept": tokens.count(text), "before": s["text"], "after": text})
+        out.append({"id": s["id"], "label": s["label"], "short": s.get("short", s["id"]), "lang": s["lang"],
+                    "cmd": s["cmd"], "raw": raw,
+                    "kept": tokens.count(text), "before": s["text"], "after": text,
+                    "segments": segments(s["text"], text)})
+    return out
+
+
+def segments(before: str, after: str) -> list:
+    """Line-level view of what was kept, dropped or added (notes) — for the preview."""
+    a, b = filters.clean(before), after.split("\n")
+    out = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if op == "equal":
+            out += [["keep", ln] for ln in a[i1:i2]]
+        else:
+            out += [["drop", ln] for ln in a[i1:i2]]
+            out += [["note", ln] for ln in b[j1:j2]]
     return out
 
 
@@ -56,6 +75,9 @@ def state() -> dict:
         projects = [r[0] for r in db.execute(
             "SELECT project FROM events WHERE project != '' GROUP BY project ORDER BY MAX(ts) DESC LIMIT 30")]
     projects = list(dict.fromkeys(projects + list(data["projects"])))
+    cwd_project = config.project_root(os.getcwd())
+    if cwd_project and (Path(cwd_project) / ".git").exists() and cwd_project not in projects:
+        projects.append(cwd_project)
     return {
         "version": __version__,
         "config": data,
@@ -99,6 +121,23 @@ def stats(params: dict) -> dict:
         "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
         "live": store.read_live(),
     }
+
+
+def graph_state(project: str) -> dict:
+    if not project or not os.path.isdir(project):
+        return {"exists": False}
+    if not graph.exists(project):
+        return {"exists": False, "project": project}
+    v = graph.viz(project, 70)
+    g = graph.Graph(project)
+    dead, public = graph.unused(project)
+    v.update(exists=True, project=project, cycles=len(graph.import_cycles(g)),
+             unused={"dead": len(dead), "public": len(public)},
+             hubs=[{"name": n, "refs": c, "files": len(g.ref_files[n])} for n, c in g.ref_count.most_common(300)
+                   if n in g.by_name and len(n) > 2][:10],
+             core=[{"unit": u, "importers": len(g.in_units.get(u, ())), "symbols": graph._key_symbols(g, u)[:6]}
+                   for u in g.core_units()[:12]])
+    return v
 
 
 def save_config(body: dict) -> dict:
@@ -167,6 +206,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, state())
             if u.path == "/api/stats":
                 return self._send(200, stats(parse_qs(u.query)))
+            if u.path == "/api/graph":
+                return self._send(200, graph_state(parse_qs(u.query).get("project", [""])[0]))
+            if u.path in ("/usage", "/usage.html"):
+                return self._send(200, (STATIC / "usage.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path.startswith("/static/"):
+                f = (STATIC / u.path[len("/static/"):]).resolve()
+                if STATIC.resolve() in f.parents and f.is_file():
+                    ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
+                    if f.suffix == ".woff2":
+                        ctype = "font/woff2"
+                    return self._send(200, f.read_bytes(), ctype)
+                return self._send(404, {"error": "not found"})
             return self._send(404, {"error": "not found"})
         except Exception as e:  # pragma: no cover - surfaced in the UI
             return self._send(500, {"error": str(e)})
@@ -187,6 +238,25 @@ class Handler(BaseHTTPRequestHandler):
                 target = installer.install(statusline=bool(body.get("statusline", True)),
                                            uninstall=action == "uninstall")
                 return self._send(200, {"ok": True, "file": str(target), "setup": installer.status()})
+            if u == "/api/selftest":
+                return self._send(200, {"results": installer.selftest()})
+            if u.startswith("/api/graph/"):
+                project = body.get("project", "")
+                if not project or not os.path.isdir(project):
+                    raise ValueError("unknown project")
+                action = u.rsplit("/", 1)[1]
+                if action == "build":
+                    graph.build(project)
+                    return self._send(200, graph_state(project))
+                text = {"query": lambda: graph.query(project, body.get("q", ""), 1800),
+                        "report": lambda: graph.report(project, 2500),
+                        "unused": lambda: graph.unused_text(project, 2500),
+                        "debt": lambda: graph.debt_text(project, 2500),
+                        "impact": lambda: graph.impact_text(project, body.get("q", ""), 1800),
+                        "explain": lambda: graph.explain_text(project, body.get("q", ""), 1800)}.get(action)
+                if not text:
+                    return self._send(404, {"error": "not found"})
+                return self._send(200, {"text": text()})
             if u == "/api/estimate":
                 s = estimate.run(limit=int(body.get("limit") or 0) or None, style_pct=0)
                 return self._send(200, {"sessions": s["sessions"], "calls": s["calls"],

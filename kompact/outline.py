@@ -28,11 +28,12 @@ NOT_METHOD = {"if", "for", "while", "switch", "catch", "return", "else", "do", "
 
 
 def _sig_py(node, src_lines):
-    line = src_lines[node.lineno - 1].strip()
+    strip = lambda ln: re.sub(r"\s+#.*$", "", ln).strip()  # noqa: E731  (drop trailing comments)
+    line = strip(src_lines[node.lineno - 1])
     # include multi-line signatures up to the colon
     i = node.lineno
-    while not line.rstrip().endswith(":") and i < len(src_lines) and i < node.lineno + 8:
-        line += " " + src_lines[i].strip()
+    while not line.endswith(":") and i < len(src_lines) and i < node.lineno + 8:
+        line += " " + strip(src_lines[i])
         i += 1
     return re.sub(r"\s+", " ", line)
 

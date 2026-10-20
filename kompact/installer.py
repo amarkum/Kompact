@@ -7,13 +7,16 @@ import shutil
 import sys
 from pathlib import Path
 
-HOOKS = {  # event -> (matcher, handler)
-    "PostToolUse": ("Bash", "post-bash"),
-    "PreToolUse": ("Read", "pre-read"),
-    "PreCompact": (None, "pre-compact"),
-    "SessionStart": (None, "session-start"),
-    "Stop": (None, "stop"),
-}
+HOOKS = [  # (event, matcher, handler)
+    ("PostToolUse", "Bash", "post-bash"),
+    ("PostToolUse", "Edit|Write|MultiEdit|NotebookEdit", "post-edit"),
+    ("PreToolUse", "Read", "pre-read"),
+    ("PreCompact", None, "pre-compact"),
+    ("SessionStart", None, "session-start"),
+    ("SubagentStart", None, "subagent-start"),
+    ("Stop", None, "stop"),
+]
+EVENTS = sorted({e for e, _, _ in HOOKS})
 MARK = "kompact"
 
 
@@ -75,7 +78,7 @@ def plugin_enabled(settings: dict) -> bool:
 def status(project: str = "") -> dict:
     user = _read(settings_path("user"))
     hooks = user.get("hooks", {})
-    installed = {ev: any(_ours(e) for e in hooks.get(ev, [])) for ev in HOOKS}
+    installed = {f"{ev}:{h}": any(f"hook {h}" in json.dumps(e) for e in hooks.get(ev, [])) for ev, _, h in HOOKS}
     sl = (user.get("statusLine") or {}).get("command", "")
     home = Path.home()
     vscode = sorted(glob.glob(str(home / ".vscode*" / "extensions" / "anthropic.claude-code-*")))
@@ -133,13 +136,14 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
     if not uninstall:
         write_shim()
     hooks_cfg = settings.setdefault("hooks", {})
-    for event, (matcher, handler) in HOOKS.items():
+    for event in EVENTS:
         entries = [e for e in hooks_cfg.get(event, []) if not _ours(e)]
         if not uninstall and not via_plugin:
-            entry = {"hooks": [{"type": "command", "command": f"{cmd} hook {handler}", "timeout": 15}]}
-            if matcher:
-                entry = {"matcher": matcher, **entry}
-            entries.append(entry)
+            for ev, matcher, handler in HOOKS:
+                if ev != event:
+                    continue
+                entry = {"hooks": [{"type": "command", "command": f"{cmd} hook {handler}", "timeout": 15}]}
+                entries.append({"matcher": matcher, **entry} if matcher else entry)
         if entries:
             hooks_cfg[event] = entries
         else:
@@ -170,3 +174,69 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
             shutil.copyfile(target, backup)
     target.write_text(json.dumps(settings, indent=2) + "\n")
     return target
+
+
+# ---------------------------------------------------------------------------
+# self-test: run every installed hook command exactly as Claude Code would
+
+
+def selftest() -> list:
+    """Run each Kompact hook from settings.json with a realistic event in an isolated
+    KOMPACT_HOME. Returns [{hook, ok, ms, detail}]."""
+    import subprocess
+    import tempfile
+    import time as _time
+    settings = _read(settings_path("user"))
+    hooks_cfg = settings.get("hooks", {})
+    tmp = tempfile.mkdtemp(prefix="kompact-selftest-")
+    big = Path(tmp, "big_module.py")
+    big.write_text("".join(f"def handler_{i}(request):\n" + "    value = request * 2\n" * 6 + "    return value\n\n"
+                           for i in range(80)))
+    log = "".join(f"commit {i:040x}\nAuthor: Dev <d@x.io>\nDate:   Mon Oct 5 12:00:00 2026 +0000\n\n    change {i}\n\n"
+                  for i in range(40))
+    events = {
+        "post-bash": {"tool_name": "Bash", "tool_input": {"command": "git log -n 40"},
+                      "tool_response": {"stdout": log, "stderr": "", "interrupted": False, "isImage": False}},
+        "pre-read": {"tool_name": "Read", "tool_input": {"file_path": str(big)}},
+        "session-start": {"source": "startup"},
+        "subagent-start": {"agent_type": "general-purpose"},
+        "stop": {"stop_hook_active": False},
+        "pre-compact": {"trigger": "manual"},
+        "post-edit": {"tool_name": "Edit", "tool_input": {"file_path": str(big)}},
+    }
+    checks = {
+        "post-bash": lambda o: "updatedToolOutput" in o.get("hookSpecificOutput", {}),
+        "pre-read": lambda o: o.get("hookSpecificOutput", {}).get("permissionDecision") == "deny",
+        "session-start": lambda o: "additionalContext" in o.get("hookSpecificOutput", {}) or o == {},
+        "subagent-start": lambda o: "additionalContext" in o.get("hookSpecificOutput", {}) or o == {},
+    }
+    results = []
+    plugin = plugin_enabled(settings)
+    for event, matcher, handler in HOOKS:
+        cmd = None
+        for entry in hooks_cfg.get(event, []):
+            for h in entry.get("hooks", []):
+                if f"hook {handler}" in h.get("command", "") and MARK in h.get("command", ""):
+                    cmd = h["command"]
+        if cmd is None:
+            if not plugin:
+                results.append({"hook": f"{event} {handler}", "ok": False, "ms": 0, "detail": "not installed"})
+                continue
+            cmd = f"{launcher()} hook {handler}"  # plugin hooks: exercise the same code path
+        ev = {"session_id": "kompact-selftest", "cwd": tmp, "hook_event_name": event, **events[handler]}
+        env = dict(os.environ, KOMPACT_HOME=tmp)
+        t0 = _time.time()
+        try:
+            p = subprocess.run(cmd, shell=True, input=json.dumps(ev), capture_output=True, text=True, timeout=20,
+                               env=env)
+            ms = int((_time.time() - t0) * 1000)
+            out = json.loads(p.stdout) if p.stdout.strip() else {}
+            ok = p.returncode == 0 and checks.get(handler, lambda o: True)(out)
+            detail = "ok" if ok else (p.stderr.strip()[-200:] or f"unexpected output: {p.stdout[:160]}")
+            errlog = Path(tmp, "hook-errors.log")
+            if errlog.exists():
+                ok, detail = False, errlog.read_text()[-200:]
+        except (subprocess.TimeoutExpired, ValueError, OSError) as e:
+            ms, ok, detail = int((_time.time() - t0) * 1000), False, repr(e)[:200]
+        results.append({"hook": f"{event} {handler}", "ok": ok, "ms": ms, "detail": detail})
+    return results

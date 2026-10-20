@@ -142,10 +142,11 @@ def split_words(name: str):
 
 
 def _py_sig(node, lines):
-    head = lines[node.lineno - 1].strip()
+    strip = lambda ln: re.sub(r"\s+#.*$", "", ln).strip()  # noqa: E731  (drop trailing comments)
+    head = strip(lines[node.lineno - 1])
     i = node.lineno
-    while not head.rstrip().endswith(":") and i < len(lines) and i < node.lineno + 8:
-        head += " " + lines[i].strip()
+    while not head.endswith(":") and i < len(lines) and i < node.lineno + 8:
+        head += " " + strip(lines[i])
         i += 1
     return re.sub(r"\s+", " ", head)[:200]
 
@@ -653,7 +654,7 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
         db.execute("INSERT OR REPLACE INTO meta VALUES ('root', ?)", (root,))
     if not quiet:
         print(f"graph: {len(all_files)} files ({parsed} parsed, {skipped} unchanged) in {stats['seconds']}s "
-              f"→ {db_path(root)}")
+              f"· {db_path(root)}")
     return stats
 
 
@@ -1323,12 +1324,17 @@ def file_context(root: str, path: str) -> str:
 
 
 def viz(root: str, limit: int = 60) -> dict:
-    """Nodes and edges of the top units for the dashboard's graph view."""
+    """Nodes and edges of the top units for the dashboard's graph view: the most
+    central code modules, plus the most central tests/examples flagged `aux`."""
     g = load(root, build_if_missing=False)
     pr = g.rank()
-    top = [u for u in sorted(pr, key=lambda u: -pr[u])][:limit]
+    ranked = sorted(pr, key=lambda u: -pr[u])
+    code = [u for u in ranked if not g.is_test_unit(u) and not g.is_aux_unit(u)][:limit]
+    aux = [u for u in ranked if g.is_test_unit(u) or g.is_aux_unit(u)][:max(10, limit // 2)]
+    top = code + aux
     keep = set(top)
-    nodes = [{"id": u, "rank": round(pr[u], 5), "test": g.is_test_unit(u), "in": len(g.in_units.get(u, ())),
+    nodes = [{"id": u, "rank": round(pr[u], 5), "test": g.is_test_unit(u), "aux": g.is_test_unit(u) or g.is_aux_unit(u),
+              "in": len(g.in_units.get(u, ())),
               "out": len(g.out_units.get(u, ())), "lang": g.files[g.unit_files[u][0]]["lang"] if g.unit_files[u] else "",
               "lines": sum(g.files[f]["lines"] for f in g.unit_files[u]),
               "symbols": [_qual(s) for f in g.unit_files[u] for s in g.by_file[f] if s["exported"]
