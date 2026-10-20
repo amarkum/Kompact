@@ -66,7 +66,7 @@ KNOB_INFO = {
               "choice", ["off", "lite", "full"]),
 }
 
-GENERAL = {"turn_summary": True, "statusline": True}
+GENERAL = {"turn_summary": True, "statusline": True, "retention_days": 30}
 
 DEFAULT_FILE = {"preset": 3, "overrides": {}, "languages": {"mode": "auto", "selected": []}, "projects": {},
                 "general": dict(GENERAL)}
@@ -147,7 +147,7 @@ def load(cwd: str = "") -> dict:
         cfg.update({k: PRESETS[preset][k] for k in KNOBS})
     cfg["preset"] = preset
     cfg["project"] = root
-    cfg.update(data.get("general", {}))
+    cfg.update({k: v for k, v in data.get("general", {}).items() if k in GENERAL})
 
     from . import langs
     lang_cfg = data.get("languages", {})
@@ -166,7 +166,8 @@ def save(key: str, value) -> None:
     elif key in KNOBS:
         data["overrides"][key] = coerce(key, value)
     elif key in GENERAL:
-        data["general"][key] = coerce("bash", value)
+        data["general"][key] = int(value) if isinstance(GENERAL[key], int) and not isinstance(GENERAL[key], bool) \
+            else coerce("bash", value)
     elif key == "languages":
         data["languages"] = ({"mode": "auto", "selected": []} if value == "auto"
                              else {"mode": "manual", "selected": [v.strip() for v in str(value).split(",") if v.strip()]})

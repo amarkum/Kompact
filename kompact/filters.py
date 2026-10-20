@@ -35,13 +35,21 @@ BUILD_TOOLS = {"npm", "pnpm", "yarn", "pip", "pip3", "uv", "poetry", "pdm", "car
                "vite", "next", "webpack", "turbo", "nx", "rollup", "esbuild", "parcel", "expo", "docker-compose"}
 
 
+SETUP_WORDS = {"cd", "pushd", "popd", "export", "source", ".", "set", "unset", "alias", "ulimit", "umask", "exit", "true", ":"}
+
+
 def argv0(cmd: str):
-    """Return the meaningful words of the first command in a shell string."""
-    first = re.split(r"\|\||&&|;|\|", cmd, maxsplit=1)[0]
-    try:
-        words = shlex.split(first)
-    except ValueError:
-        words = first.split()
+    """Return the meaningful words of the first real command in a shell string,
+    skipping setup steps like `cd repo &&` or `export X=1;`."""
+    words = []
+    for seg in re.split(r"&&|;|\|\|", cmd.split("|", 1)[0] if "||" not in cmd else cmd):
+        try:
+            words = shlex.split(seg)
+        except ValueError:
+            words = seg.split()
+        if words and words[0] not in SETUP_WORDS:
+            break
+        words = []
     while words and (re.match(r"^\w+=", words[0]) or words[0] in WRAPPERS):
         words = words[1:]
     while len(words) >= 2 and tuple(words[:2]) in RUN_PREFIXES:

@@ -48,7 +48,9 @@ class _Conn(sqlite3.Connection):
 
 
 def connect() -> _Conn:
-    db = sqlite3.connect(home() / "kompact.db", timeout=5, factory=_Conn)
+    db = sqlite3.connect(home() / "kompact.db", timeout=10, factory=_Conn)
+    db.execute("PRAGMA journal_mode=WAL")  # concurrent hooks + dashboard without lock errors
+    db.execute("PRAGMA synchronous=NORMAL")
     db.executescript(SCHEMA)
     if "project" not in {r[1] for r in db.execute("PRAGMA table_info(events)")}:  # created by v0.1
         db.execute("ALTER TABLE events ADD COLUMN project TEXT DEFAULT ''")
@@ -117,6 +119,19 @@ def session_totals(session: str) -> dict:
             "context": last[2] if last else 0, "last_turn_saved": (last[0] - last[1]) if last else 0}
 
 
+def prune(retention_days: float) -> None:
+    """Drop data older than the retention window (called at session start)."""
+    cutoff = time.time() - retention_days * 86400
+    with connect() as db:
+        db.execute("DELETE FROM stash WHERE ts < ?", (min(cutoff, time.time() - 7 * 86400),))
+        if db.fts:
+            db.execute("INSERT INTO stash_fts(stash_fts) VALUES ('rebuild')")
+        for table in ("events", "turns"):
+            db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
+        db.execute("DELETE FROM reads WHERE ts < ?", (time.time() - 2 * 86400,))
+        db.execute("DELETE FROM sessions WHERE COALESCE(NULLIF(last_turn, 0), started) < ?", (cutoff,))
+
+
 def mark_compacted(session: str) -> None:
     with connect() as db:
         db.execute("UPDATE sessions SET compacted=? WHERE session=?", (time.time(), session))
@@ -142,7 +157,12 @@ def read_live() -> dict:
 # stash
 
 
+STASH_MAX_CHARS = 2_000_000
+
+
 def stash(cmd: str, output: str) -> int:
+    if len(output) > STASH_MAX_CHARS:
+        output = output[:STASH_MAX_CHARS] + f"\n[kompact: stash truncated at {STASH_MAX_CHARS} chars]"
     with connect() as db:
         cur = db.execute("INSERT INTO stash (ts, cmd, output) VALUES (?,?,?)", (time.time(), cmd, output))
         rowid = cur.lastrowid

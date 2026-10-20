@@ -30,6 +30,33 @@ def launcher() -> str:
     return f'"{py}" "{script}"'
 
 
+def shim_dir() -> Path:
+    return Path.home() / ".kompact" / "bin"
+
+
+def write_shim() -> Path:
+    """A stable `~/.kompact/bin/kompact` that Claude's Bash tool can always call,
+    however Kompact was installed (pip, clone, VS Code bundle, plugin)."""
+    d = shim_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    py = sys.executable or "python3"
+    script = Path(__file__).with_name("_launch.py")
+    sh = d / "kompact"
+    sh.write_text(f'#!/bin/sh\nexec "{py}" "{script}" "$@"\n')
+    sh.chmod(0o755)
+    (d / "kompact.cmd").write_text(f'@"{py}" "{script}" %*\r\n')
+    return sh
+
+
+def cli_name() -> str:
+    """How Claude should invoke Kompact from its Bash tool."""
+    if shutil.which("kompact"):
+        return "kompact"
+    if (shim_dir() / "kompact").exists():
+        return "~/.kompact/bin/kompact"
+    return launcher()
+
+
 def _read(p: Path) -> dict:
     try:
         return json.loads(p.read_text())
@@ -96,6 +123,8 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
     settings = _read(target)
     via_plugin = plugin_enabled(settings) and not uninstall
     cmd = launcher()
+    if not uninstall:
+        write_shim()
     hooks_cfg = settings.setdefault("hooks", {})
     for event, (matcher, handler) in HOOKS.items():
         entries = [e for e in hooks_cfg.get(event, []) if not _ours(e)]
@@ -126,7 +155,7 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
                 pass
     elif not via_plugin and (not skill.exists() or "Kompact token saver" in skill.read_text()):
         skill.parent.mkdir(parents=True, exist_ok=True)
-        skill.write_text(SKILL.format(cmd=cmd))
+        skill.write_text(SKILL.format(cmd=cli_name()))
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         backup = target.with_suffix(".json.kompact-backup")

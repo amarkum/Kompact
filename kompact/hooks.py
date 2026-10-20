@@ -10,7 +10,7 @@ import os
 import sys
 import time
 
-from . import config, filters, langs, outline, rules, store, tokens
+from . import config, filters, installer, langs, outline, rules, store, tokens
 
 TEXT_LIMIT = 2_000_000  # don't touch huge/binary files
 BINARY_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb", ".svg", ".ico", ".zip", ".gz"}
@@ -52,7 +52,7 @@ def post_bash(event: dict, cfg: dict) -> None:
     kept = tokens.count(new_out) + tokens.count(new_err)
     if kept > raw_tokens * 0.9:  # not worth changing what Claude sees
         return
-    new_out += f"\n[kompact: {raw_tokens}→{kept} tokens; raw: kompact show {sid}]"
+    new_out += f"\n[kompact: {raw_tokens}›{kept} tokens; full output: {installer.cli_name()} show {sid}]"
     store.record("bash", raw_tokens, kept, cmd, event.get("session_id", ""), project=cfg["project"])
     _emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                   "updatedToolOutput": {**resp, "stdout": new_out, "stderr": new_err}}})
@@ -112,9 +112,9 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
                     skel = outline.render_outline(path, text)
                     if skel:
                         kind = "a generated file" if is_gen else f"{n} lines"
-                        msg = (f"[kompact] {path} is {kind} (~{tokens.count(text)} tokens). Outline below "
-                               f"(line ranges in brackets). Read only the ranges you need with offset/limit, "
-                               f"or call Read again unchanged to get the whole file.\n\n{skel}")
+                        msg = (f"[kompact] Not an error: {path} is {kind} (~{tokens.count(text)} tokens), so here is "
+                               f"its outline (line ranges in brackets). Read just the ranges you need with offset/limit, "
+                               f"or repeat the same Read to get the whole file.\n\n{skel}")
                         raw, kept = tokens.count(text), tokens.count(msg)
                         if raw > kept * 1.5:
                             put("outlined", raw - kept)
@@ -139,8 +139,8 @@ def _pre_read(event: dict, cfg: dict, ledger: list):
                 lines = text.splitlines()
                 off = int(inp.get("offset") or 1)
                 text = "\n".join(lines[max(off - 1, 0): off - 1 + int(inp.get("limit") or 2000)])
-            msg = (f"[kompact] {path} is unchanged since you last read it (same range) in this session; that "
-                   f"content is still in your context. If it is not (e.g. after compaction), call Read again.")
+            msg = (f"[kompact] Not an error: {path} is unchanged since you read this range earlier in this session, "
+                   f"so it is already in your context. If it is not (e.g. after compaction), repeat the same Read.")
             raw, kept = tokens.count(text), tokens.count(msg)
             if raw > kept * 2:
                 put("dup", raw - kept)
@@ -166,6 +166,8 @@ def pre_compact(event: dict, cfg: dict) -> None:
 def session_start(event: dict, cfg: dict) -> None:
     if event.get("source") in ("compact", "clear"):
         store.mark_compacted(event.get("session_id", ""))
+    elif event.get("source") == "startup":
+        store.prune(cfg.get("retention_days", 30))
     text = rules.STYLES.get(cfg["style"], "")
     if text:
         _emit({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}})

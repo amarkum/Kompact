@@ -32,7 +32,9 @@ GIT_LOG = "".join(
 class FilterTests(unittest.TestCase):
     def test_classify(self):
         self.assertEqual(filters.classify("git status"), "git_status")
-        self.assertEqual(filters.classify("cd x && git log -n 3"), "generic")  # first command decides
+        self.assertEqual(filters.classify("cd x && git log -n 3"), "git_log")  # setup steps are skipped
+        self.assertEqual(filters.classify("cd x || exit 1; export CI=1; go test ./..."), "test")
+        self.assertEqual(filters.classify("echo hi && pytest"), "generic")  # a real first command decides
         self.assertEqual(filters.classify("FOO=1 npx jest --ci"), "test")
         self.assertEqual(filters.classify("uv run pytest -q"), "test")
         self.assertEqual(filters.classify("npm run test:unit"), "test")
@@ -238,7 +240,7 @@ class HookTests(unittest.TestCase):
         res = run_hook("post-bash", ev)["updatedToolOutput"]
         self.assertEqual(set(res), {"stdout", "stderr", "interrupted", "isImage"})
         self.assertIn("Commit message number 3", res["stdout"])
-        sid = int(res["stdout"].rsplit("kompact show ", 1)[1].rstrip("]"))
+        sid = int(res["stdout"].rsplit(" show ", 1)[1].rstrip("]"))
         self.assertEqual(store.get_stash(sid)[1], GIT_LOG)
 
     def test_post_bash_leaves_small_output(self):
