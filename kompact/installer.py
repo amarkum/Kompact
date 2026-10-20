@@ -9,7 +9,7 @@ from pathlib import Path
 
 HOOKS = [  # (event, matcher, handler)
     ("PostToolUse", "Bash", "post-bash"),
-    ("PostToolUse", "Edit|Write|MultiEdit|NotebookEdit", "post-edit"),
+    ("PostToolUse", "Edit|Write|NotebookEdit", "post-edit"),
     ("PreToolUse", "Read", "pre-read"),
     ("PreCompact", None, "pre-compact"),
     ("SessionStart", None, "session-start"),

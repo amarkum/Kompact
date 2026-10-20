@@ -326,7 +326,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
     </section>
 
     <section data-page="guide" hidden>
-      <div class="page-head"><div><h1>Guide</h1><p>How Kompact works and how to use it day to day.</p></div><div class="head-actions"><a class="btn" href="/usage" target="_blank" rel="noopener" id="guideOpen"></a></div></div>
+      <div class="page-head"><div><h1>Guide</h1><p>How Kompact works and how to use it day to day.</p></div><div class="head-actions"><a class="btn" href="/static/usage.html" target="_blank" rel="noopener" id="guideOpen"></a></div></div>
       <iframe class="guide" id="guideFrame" title="Kompact guide"></iframe>
     </section>
   </main>
@@ -376,7 +376,7 @@ function go(page) {
   local.set("kompact-page", page);
   if (page === "overview") requestAnimationFrame(() => turnChart(lastTurns));
   if (page === "graph") loadGraph();
-  if (page === "guide" && !$("guideFrame").getAttribute("src")) $("guideFrame").src = "/usage";
+  if (page === "guide") { const th = document.documentElement.dataset.theme || ""; const src = `/static/usage.html${th ? "?theme=" + th : ""}`; if ($("guideFrame").getAttribute("src") !== src) $("guideFrame").src = src; }
 }
 $("nav").innerHTML = PAGES.map(([p, label]) => `<button data-page="${p}">${icon(p)}<span>${label}</span></button>`).join("");
 $("nav").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.page); };

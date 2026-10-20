@@ -315,6 +315,10 @@ def cmd_doctor(a):
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["prove"]:  # has its own parser
+        from . import prove
+        return prove.main(argv[1:])
     ap = argparse.ArgumentParser(prog="kompact", description="Cut the tokens Claude Code spends on noise.")
     ap.add_argument("--version", action="version", version=__version__)
     sp = ap.add_subparsers(dest="cmd", required=True)
@@ -402,6 +406,8 @@ def main(argv=None):
     p.add_argument("--root")
     p.set_defaults(fn=lambda a: print(__import__("kompact.graph", fromlist=["graph"]).debt_text(
         config.project_root(a.root or os.getcwd()) or os.getcwd())) or 0)
+
+    sp.add_parser("prove", help="A/B test: run real Claude Code tasks with and without Kompact (see --help)")
 
     p = sp.add_parser("presets", help="list quality-vs-tokens levels")
     p.add_argument("--json", action="store_true")

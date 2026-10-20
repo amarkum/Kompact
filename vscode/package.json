@@ -2,7 +2,7 @@
   "name": "kompact",
   "displayName": "Kompact: Claude Code token saver",
   "description": "Cut the tokens Claude Code spends on noise. Quality-vs-tokens slider, per-turn savings in the status bar, and a settings dashboard.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "amarkum",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/amarkum/Kompact" },

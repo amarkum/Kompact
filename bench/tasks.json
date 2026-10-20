@@ -1,0 +1,78 @@
+{
+  "_doc": "Tasks for bench/ab.py. Each runs in `repo` (relative to --repos) with the same prompt and tools in both conditions. `expect`: every string must appear in the final answer (case-insensitive). Prompts never mention Kompact.",
+  "tasks": [
+    {
+      "id": "py-failing-tests",
+      "lang": "python",
+      "repo": "flask",
+      "prompt": "Run the test suite with `.venv/bin/pytest tests -v` and tell me which tests fail and why: test name and the key error. Do not change any code.",
+      "tools": ["Bash(.venv/bin/pytest:*)", "Read", "Grep", "Glob"],
+      "max_turns": 8,
+      "expect": ["test_async_view", "async"]
+    },
+    {
+      "id": "py-locate-code",
+      "lang": "python",
+      "repo": "flask",
+      "prompt": "Where does Flask create and sign the session cookie? Give the file, the class, and the method that serializes the session into the cookie.",
+      "tools": ["Read", "Grep", "Glob"],
+      "max_turns": 12,
+      "expect": ["sessions.py", "SecureCookieSessionInterface"]
+    },
+    {
+      "id": "py-git-history",
+      "lang": "python",
+      "repo": "flask",
+      "prompt": "Using `git log -n 40 --stat`, find which two files under src/ changed most often in the last 40 commits.",
+      "tools": ["Bash(git log:*)"],
+      "max_turns": 6,
+      "expect": ["cli.py", "app.py"]
+    },
+    {
+      "id": "go-failing-test",
+      "lang": "go",
+      "repo": "cobra",
+      "prompt": "Run `go test -v ./...` and tell me which test fails and the error. Do not change any code.",
+      "tools": ["Bash(go test:*)", "Read", "Grep", "Glob"],
+      "max_turns": 8,
+      "expect": ["TestFailGenFishCompletionFile"]
+    },
+    {
+      "id": "go-locate-code",
+      "lang": "go",
+      "repo": "cobra",
+      "prompt": "Which function checks that flags marked 'required together' are either all set or none set, and in which file is it?",
+      "tools": ["Read", "Grep", "Glob"],
+      "max_turns": 12,
+      "expect": ["validateRequiredFlagGroups", "flag_groups.go"]
+    },
+    {
+      "id": "ts-locate-code",
+      "lang": "typescript",
+      "repo": "swr",
+      "prompt": "How does useSWR avoid sending duplicate requests for the same key at the same time? Name the config option and the file where its default value is set.",
+      "tools": ["Read", "Grep", "Glob"],
+      "max_turns": 12,
+      "expect": ["dedupingInterval", "config.ts"]
+    },
+    {
+      "id": "ts-typecheck",
+      "lang": "typescript",
+      "repo": "ky",
+      "setup": [["write", "source/zz-kompact.ts", "export const retries: number = 'three';\nexport function delay(ms: number): string {\n\treturn ms;\n}\n"]],
+      "prompt": "Type-check the project with `npx tsc --noEmit -p .` and list every error with file and line. Do not fix them.",
+      "tools": ["Bash(npx tsc:*)", "Read"],
+      "max_turns": 6,
+      "expect": ["zz-kompact.ts"]
+    },
+    {
+      "id": "react-impact",
+      "lang": "react",
+      "repo": "zustand",
+      "prompt": "If I change the signature of `createStore` in src/vanilla.ts, which other files under src/ would need to change? List them.",
+      "tools": ["Read", "Grep", "Glob"],
+      "max_turns": 12,
+      "expect": ["react.ts", "traditional.ts"]
+    }
+  ]
+}

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kompact Guide</title>
+<link rel="icon" href="../kompact/static/logo-mark.svg" type="image/svg+xml">
+<style>
+/* Layout: documentation page — sticky contents rail on wide screens, one readable column. */
+@font-face { font-family: "Plex Sans"; src: url("../kompact/static/fonts/plex-sans-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url("../kompact/static/fonts/plex-sans-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url("../kompact/static/fonts/plex-sans-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url("../kompact/static/fonts/plex-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url("../kompact/static/fonts/plex-mono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8; --panel: #ffffff; --line: #e3e5ea; --line-2: #eef0f3;
+  --ink: #111318; --ink-2: #4a505c; --ink-3: #868c98; --hover: #eef0f4;
+  --brand: #f5a524; --brand-ink: #925400; --brand-soft: #fdf1dc; --good: #12713a; --good-soft: #e3f3e8;
+  --code: #f4f5f7; --logo-tile: #111318;
+  --sans: "Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0c0d10; --panel: #131519; --line: #23262d; --line-2: #1b1e24;
+    --ink: #eceef2; --ink-2: #a8aeba; --ink-3: #6d7380; --hover: #1b1e24;
+    --brand-ink: #f6b64a; --brand-soft: #2b2112; --good: #45c07f; --good-soft: #13261b; --code: #0f1114; --logo-tile: #262a33;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c0d10; --panel: #131519; --line: #23262d; --line-2: #1b1e24;
+  --ink: #eceef2; --ink-2: #a8aeba; --ink-3: #6d7380; --hover: #1b1e24;
+  --brand-ink: #f6b64a; --brand-soft: #2b2112; --good: #45c07f; --good-soft: #13261b; --code: #0f1114; --logo-tile: #262a33;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 20px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--ink); text-decoration-color: var(--brand); text-underline-offset: 3px; }
+code { font: 0.88em var(--mono); background: var(--code); border: 1px solid var(--line-2); border-radius: 4px; padding: 1px 5px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 40px max(16px, env(safe-area-inset-right, 0px)) 80px max(16px, env(safe-area-inset-left, 0px)); display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+.toc { position: sticky; top: 24px; align-self: start; font-size: 13.5px; }
+.toc .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.02em; margin-bottom: 22px; }
+.toc .brand svg { width: 26px; height: 26px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: toc; }
+.toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; }
+.toc a:hover { background: var(--hover); color: var(--ink); }
+main { min-width: 0; max-width: 760px; }
+header.hero { padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.eyebrow { font: 500 12.5px var(--mono); color: var(--brand-ink); }
+h1 { font-size: 34px; line-height: 1.15; letter-spacing: -0.025em; margin: 8px 0 12px; font-weight: 600; text-wrap: balance; }
+.lede { font-size: 17px; color: var(--ink-2); margin: 0; max-width: 62ch; }
+section { padding-top: 34px; }
+h2 { font-size: 22px; letter-spacing: -0.015em; margin: 0 0 10px; font-weight: 600; text-wrap: balance; }
+h3 { font-size: 15.5px; margin: 22px 0 6px; font-weight: 600; }
+p { margin: 0 0 12px; max-width: 68ch; }
+ul, ol.steps { margin: 0 0 14px; padding-left: 20px; }
+li { margin: 3px 0; }
+.muted { color: var(--ink-2); }
+pre { position: relative; margin: 10px 0 16px; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 74px 12px 14px; overflow-x: auto; font: 13px/1.6 var(--mono); }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+pre .copy { position: absolute; top: 6px; right: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); border-radius: 6px; font: 500 12px var(--sans); padding: 2px 8px; cursor: pointer; }
+pre .c { color: var(--ink-3); }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0 6px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.card b { font-size: 14.5px; }
+.card .muted { font-size: 13.5px; }
+.card pre { margin: 4px 0 0; font-size: 12px; padding: 32px 12px 10px; white-space: pre-wrap; word-break: break-all; }
+@media (max-width: 980px) { .cards { grid-template-columns: 1fr; } }
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0 16px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+th { font-weight: 500; color: var(--ink-3); font-size: 12.5px; }
+.tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 2px 6px; margin: 12px 0 18px; }
+.tbl table { margin: 0; }
+.tbl tr:last-child td { border-bottom: 0; }
+.flow { display: grid; gap: 0; margin: 14px 0 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.step { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 12px 16px; border-top: 1px solid var(--line-2); }
+.step:first-child { border-top: 0; }
+.step .when { font: 500 12.5px var(--mono); color: var(--ink-2); padding-top: 2px; }
+.step .what b { display: block; }
+.step .what span { color: var(--ink-2); font-size: 14px; }
+@media (max-width: 640px) { .step { grid-template-columns: 1fr; gap: 2px; } }
+.note { border: 1px solid var(--line); border-left: 3px solid var(--brand); background: var(--panel); border-radius: 8px; padding: 10px 14px; margin: 12px 0 16px; font-size: 14px; color: var(--ink-2); }
+.note b { color: var(--ink); }
+.lv { display: inline-block; font: 500 12px var(--mono); background: var(--hover); border-radius: 4px; padding: 0 6px; }
+svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vertical-align: 0; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-top: 20px; }
+  .toc { position: static; }
+  .toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+  .toc a { border: 1px solid var(--line); background: var(--panel); }
+  h1 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" style="fill: var(--logo-tile)"/><rect x="17" y="14" width="7.5" height="36" rx="3.75" fill="#F4F4F5"/><path d="M45 15 L29 32 L45 49" fill="none" stroke="#F5A524" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>kompact</div>
+    <ol>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#session">What happens in a session</a></li>
+      <li><a href="#levels">Quality vs tokens</a></li>
+      <li><a href="#chat">Using it from chat</a></li>
+      <li><a href="#graph">Code graph</a></li>
+      <li><a href="#savings">Seeing the savings</a></li>
+      <li><a href="#projects">Projects and languages</a></li>
+      <li><a href="#raw">Getting the full output</a></li>
+      <li><a href="#prove">Proving it on your repo</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Kompact guide · v0.3</div>
+      <h1>Spend Claude Code's tokens on your code, not on noise</h1>
+      <p class="lede">Kompact trims what Claude reads (test runs, installs, git output, whole-file reads) and how much it writes, and shows the saving after every turn. It works in the Claude Code CLI and the VS Code extension, on this machine only.</p>
+    </header>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p>Pick one. All three end in the same place, and you can change everything later from the dashboard.</p>
+      <div class="cards">
+        <div class="card"><b>VS Code</b><span class="muted">Install the extension file, then click <b>Enable</b> when Kompact asks. The status bar starts showing savings.</span>
+          <pre><code>code --install-extension kompact-0.3.0.vsix</code></pre></div>
+        <div class="card"><b>Terminal</b><span class="muted">macOS and Linux. Needs Python 3.9 or newer and nothing else. Opens the dashboard when done.</span>
+          <pre><code>git clone https://github.com/amarkum/Kompact
+./Kompact/install.sh</code></pre></div>
+        <div class="card"><b>Claude Code plugin</b><span class="muted">From inside any Claude Code session.</span>
+          <pre><code>/plugin marketplace add amarkum/Kompact
+/plugin install kompact@kompact</code></pre></div>
+      </div>
+      <p class="muted">Windows: run <code>.\Kompact\install.ps1</code> from a clone, or use the VS Code extension. The CLI and the VS Code extension read the same <code>~/.claude/settings.json</code>, so one install covers both. A backup of that file is kept as <code>settings.json.kompact-backup</code>.</p>
+      <p>Open the dashboard any time with <code>kompact ui</code>, or <b>Kompact: Open Dashboard</b> in VS Code.</p>
+    </section>
+
+    <section id="session">
+      <h2>What happens in a session</h2>
+      <p>Kompact works through Claude Code hooks, so it acts on every tool call without Claude having to remember to use it. Your commands run exactly as typed; only what Claude reads changes.</p>
+      <div class="flow">
+        <div class="step"><div class="when">Session starts</div><div class="what"><b>Short rules and a code map</b><span>About 150 tokens of reply rules for your level, plus an optional budgeted map of the most depended-on modules. The code graph is built or refreshed in the background.</span></div></div>
+        <div class="step"><div class="when">Claude runs a command</div><div class="what"><b>Output is compacted</b><span>Passing tests, progress bars, download chatter, library stack frames and lock-file diffs are removed. Errors, failures, your own frames and summaries stay. The full output is stashed and Claude is told how to get it.</span></div></div>
+        <div class="step"><div class="when">Claude opens a big file</div><div class="what"><b>Outline first</b><span>The first full read of a large source file returns its outline with line ranges and who imports it. Claude then reads only the ranges it needs. Repeating the read returns the whole file.</span></div></div>
+        <div class="step"><div class="when">Claude edits code</div><div class="what"><b>Graph refresh</b><span>Changed files are re-indexed in the background, so later lookups see the new code.</span></div></div>
+        <div class="step"><div class="when">A subagent starts</div><div class="what"><b>Same rules</b><span>Subagents get the same prose and code rules as the main agent.</span></div></div>
+        <div class="step"><div class="when">Claude replies</div><div class="what"><b>Turn summary</b><span>The saving for the turn appears in Claude Code, in the status line, in the VS Code status bar and on the dashboard.</span></div></div>
+      </div>
+    </section>
+
+    <section id="levels">
+      <h2>Quality vs tokens</h2>
+      <p>One level sets every option. Move toward quality and Claude sees more raw output; toward savings and it sees less. Every individual setting can still be changed on the dashboard, globally or per project.</p>
+      <div class="tbl"><table>
+        <tr><th>Level</th><th>What Claude gets</th><th>Use when</th></tr>
+        <tr><td><span class="lv">1</span> Max quality</td><td>Almost everything. Only outputs over about 1,500 tokens are touched, and only pure noise is removed.</td><td>Debugging something subtle, or auditing Kompact itself.</td></tr>
+        <tr><td><span class="lv">2</span> Quality</td><td>Noisy commands compacted, passing tests hidden, one-line git log. Big files still read whole up to 800 lines.</td><td>You want savings with no change to how Claude reads files.</td></tr>
+        <tr><td><span class="lv">3</span> Balanced</td><td>Outline-first reads, library stack frames trimmed, a 500-token code map, lean code style.</td><td>Default. Day-to-day work.</td></tr>
+        <tr><td><span class="lv">4</span> Savings</td><td>Tighter caps, 3 lines of diff context, test banners dropped, shorter replies.</td><td>Long sessions, big repos, tight budgets.</td></tr>
+        <tr><td><span class="lv">5</span> Max savings</td><td>Most aggressive caps, 1 line of diff context, telegraphic replies.</td><td>Routine tasks where you mostly want results.</td></tr>
+      </table></div>
+      <h3>Changing the level</h3>
+      <ul>
+        <li>Dashboard: <b>Quality vs tokens</b>. The live preview shows exactly what Claude would get, with removed lines marked.</li>
+        <li>VS Code: click the Kompact item in the status bar, then <b>Choose quality vs tokens level</b>.</li>
+        <li>In Claude Code: type <code>/kompact balanced</code>, <code>/kompact max savings</code> and so on.</li>
+        <li>Terminal: <code>kompact config preset 4</code>, or <code>kompact presets</code> to list them.</li>
+      </ul>
+      <div class="note"><b>Never shortened at any level:</b> code, commands, file paths, error text, numbers, negations, security warnings, commit messages and docs.</div>
+    </section>
+
+    <section id="chat">
+      <h2>Using it from chat</h2>
+      <p>Kompact installs a small <code>/kompact</code> skill (about 370 tokens, loaded only when used).</p>
+      <div class="tbl"><table>
+        <tr><th>Type</th><th>What Claude does</th></tr>
+        <tr><td><code>/kompact</code></td><td>Shows savings so far.</td></tr>
+        <tr><td><code>/kompact max savings</code></td><td>Switches the level. Any level name or number works.</td></tr>
+        <tr><td><code>/kompact review</code></td><td>Reviews your current diff for code that could be cut: duplicates of existing helpers, options nobody asked for, dead branches.</td></tr>
+        <tr><td><code>/kompact audit</code></td><td>Lists dead-code candidates from the code graph and ranks what is safe to remove.</td></tr>
+        <tr><td><code>/kompact debt</code></td><td>Summarises <code>shortcut:</code>, FIXME, HACK and TODO comments by severity.</td></tr>
+        <tr><td><code>/kompact graph &lt;question&gt;</code></td><td>Finds code by topic, or shows what a change affects.</td></tr>
+      </table></div>
+    </section>
+
+    <section id="graph">
+      <h2>Code graph</h2>
+      <p>Kompact indexes functions, classes, methods, imports and calls for Python, Go, TypeScript, JavaScript and React on this machine. Building it takes well under a second for most repos, and only changed files are re-parsed. It is stored outside your repo, so it never shows up in diffs.</p>
+      <pre><code><span class="c"># find code by topic</span>
+kompact graph query "session cookie signing"
+<span class="c"># what breaks if this changes, and which tests to run</span>
+kompact graph impact src/flask/sessions.py
+<span class="c"># one symbol: where, who uses it, what it uses, its tests</span>
+kompact graph explain Flask.make_response
+<span class="c"># overview, dead code, import cycles</span>
+kompact graph report
+kompact graph unused</code></pre>
+      <p>You rarely need to type these. Claude gets the outline and the "imported by / tests" line automatically when it opens a big file, and the rules mention the commands in one line.</p>
+    </section>
+
+    <section id="savings">
+      <h2>Seeing the savings</h2>
+      <div class="tbl"><table>
+        <tr><th>Where</th><th>What you see</th></tr>
+        <tr><td>Claude Code, after each reply</td><td><code>Kompact: −8.2k tokens this turn (13.1k › 4.9k, −63%) · session −41k · context ≈31% smaller</code></td></tr>
+        <tr><td>CLI status line</td><td><code>Kompact −41.3k · ctx −31% · last turn −8.2k · Balanced</code></td></tr>
+        <tr><td>VS Code status bar</td><td>Running total and context reduction. Each new turn briefly shows its saving.</td></tr>
+        <tr><td>Dashboard</td><td>Per-turn chart, biggest wins by command, savings by feature, per project.</td></tr>
+        <tr><td><code>kompact estimate</code></td><td>Replays your past Claude Code sessions through the current settings and reports the share of tool output, billed tokens and cost it would have saved.</td></tr>
+      </table></div>
+      <p class="muted">"Context smaller" compares the context Claude carries now with what it would carry without Kompact, counting everything trimmed since the last compaction. If Claude ends up reading a whole file anyway, the claimed saving for that file is taken back.</p>
+    </section>
+
+    <section id="projects">
+      <h2>Projects and languages</h2>
+      <p>Each repo's languages are detected from <code>pyproject.toml</code> or <code>requirements.txt</code> (Python), <code>go.mod</code> (Go), <code>tsconfig.json</code> or <code>package.json</code> (TypeScript) and a <code>react</code> or <code>next</code> dependency (React). The profile decides which stack frames are library noise, which files are generated, and which lock files collapse in diffs. You can pin languages on the dashboard instead.</p>
+      <p>Give a repo its own level under <b>Projects &amp; languages</b>, for example Max quality for a payments service and Savings for everything else.</p>
+    </section>
+
+    <section id="raw">
+      <h2>Getting the full output</h2>
+      <ul>
+        <li>Every compacted output ends with a note such as <code>[kompact: 4210›612 tokens; full output: kompact show 17]</code>. Claude, or you, can run <code>kompact show 17</code>, or <code>kompact show 17 --lines 120-180</code> for a slice.</li>
+        <li><code>kompact search "TypeError"</code> searches every stashed output.</li>
+        <li>To skip compaction for one command, start it with <code>KOMPACT_RAW=1</code>.</li>
+        <li>For commands you always want raw, add them to <b>Never compact these commands</b> on the dashboard.</li>
+        <li>An outline is never a dead end: repeating the same Read returns the whole file.</li>
+      </ul>
+    </section>
+
+    <section id="prove">
+      <h2>Proving it on your repo</h2>
+      <p><code>kompact prove</code> runs the same tasks through real headless Claude Code sessions with and without Kompact, and reports tokens, cost, turns and whether each answer was right. Write a few tasks that look like your team's work:</p>
+      <pre><code>{ "tasks": [ {
+    "id": "failing-tests", "repo": "api",
+    "prompt": "Run the tests with `pytest -v` and tell me which fail and why.",
+    "tools": ["Bash(pytest:*)", "Read", "Grep"],
+    "max_turns": 8, "expect": ["test_refund_rounding"] } ] }</code></pre>
+      <pre><code>kompact prove --tasks my-tasks.json --repos ~/code --reps 3 --out evidence</code></pre>
+      <p class="muted">Each run is capped at $1 by default (<code>--budget</code>). The report lands in <code>evidence/REPORT.md</code>.</p>
+    </section>
+
+    <section id="trouble">
+      <h2>Troubleshooting</h2>
+      <h3>Is it working?</h3>
+      <p>Dashboard › <b>Setup</b> › <b>Run self-test</b> runs every installed hook exactly as Claude Code would and shows pass or fail with timings. From a terminal, use <code>kompact doctor</code>.</p>
+      <h3>Claude can't run <code>kompact</code></h3>
+      <p>Installs from VS Code or a clone add a launcher at <code>~/.kompact/bin/kompact</code>, which Claude can always call. Add <code>~/.kompact/bin</code> to your PATH if you want to type <code>kompact</code> yourself.</p>
+      <h3>Turn it off</h3>
+      <p>Dashboard › Setup › <b>Disable</b>, or <code>kompact install --uninstall</code>. Your other hooks and your own status line are never touched.</p>
+      <h3>Where is my data?</h3>
+      <p>In <code>~/.kompact</code>: settings (<code>config.json</code>), the savings history and stashed outputs (<code>kompact.db</code>, pruned after 30 days by default) and code graphs (<code>graphs/</code>). Nothing is sent anywhere.</p>
+    </section>
+
+    <section id="faq">
+      <h2>FAQ</h2>
+      <h3>Does it change what my commands do?</h3>
+      <p>No. Commands run exactly as written, with your normal permissions. Kompact only changes the text Claude reads afterwards.</p>
+      <h3>Does it slow Claude Code down?</h3>
+      <p>Each hook takes about 50 to 90 ms, far less than a model turn. Code graphs build in under a second for most repos, in the background for big ones.</p>
+      <h3>How is this different from graphify, ponytail or caveman?</h3>
+      <p>Each of those covers one layer. Kompact covers command output, file reads, code navigation, reply length and code size together, acts automatically through hooks, keeps its own instructions small, and measures the result in real A/B sessions. The README has a feature-by-feature comparison.</p>
+      <h3>Will Claude miss something important?</h3>
+      <p>Errors, failing tests, your own stack frames and summaries are kept at every level, and the full output is always one command away. If in doubt, use a lower level for that project.</p>
+    </section>
+  </main>
+</div>
+<script>
+(function () {
+  try {
+    var t = new URLSearchParams(location.search).get("theme") || localStorage.getItem("kompact-theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+  document.querySelectorAll("pre").forEach(function (pre) {
+    var b = document.createElement("button");
+    b.className = "copy"; b.type = "button"; b.textContent = "Copy";
+    b.addEventListener("click", function () {
+      var text = pre.querySelector("code").innerText;
+      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1400); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { b.textContent = "Select to copy"; });
+    });
+    pre.appendChild(b);
+  });
+})();
+</script>
+</body>
+</html>

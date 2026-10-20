@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kompact"
-version = "0.2.0"
+version = "0.3.0"
 description = "Cut the tokens Claude Code spends on noise: compact tool output, outline-first reads, terse style, and a savings estimator."
 readme = "README.md"
 requires-python = ">=3.9"

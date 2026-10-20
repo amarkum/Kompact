@@ -393,6 +393,25 @@ class PresetAndLanguageTests(unittest.TestCase):
         self.assertIn("test_endpoint_1 PASSED", rows["pytest"]["after"])
 
 
+class DocsTests(unittest.TestCase):
+    def test_docs_copy_in_sync(self):
+        import subprocess
+        root = Path(__file__).resolve().parent.parent
+        self.assertEqual(subprocess.run([sys.executable, str(root / "scripts/sync_docs.py"), "--check"]).returncode, 0,
+                         "docs/usage.html is stale: run python scripts/sync_docs.py")
+
+    def test_plugin_skill_matches_installer(self):
+        root = Path(__file__).resolve().parent.parent
+        self.assertEqual((root / "skills/kompact/SKILL.md").read_text(), installer.SKILL.format(cmd="kompact"))
+
+    def test_no_arrow_glyphs_in_ui(self):
+        root = Path(__file__).resolve().parent.parent
+        for f in ("kompact/ui.html", "kompact/static/usage.html", "kompact/hooks.py", "kompact/cli.py"):
+            text = (root / f).read_text()
+            for glyph in ("→", "▶", "◀", "▸", "⚡"):
+                self.assertNotIn(glyph, text, f"{glyph} in {f}")
+
+
 class TurnAndSetupTests(unittest.TestCase):
     def test_stop_summarises_turn(self):
         ev = {"session_id": "turn1", "tool_input": {"command": "git log"}, "cwd": TMP,

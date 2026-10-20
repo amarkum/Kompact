@@ -208,8 +208,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, stats(parse_qs(u.query)))
             if u.path == "/api/graph":
                 return self._send(200, graph_state(parse_qs(u.query).get("project", [""])[0]))
-            if u.path in ("/usage", "/usage.html"):
-                return self._send(200, (STATIC / "usage.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path in ("/usage", "/usage.html", "/guide"):
+                self.send_response(302)
+                self.send_header("Location", "/static/usage.html")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
             if u.path.startswith("/static/"):
                 f = (STATIC / u.path[len("/static/"):]).resolve()
                 if STATIC.resolve() in f.parents and f.is_file():
