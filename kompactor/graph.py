@@ -1331,7 +1331,7 @@ def file_context(root: str, path: str) -> str:
     if not exists(root):
         return ""
     g = Graph(root)
-    rel = os.path.relpath(path, g.root) if os.path.isabs(path) else path
+    rel = os.path.relpath(os.path.realpath(path), os.path.realpath(g.root)) if os.path.isabs(path) else path
     if rel not in g.files:
         return ""
     u = g.unit_of(rel)

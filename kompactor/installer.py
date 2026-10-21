@@ -234,6 +234,7 @@ description: Kompactor token saver and code graph. Use when the user says /kompa
 
 Run these with Bash and report briefly. Kompactor token saver.{note}
 
+/kompactor status (or just /kompactor): run `{cmd} status` and summarise it in a few lines.
 /kompactor setup: run `{cmd} setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `{cmd} presets`; change with `{cmd} config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
 Savings: `{cmd} gain`. Dashboard: run `{cmd} start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.

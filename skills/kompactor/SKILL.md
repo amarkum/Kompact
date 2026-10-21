@@ -5,6 +5,7 @@ description: Kompactor token saver and code graph. Use when the user says /kompa
 
 Run these with Bash and report briefly. Kompactor token saver. `~/.kompactor/bin/kompactor` is created at session start; if it's missing, use `python3 "${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py"` instead.
 
+/kompactor status (or just /kompactor): run `~/.kompactor/bin/kompactor status` and summarise it in a few lines.
 /kompactor setup: run `~/.kompactor/bin/kompactor setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `~/.kompactor/bin/kompactor presets`; change with `~/.kompactor/bin/kompactor config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
 Savings: `~/.kompactor/bin/kompactor gain`. Dashboard: run `~/.kompactor/bin/kompactor start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.

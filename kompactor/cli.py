@@ -177,6 +177,57 @@ def cmd_gain(a):
     return 0
 
 
+EVIDENCE_URL = "https://github.com/amarkum/kompactor#evidence"
+
+
+def cmd_status(a):
+    """What Kompactor is doing right now, and what to do next. Also what plain `kompactor` prints."""
+    st = installer.status()
+    cfg = config.load(os.getcwd())
+    level = f"{config.PRESETS[cfg['preset']]['name']} (level {cfg['preset']} of 5)"
+    on = (st["plugin_enabled"] or st["hooks_installed"]) and not store.paused()
+    state = ("ON" if on else "STOPPED" if store.paused() else "NOT SET UP")
+    print(f"Kompactor {__version__}: {state}")
+    if not (st["plugin_enabled"] or st["hooks_installed"]):
+        print("  Run `kompactor setup` to connect it to Claude Code (CLI and VS Code).")
+    elif store.paused():
+        print("  Claude Code output passes through untouched. Turn it back on: `kompactor start`")
+    else:
+        print(f"  Connected via {'the Claude Code plugin' if st['plugin_enabled'] else st['settings_file']}."
+              " New Claude Code sessions are compacted.")
+    print(f"  Level: {level}. Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced")
+    with store.connect() as db:
+        raw, kept, n = db.execute("SELECT COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0), COUNT(*) "
+                                  "FROM events").fetchone()
+    if n:
+        print(f"  Saved so far: {_fmt(raw - kept)} tokens ({_pct(raw - kept, raw)}) over {n} tool calls."
+              " Details: `kompactor gain`")
+    else:
+        print("  Saved so far: nothing yet. Use Claude Code as usual; the status line shows savings per turn.")
+    d = _dashboard()
+    print(f"  Dashboard: {d['url'] if d else 'not running (`kompactor start` opens it)'}")
+    print(f"""
+How it works
+  Kompactor sits between Claude Code's tools and Claude. Long command output (test runs, installs,
+  git log), big file reads and searches are shortened before Claude reads them: errors, failing tests,
+  your own stack frames and summary lines are always kept. Claude can still get the full text with
+  `kompactor show <id>`. You don't change how you work; just use Claude Code.
+
+Use it from Claude Code
+  /kompactor status · /kompactor max savings · /kompactor balanced · /kompactor stop · /kompactor start
+
+Turn it off
+  kompactor stop        pause it (settings kept); `kompactor start` resumes
+  kompactor uninstall   remove it from Claude Code (--purge also deletes ~/.kompactor)
+
+Evidence
+  Measured A/B runs of real Claude Code tasks: {EVIDENCE_URL}
+  Your own sessions: `kompactor estimate` replays them and shows what it would have saved.
+
+All commands: kompactor --help""")
+    return 0
+
+
 def cmd_estimate(a):
     style_pct = {"off": 0, "lite": 0.10, "full": 0.25}[a.style]
     s = estimate.run(a.root, a.project, a.limit, style_pct)
@@ -244,6 +295,9 @@ def cmd_setup(a):
     print(f"  Claude Code CLI:   {'found' if st['claude_cli'] else 'not found'}")
     print(f"  VS Code extension: {st['vscode_extension'] or 'not found'} (uses the same settings)")
     _prefix_note(st)
+    print("\nNext: restart Claude Code, then work as usual. The status line shows what each turn saved.")
+    print("  `kompactor` shows status and how it works · `kompactor stop` turns it off · "
+          "`kompactor uninstall` removes it")
     if a.no_ui:
         return 0
     print("Opening the dashboard to choose your quality level…")
@@ -424,7 +478,10 @@ def main(argv=None):
         return prove.main(argv[1:])
     ap = argparse.ArgumentParser(prog="kompactor", description="Cut the tokens Claude Code spends on noise.")
     ap.add_argument("--version", action="version", version=__version__)
-    sp = ap.add_subparsers(dest="cmd", required=True)
+    sp = ap.add_subparsers(dest="cmd")
+
+    p = sp.add_parser("status", help="is it on, your level, savings so far, and how to use it (also: plain `kompactor`)")
+    p.set_defaults(fn=cmd_status)
 
     p = sp.add_parser("estimate", help="replay past Claude Code sessions and show %% Kompactor would save")
     p.add_argument("--root", help="transcripts dir (default ~/.claude/projects)")
@@ -539,6 +596,8 @@ def main(argv=None):
     p.set_defaults(fn=cmd_doctor)
 
     a = ap.parse_args(argv)
+    if not a.cmd:
+        a.fn = cmd_status
     if a.cmd == "run" and a.command[:1] == ["--"]:
         a.command = a.command[1:]
     try:
