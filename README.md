@@ -27,7 +27,7 @@ Kompactor is public on GitHub at [`amarkum/kompactor`](https://github.com/amarku
 **Claude Code plugin** (recommended). Run these in any Claude Code session, one at a time:
 ```
 /plugin marketplace add amarkum/kompactor
-/plugin install kompactor@kompactor
+/plugin install token@kompactor
 /kompactor setup
 ```
 The last step adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself. Restart Claude Code afterwards.
@@ -62,7 +62,7 @@ Everyone can install straight from the public repo. To control what your team ru
 
 | Way | Who it's for | What each person does | Updating |
 |---|---|---|---|
-| **Plugin** | Everyone on Claude Code (CLI or VS Code) | The three commands above, once | Automatic with `autoUpdate` (below); or `claude plugin marketplace update kompactor`, then `claude plugin update kompactor@kompactor` |
+| **Plugin** | Everyone on Claude Code (CLI or VS Code) | The three commands above, once | Automatic with `autoUpdate` (below); or `claude plugin marketplace update kompactor`, then `claude plugin update token@kompactor` |
 | **Project settings** | Everyone who works in a given repo | Trust the project folder when Claude Code asks, then `/kompactor setup` once; you commit the snippet below | Same as the plugin |
 | **pip / pipx / uv** | People who manage Python tools that way | `pipx install "git+https://github.com/amarkum/kompactor.git"`, then `kompactor setup` | `pipx upgrade kompactor` |
 | **Terminal install** | Scripted machine setup, or people who don't use plugins | `git clone … && ./kompactor/install.sh` | `git pull`, then run `./install.sh` again |
@@ -74,7 +74,7 @@ Everyone can install straight from the public repo. To control what your team ru
   "extraKnownMarketplaces": {
     "kompactor": { "source": { "source": "github", "repo": "amarkum/kompactor" }, "autoUpdate": true }
   },
-  "enabledPlugins": { "kompactor@kompactor": true }
+  "enabledPlugins": { "token@kompactor": true }
 }
 ```
 When a teammate opens the project and accepts Claude Code's prompt to trust the folder, Claude Code adds the marketplace and turns the plugin on. Each person then runs `/kompactor setup` once (plugins can't set the status line or the shell prefix themselves). `autoUpdate` keeps everyone on your latest release; teammates get a new version when `version` in `.claude-plugin/plugin.json` changes, and `python scripts/bump_version.py 0.4.1` bumps it everywhere. `claude plugin marketplace add amarkum/kompactor --scope project` writes the marketplace entry for you.
@@ -90,7 +90,7 @@ When a teammate opens the project and accepts Claude Code's prompt to trust the 
 **Script it.** The plugin commands also work outside the chat, for onboarding scripts:
 ```bash
 claude plugin install kompactor --marketplace amarkum/kompactor   # Claude Code 2.1.292+; older:
-claude plugin marketplace add amarkum/kompactor && claude plugin install kompactor@kompactor
+claude plugin marketplace add amarkum/kompactor && claude plugin install token@kompactor
 ```
 **Roll out to every machine (admins).** Managed settings take the same `extraKnownMarketplaces` and `enabledPlugins` keys: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL, `C:\Program Files\ClaudeCode\managed-settings.json` on Windows, or the managed settings in your claude.ai organisation. `strictKnownMarketplaces` limits people to approved marketplaces, such as `{ "source": "github", "repo": "your-org/*" }`.
 

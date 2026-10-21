@@ -720,9 +720,9 @@ function renderSetup() {
     : `Replace <span class="mono">your-org/kompactor</span> with your team's private repo. Teammates need read access to it.`;
   const code = (c, block) => `<div class="snip${block ? " block" : ""}"><code>${esc(c)}</code><button class="btn sm ghost" data-copy="${esc(c)}" aria-label="Copy">${icon("copy")}</button></div>`;
   const group = (label, ...codes) => `<div class="share-group"><div class="lbl">${label}</div>${codes.join("")}</div>`;
-  const teamSettings = JSON.stringify({ extraKnownMarketplaces: { kompactor: { source: m.includes("://") ? { source: "git", url: clone } : { source: "github", repo: m }, autoUpdate: true } }, enabledPlugins: { "kompactor@kompactor": true } }, null, 2);
+  const teamSettings = JSON.stringify({ extraKnownMarketplaces: { kompactor: { source: m.includes("://") ? { source: "git", url: clone } : { source: "github", repo: m }, autoUpdate: true } }, enabledPlugins: { "token@kompactor": true } }, null, 2);
   $("snips").innerHTML =
-    group("Claude Code plugin: run these in any Claude Code session, one at a time", code(`/plugin marketplace add ${m}`), code("/plugin install kompactor@kompactor"), code("/kompactor setup")) +
+    group("Claude Code plugin: run these in any Claude Code session, one at a time", code(`/plugin marketplace add ${m}`), code("/plugin install token@kompactor"), code("/kompactor setup")) +
     group(`Everyone on a project: commit this as <span class="mono">.claude/settings.json</span>; Claude Code turns the plugin on once a teammate trusts the folder, then they run <span class="mono">/kompactor setup</span>`, code(teamSettings, true)) +
     group("pip, pipx or uv, straight from the repo", code(`pipx install "git+${clone}"`), code("kompactor setup")) +
     group("Terminal (macOS, Linux), from a clone", code(`git clone ${clone} && ./${dir}/install.sh`)) +
