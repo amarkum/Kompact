@@ -454,7 +454,7 @@ class DocsTests(unittest.TestCase):
 
     def test_plugin_skill_matches_installer(self):
         root = Path(__file__).resolve().parent.parent
-        self.assertEqual((root / "skills/kompactor/SKILL.md").read_text(), installer.SKILL.format(cmd="kompactor"))
+        self.assertEqual((root / "skills/kompactor/SKILL.md").read_text(), installer.SKILL.format(**installer.PLUGIN_SKILL))
 
     def test_no_arrow_glyphs_in_ui(self):
         root = Path(__file__).resolve().parent.parent

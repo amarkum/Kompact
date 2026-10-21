@@ -1,8 +1,8 @@
 #!/bin/sh
 # Kompactor installer (macOS / Linux). From a clone of your team's repo:
 #   ./install.sh
-# Or without a clone (set the repo; a token is needed while the repo is private):
-#   KOMPACTOR_REPO=your-org/kompactor GITHUB_TOKEN=... sh install.sh
+# Or without a clone:
+#   KOMPACTOR_REPO=amarkum/kompactor sh install.sh
 # Copies Kompactor to ~/.kompactor/app (no pip needed), adds a `kompactor` command,
 # enables it for Claude Code (CLI + VS Code extension) and opens the dashboard.
 set -e
@@ -35,11 +35,7 @@ else
   [ -n "$REPO" ] || { echo "Run ./install.sh from a clone of your Kompactor repo, or set KOMPACTOR_REPO=your-org/kompactor." >&2; exit 1; }
   ORIGIN="https://github.com/$REPO"
   echo "Downloading Kompactor ($REPO@$REF)…"
-  if [ -n "${GITHUB_TOKEN:-}" ]; then  # private repo: use the API with a token
-    curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/$REPO/tarball/$REF" | tar -xz -C "$TMP"
-  else
-    curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$TMP"
-  fi
+  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$TMP"
 fi
 [ "$(cd "$DEST" 2>/dev/null && pwd)" = "$SRC" ] && { echo "Run install.sh from a clone outside $DEST." >&2; exit 1; }
 rm -rf "$DEST"

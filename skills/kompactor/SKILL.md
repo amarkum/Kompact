@@ -3,20 +3,20 @@ name: kompactor
 description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
-Run these with Bash and report briefly. Kompactor token saver.
+Run these with Bash and report briefly. Kompactor token saver. `~/.kompactor/bin/kompactor` is created at session start; if it's missing, use `python3 "${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py"` instead.
 
-/kompactor setup: run `kompactor setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
-Levels: `kompactor presets`; change with `kompactor config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
-Savings: `kompactor gain`. Dashboard: run `kompactor start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.
-/kompactor stop: `kompactor stop` (pauses compaction, closes the dashboard). /kompactor start: `kompactor start --no-browser`. /kompactor uninstall: `kompactor uninstall`, then relay any extra command it prints.
+/kompactor setup: run `~/.kompactor/bin/kompactor setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
+Levels: `~/.kompactor/bin/kompactor presets`; change with `~/.kompactor/bin/kompactor config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
+Savings: `~/.kompactor/bin/kompactor gain`. Dashboard: run `~/.kompactor/bin/kompactor start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.
+/kompactor stop: `~/.kompactor/bin/kompactor stop` (pauses compaction, closes the dashboard). /kompactor start: `~/.kompactor/bin/kompactor start --no-browser`. /kompactor uninstall: `~/.kompactor/bin/kompactor uninstall`, then relay any extra command it prints.
 
 Code graph (local, instant):
-- `kompactor graph query "words"` find code by topic; `kompactor graph explain Name` one symbol, its users and tests
-- `kompactor graph callers Name` · `kompactor graph impact <file|Name>` what a change affects and which tests to run
-- `kompactor graph report` overview · `kompactor symbol Name` print a definition
+- `~/.kompactor/bin/kompactor graph query "words"` find code by topic; `~/.kompactor/bin/kompactor graph explain Name` one symbol, its users and tests
+- `~/.kompactor/bin/kompactor graph callers Name` · `~/.kompactor/bin/kompactor graph impact <file|Name>` what a change affects and which tests to run
+- `~/.kompactor/bin/kompactor graph report` overview · `~/.kompactor/bin/kompactor symbol Name` print a definition
 
 /kompactor review: run `git diff HEAD`, then list concrete cuts, one line each (file:line, what to remove, why): code that duplicates an existing helper (check with graph query), options or abstractions nobody asked for, dead branches. Never cut validation, error handling, security or accessibility.
-/kompactor audit: run `kompactor graph unused` and `kompactor graph report`; rank removals (likely dead first) with risks. Don't edit unless asked.
-/kompactor debt: run `kompactor debt` and summarize by severity.
+/kompactor audit: run `~/.kompactor/bin/kompactor graph unused` and `~/.kompactor/bin/kompactor graph report`; rank removals (likely dead first) with risks. Don't edit unless asked.
+/kompactor debt: run `~/.kompactor/bin/kompactor debt` and summarize by severity.
 
-Compacted output in full: `kompactor show <id>`; search earlier outputs: `kompactor search "text"`.
+Compacted output in full: `~/.kompactor/bin/kompactor show <id>`; search earlier outputs: `~/.kompactor/bin/kompactor search "text"`.

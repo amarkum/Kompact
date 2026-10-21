@@ -221,12 +221,18 @@ def status(project: str = "") -> dict:
     }
 
 
+# The plugin's skills/kompactor/SKILL.md is this template rendered with these values: plugins no longer ship a bin/,
+# so it calls the launcher that the session-start hook writes.
+PLUGIN_SKILL = {"cmd": "~/.kompactor/bin/kompactor",
+                "note": " `~/.kompactor/bin/kompactor` is created at session start; if it's missing, use"
+                        " `python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\"` instead."}
+
 SKILL = """---
 name: kompactor
 description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
-Run these with Bash and report briefly. Kompactor token saver.
+Run these with Bash and report briefly. Kompactor token saver.{note}
 
 /kompactor setup: run `{cmd} setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `{cmd} presets`; change with `{cmd} config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
@@ -314,7 +320,7 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
                 pass
     elif not via_plugin and (not skill.exists() or "Kompactor token saver" in skill.read_text()):  # never clobber
         skill.parent.mkdir(parents=True, exist_ok=True)
-        skill.write_text(SKILL.format(cmd=cli_name()))
+        skill.write_text(SKILL.format(cmd=cli_name(), note=""))
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         backup = target.with_suffix(".json.kompactor-backup")

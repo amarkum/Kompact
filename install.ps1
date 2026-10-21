@@ -1,7 +1,7 @@
 # Kompactor installer (Windows PowerShell). From a clone of your team's repo:
 #   .\install.ps1
-# Or without a clone (set the repo; a token is needed while the repo is private):
-#   $env:KOMPACTOR_REPO = "your-org/kompactor"; $env:GITHUB_TOKEN = "..."; .\install.ps1
+# Or without a clone:
+#   $env:KOMPACTOR_REPO = "amarkum/kompactor"; .\install.ps1
 # Copies Kompactor to %USERPROFILE%\.kompactor\app (no pip needed), enables it for
 # Claude Code (CLI + VS Code extension) and opens the dashboard.
 $ErrorActionPreference = "Stop"
@@ -32,11 +32,7 @@ if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "kompactor\_launch.py
   $Origin = "https://github.com/$Repo"
   Write-Host "Downloading Kompactor ($Repo@$Ref)..."
   $Zip = Join-Path $Tmp "kompactor.zip"
-  if ($env:GITHUB_TOKEN) {
-    Invoke-WebRequest -Uri "https://api.github.com/repos/$Repo/zipball/$Ref" -OutFile $Zip -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
-  } else {
-    Invoke-WebRequest -Uri "https://codeload.github.com/$Repo/zip/$Ref" -OutFile $Zip
-  }
+  Invoke-WebRequest -Uri "https://codeload.github.com/$Repo/zip/$Ref" -OutFile $Zip
   Expand-Archive -Path $Zip -DestinationPath $Tmp
   Remove-Item $Zip
 }

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook post-bash",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook post-bash",
             "timeout": 15
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook post-edit",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook post-edit",
             "timeout": 15
           }
         ]
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook post-explore",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook post-explore",
             "timeout": 15
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook pre-read",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook pre-read",
             "timeout": 15
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook pre-compact",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook pre-compact",
             "timeout": 15
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook session-start",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook session-start",
             "timeout": 15
           }
         ]
@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook subagent-start",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook subagent-start",
             "timeout": 15
           }
         ]
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/kompactor\" hook stop",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook stop",
             "timeout": 15
           }
         ]
