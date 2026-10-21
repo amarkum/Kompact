@@ -16,5 +16,6 @@
   ],
   "homepage": "https://github.com/amarkum/kompactor",
   "repository": "https://github.com/amarkum/kompactor",
-  "icon": ".claude-plugin/icon.png"
+  "icon": ".claude-plugin/icon.png",
+  "privacyPolicyUrl": "https://github.com/amarkum/kompactor/blob/main/PRIVACY.md"
 }

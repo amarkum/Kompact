@@ -296,3 +296,5 @@ How Claude Code's hooks behave on success, failure and very long output, and why
 **About the name.** Kompactor was called Kompact until version 0.4. It was renamed because an unrelated PyPI package, `kompact`, installs a `kompact` command, and Claude could have run that one instead. Installing Kompactor replaces an old Kompact install's hooks, status line, shell prefix and skill, and leaves other tools' settings alone.
 
 MIT licensed.
+
+[Privacy](PRIVACY.md) · [MIT License](LICENSE)
