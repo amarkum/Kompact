@@ -40,7 +40,7 @@ pipx install kompactor        # or: pip install kompactor · uv tool install kom
 kompactor setup
 ```
 
-**VS Code.** Download `kompactor-0.7.4.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
+**VS Code.** Download `kompactor-0.7.5.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
 
 ## After you install
 
@@ -48,7 +48,7 @@ kompactor setup
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line such as `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code). It shows whether it's on, your level, savings so far and how to change things:
    ```
-   Kompactor 0.7.4: ON
+   Kompactor 0.7.5: ON
      Connected via the Claude Code plugin. New Claude Code sessions are compacted.
      Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
      Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
