@@ -22,11 +22,11 @@ Failing test runs and code search saved the most: **−33% tokens** on a Go test
 
 ## Install
 
-Kompactor lives in your team's private repo; nothing is published to a public registry. In the commands below, `your-org/kompactor` stands for that repo. The dashboard's **Setup › Share with your team** panel shows the same commands with your repo filled in, ready to copy.
+Kompactor is public on GitHub at [`amarkum/kompactor`](https://github.com/amarkum/kompactor), which is also a Claude Code plugin marketplace anyone can add. If you fork it into a private team repo, replace `amarkum/kompactor` below with yours.
 
 **Claude Code plugin** (recommended). Run these in any Claude Code session, one at a time:
 ```
-/plugin marketplace add your-org/kompactor
+/plugin marketplace add amarkum/kompactor
 /plugin install kompactor@kompactor
 /kompactor setup
 ```
@@ -34,31 +34,37 @@ The last step adds the status line and the shell prefix that compacts failing co
 
 **Terminal** (macOS, Linux; needs Python 3.9+ and nothing else). Opens the dashboard when done:
 ```bash
-git clone https://github.com/your-org/kompactor.git && ./kompactor/install.sh
+git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh
 ```
 Windows: run `.\kompactor\install.ps1` from the clone.
 
 **pip, pipx or uv**, straight from the repo (each person's git access is enough; nothing is published):
 ```bash
-pipx install "git+https://github.com/your-org/kompactor.git"     # or: uv tool install "git+https://…"
+pipx install "git+https://github.com/amarkum/kompactor.git"     # or: uv tool install "git+https://…"
 kompactor setup
 ```
 
-**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.4.1.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
+**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.5.0.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
 
-The CLI and the VS Code extension read the same `~/.claude/settings.json`, so one install covers both. Setup adds Kompactor's hooks, a status line (only if you don't have one) and the `/kompactor` skill. On macOS and Linux it also sets `CLAUDE_CODE_SHELL_PREFIX`. It never replaces a status line or shell prefix you already have, and it keeps a backup in `settings.json.kompactor-backup`. `kompactor install --uninstall` removes all of it.
+The CLI and the VS Code extension read the same `~/.claude/settings.json`, so one install covers both. Setup adds Kompactor's hooks, a status line (only if you don't have one) and the `/kompactor` skill. On macOS and Linux it also sets `CLAUDE_CODE_SHELL_PREFIX`. It never replaces a status line or shell prefix you already have, and it keeps a backup in `settings.json.kompactor-backup`. 
+**Day to day:**
+```bash
+kompactor start       # compaction on; dashboard in the background on a free port (returns at once)
+kompactor stop        # pause compaction and close the dashboard; settings stay
+kompactor uninstall   # remove hooks, status line, shell prefix and skill (--purge also deletes ~/.kompactor)
+```
 
 ## Use it across your team
 
 ![Share with your team: the dashboard's Setup panel](docs/dashboard-team.png)
 
-Keep Kompactor in a private repo your teammates can read (an organisation repo is easiest). Every install method above pulls from it with each person's own git access, so there are no tokens to share.
+Everyone can install straight from the public repo. To control what your team runs, fork it (privately if you like) and point the commands at your fork; each person's own git access is enough.
 
 | Way | Who it's for | What each person does | Updating |
 |---|---|---|---|
 | **Plugin** | Everyone on Claude Code (CLI or VS Code) | The three commands above, once | Automatic with `autoUpdate` (below); or `claude plugin marketplace update kompactor`, then `claude plugin update kompactor@kompactor` |
 | **Project settings** | Everyone who works in a given repo | Trust the project folder when Claude Code asks, then `/kompactor setup` once; you commit the snippet below | Same as the plugin |
-| **pip / pipx / uv** | People who manage Python tools that way | `pipx install "git+https://github.com/your-org/kompactor.git"`, then `kompactor setup` | `pipx upgrade kompactor` |
+| **pip / pipx / uv** | People who manage Python tools that way | `pipx install "git+https://github.com/amarkum/kompactor.git"`, then `kompactor setup` | `pipx upgrade kompactor` |
 | **Terminal install** | Scripted machine setup, or people who don't use plugins | `git clone … && ./kompactor/install.sh` | `git pull`, then run `./install.sh` again |
 | **VS Code extension file** | VS Code users who want the status bar and dashboard inside VS Code | Install the `.vsix` from `dist/` | Install the newer `.vsix` |
 
@@ -66,12 +72,12 @@ Keep Kompactor in a private repo your teammates can read (an organisation repo i
 ```json
 {
   "extraKnownMarketplaces": {
-    "kompactor": { "source": { "source": "github", "repo": "your-org/kompactor" }, "autoUpdate": true }
+    "kompactor": { "source": { "source": "github", "repo": "amarkum/kompactor" }, "autoUpdate": true }
   },
   "enabledPlugins": { "kompactor@kompactor": true }
 }
 ```
-When a teammate opens the project and accepts Claude Code's prompt to trust the folder, Claude Code adds the marketplace and turns the plugin on. Each person then runs `/kompactor setup` once (plugins can't set the status line or the shell prefix themselves). `autoUpdate` keeps everyone on your latest release; teammates get a new version when `version` in `.claude-plugin/plugin.json` changes, and `python scripts/bump_version.py 0.4.1` bumps it everywhere. `claude plugin marketplace add your-org/kompactor --scope project` writes the marketplace entry for you.
+When a teammate opens the project and accepts Claude Code's prompt to trust the folder, Claude Code adds the marketplace and turns the plugin on. Each person then runs `/kompactor setup` once (plugins can't set the status line or the shell prefix themselves). `autoUpdate` keeps everyone on your latest release; teammates get a new version when `version` in `.claude-plugin/plugin.json` changes, and `python scripts/bump_version.py 0.4.1` bumps it everywhere. `claude plugin marketplace add amarkum/kompactor --scope project` writes the marketplace entry for you.
 
 **Private-repo access.** Claude Code uses each person's existing git login and can't prompt for a password. An SSH key that works with GitHub is enough. Without one, run `gh auth login` and `gh auth setup-git`, and set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1`.
 
@@ -83,8 +89,8 @@ When a teammate opens the project and accepts Claude Code's prompt to trust the 
 
 **Script it.** The plugin commands also work outside the chat, for onboarding scripts:
 ```bash
-claude plugin install kompactor --marketplace your-org/kompactor   # Claude Code 2.1.292+; older:
-claude plugin marketplace add your-org/kompactor && claude plugin install kompactor@kompactor
+claude plugin install kompactor --marketplace amarkum/kompactor   # Claude Code 2.1.292+; older:
+claude plugin marketplace add amarkum/kompactor && claude plugin install kompactor@kompactor
 ```
 **Roll out to every machine (admins).** Managed settings take the same `extraKnownMarketplaces` and `enabledPlugins` keys: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL, `C:\Program Files\ClaudeCode\managed-settings.json` on Windows, or the managed settings in your claude.ai organisation. `strictKnownMarketplaces` limits people to approved marketplaces, such as `{ "source": "github", "repo": "your-org/*" }`.
 
@@ -119,7 +125,7 @@ One level sets every option. Every option can also be changed on its own, global
 | 4 Savings | Tighter caps, 3 lines of diff context, outlines from 250 lines, test-runner banners dropped, shorter prose. | 176 |
 | 5 Max savings | 80-line caps, 1 line of diff context, outlines from 150 lines, telegraphic prose. | 177 |
 
-Change the level from the dashboard (`kompactor ui`, or **Kompactor: Open Dashboard** in VS Code), the VS Code status bar, or in Claude Code chat (`/kompactor max savings`, `/kompactor balanced`). A repo can have its own level under **Projects & languages**.
+Change the level from the dashboard (`kompactor start`, or **Kompactor: Open Dashboard** in VS Code), the VS Code status bar, or in Claude Code chat (`/kompactor max savings`, `/kompactor balanced`). A repo can have its own level under **Projects & languages**.
 
 ## See the savings, per turn
 
@@ -260,7 +266,9 @@ Kompactor detects each repo's languages (`pyproject.toml` › Python, `go.mod` �
 ```
 kompactor setup                   enable for Claude Code (CLI + VS Code) and open the dashboard
                                   (plugin installs: /kompactor setup in Claude Code)
-kompactor ui                      the dashboard
+kompactor start / stop            compaction on (dashboard in background) / paused
+kompactor uninstall [--purge]     remove from Claude Code
+kompactor ui                      the dashboard, in the foreground
 kompactor presets                 list levels        kompactor config preset 4    change level
 kompactor gain                    savings so far     kompactor estimate           replay past sessions
 kompactor graph <action>          query, impact, explain, callers, deps, path, report, unused

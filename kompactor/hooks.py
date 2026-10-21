@@ -342,6 +342,8 @@ HANDLERS = {"post-bash": post_bash, "pre-read": pre_read, "pre-compact": pre_com
 
 def run(name: str) -> int:
     try:
+        if store.paused():
+            return 0
         event = json.load(sys.stdin)
         HANDLERS[name](event, config.load(event.get("cwd") or os.getcwd()))
     except Exception as e:  # fail open, but leave a trace for `kompactor doctor`

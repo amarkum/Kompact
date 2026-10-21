@@ -1,13 +1,14 @@
 ---
 name: kompactor
-description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
+description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
 Run these with Bash and report briefly. Kompactor token saver.
 
 /kompactor setup: run `kompactor setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `kompactor presets`; change with `kompactor config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
-Savings: `kompactor gain`. Dashboard: start `kompactor ui --no-browser` in the background and give the user the URL.
+Savings: `kompactor gain`. Dashboard: run `kompactor start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.
+/kompactor stop: `kompactor stop` (pauses compaction, closes the dashboard). /kompactor start: `kompactor start --no-browser`. /kompactor uninstall: `kompactor uninstall`, then relay any extra command it prints.
 
 Code graph (local, instant):
 - `kompactor graph query "words"` find code by topic; `kompactor graph explain Name` one symbol, its users and tests

@@ -39,6 +39,11 @@ def home() -> Path:
     return p
 
 
+def paused() -> bool:
+    """`kompactor stop` leaves this marker; hooks and the shell prefix then pass everything through."""
+    return (home() / "paused").exists()
+
+
 class _Conn(sqlite3.Connection):
     """`with connect() as db:` commits (or rolls back) and then closes."""
     fts = False

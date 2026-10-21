@@ -247,14 +247,103 @@ def cmd_setup(a):
     if a.no_ui:
         return 0
     print("Opening the dashboard to choose your quality level…")
-    from . import server
-    server.serve(a.port, open_browser=True)
+    a.no_browser = False
+    return cmd_start(a)
+
+
+def _pidfile():
+    return store.home() / "dashboard.json"
+
+
+def _dashboard():
+    """{pid, url} of the running background dashboard, or None."""
+    try:
+        d = json.loads(_pidfile().read_text())
+        os.kill(d["pid"], 0)
+        return d
+    except (OSError, ValueError, KeyError, TypeError):
+        _pidfile().unlink(missing_ok=True)
+        return None
+
+
+def _kill_dashboard() -> bool:
+    d = _dashboard()
+    if d:
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/PID", str(d["pid"])], capture_output=True)
+            else:
+                import signal
+                os.kill(d["pid"], signal.SIGTERM)
+        except OSError:
+            pass
+    _pidfile().unlink(missing_ok=True)
+    return bool(d)
+
+
+def cmd_start(a):
+    """Turn compaction on and run the dashboard in the background on a free port; returns at once."""
+    (store.home() / "paused").unlink(missing_ok=True)
+    st = installer.status()
+    if not st["plugin_enabled"] and not st["hooks_installed"]:
+        installer.install(statusline=config.read_file()["general"].get("statusline", True))
+    print("✓ Kompactor is on: new Claude Code sessions are compacted.")
+    d = _dashboard()
+    if not d:
+        from . import server
+        port = server._free_port(a.port) if a.port else 0
+        if port == 0:
+            import socket
+            with socket.socket() as s:
+                s.bind(("127.0.0.1", 0))
+                port = s.getsockname()[1]
+        launch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_launch.py")
+        kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if os.name == "nt":
+            kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        else:
+            kw["start_new_session"] = True
+        proc = subprocess.Popen([sys.executable, launch, "ui", "--port", str(port), "--no-browser", "--exact-port"], **kw)
+        d = {"pid": proc.pid, "url": f"http://127.0.0.1:{port}/"}
+        _pidfile().write_text(json.dumps(d))
+    print(f"  Dashboard: {d['url']}  (stop with `kompactor stop`)")
+    if not a.no_browser:
+        import webbrowser
+        webbrowser.open(d["url"])
+    return 0
+
+
+def cmd_stop(a):
+    """Pause compaction everywhere and stop the dashboard. Settings stay; `kompactor start` resumes."""
+    (store.home() / "paused").write_text("")
+    was = _kill_dashboard()
+    print("✓ Kompactor stopped: Claude Code output now passes through untouched."
+          + (" Dashboard closed." if was else ""))
+    print("  Resume with `kompactor start`; remove completely with `kompactor uninstall`.")
+    return 0
+
+
+def cmd_uninstall(a):
+    """Stop, remove hooks / status line / shell prefix / skill, and optionally delete data."""
+    _kill_dashboard()
+    target = installer.install(uninstall=True)
+    print(f"✓ Removed Kompactor from {target}")
+    if a.purge:
+        import shutil
+        shutil.rmtree(store.home(), ignore_errors=True)
+        print("  Deleted savings history and config (~/.kompactor).")
+    else:
+        (store.home() / "paused").unlink(missing_ok=True)
+        print("  Kept savings history and config in ~/.kompactor (add --purge to delete).")
+    if installer.status()["plugin_enabled"]:
+        print("  The Claude Code plugin is still enabled; run: claude plugin uninstall kompactor@kompactor")
+    print("  If you installed with pip/pipx/uv, also run: pipx uninstall kompactor")
     return 0
 
 
 def cmd_ui(a):
     from . import server
-    server.serve(a.port, open_browser=not a.no_browser)
+    server.serve(a.port, open_browser=not a.no_browser, exact=a.exact_port)
     return 0
 
 
@@ -264,6 +353,9 @@ def cmd_statusline(a):
         event = json.loads(sys.stdin.read() or "{}")
     except ValueError:
         event = {}
+    if store.paused():
+        print("Kompactor · stopped (kompactor start)")
+        return 0
     sid = event.get("session_id", "")
     cfg = config.load((event.get("workspace") or {}).get("current_dir") or event.get("cwd") or os.getcwd())
     name = config.PRESETS[cfg["preset"]]["name"]
@@ -334,7 +426,7 @@ def main(argv=None):
     ap.add_argument("--version", action="version", version=__version__)
     sp = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sp.add_parser("estimate", help="replay past Claude Code sessions and show % Kompactor would save")
+    p = sp.add_parser("estimate", help="replay past Claude Code sessions and show %% Kompactor would save")
     p.add_argument("--root", help="transcripts dir (default ~/.claude/projects)")
     p.add_argument("--project", help="only this project folder under the root")
     p.add_argument("--limit", type=int, help="only the N most recent transcripts")
@@ -347,13 +439,26 @@ def main(argv=None):
 
     p = sp.add_parser("setup", help="one-step setup: enable for Claude Code (CLI + VS Code) and open the dashboard")
     p.add_argument("--no-ui", action="store_true")
-    p.add_argument("--port", type=int, default=7420)
+    p.add_argument("--port", type=int, default=0)
     p.set_defaults(fn=cmd_setup)
 
-    p = sp.add_parser("ui", help="open the settings & savings dashboard")
+    p = sp.add_parser("ui", help="open the settings & savings dashboard (foreground; see `start`)")
     p.add_argument("--port", type=int, default=7420)
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--exact-port", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(fn=cmd_ui)
+
+    p = sp.add_parser("start", help="turn compaction on and run the dashboard in the background")
+    p.add_argument("--port", type=int, default=0, help="preferred port (default: any free port)")
+    p.add_argument("--no-browser", action="store_true")
+    p.set_defaults(fn=cmd_start)
+
+    p = sp.add_parser("stop", help="pause compaction and stop the background dashboard")
+    p.set_defaults(fn=cmd_stop)
+
+    p = sp.add_parser("uninstall", help="stop and remove Kompactor from Claude Code settings")
+    p.add_argument("--purge", action="store_true", help="also delete ~/.kompactor (history and config)")
+    p.set_defaults(fn=cmd_uninstall)
 
     p = sp.add_parser("install", help="add Kompactor hooks to Claude Code settings")
     p.add_argument("--project", action="store_true", help="write .claude/settings.json instead of ~/.claude")

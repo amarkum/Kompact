@@ -2,7 +2,8 @@
   "name": "kompactor",
   "description": "Kompactor: cut the tokens Claude Code spends on noise.",
   "owner": {
-    "name": "Kompactor"
+    "name": "Amar Kumar",
+    "url": "https://github.com/amarkum"
   },
   "plugins": [
     {

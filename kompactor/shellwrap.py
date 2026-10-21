@@ -47,7 +47,7 @@ def user_command(full: str) -> str:
 
 def decide(full: str):
     """(command, config) when the command should run through Kompactor, else (None, None)."""
-    if os.environ.get("KOMPACTOR_RAW"):
+    if os.environ.get("KOMPACTOR_RAW") or store.paused():
         return None, None
     cmd = user_command(full)
     if not cmd or cmd.lstrip().startswith("KOMPACTOR_RAW=1") or not filters.wrappable(cmd):

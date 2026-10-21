@@ -285,8 +285,8 @@ def _free_port(preferred: int) -> int:
     return 0
 
 
-def serve(port: int = 7420, open_browser: bool = True, print_url: bool = True) -> None:
-    port = _free_port(port)
+def serve(port: int = 7420, open_browser: bool = True, print_url: bool = True, exact: bool = False) -> None:
+    port = port if exact else _free_port(port)
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     if print_url:
