@@ -44,7 +44,7 @@ pipx install "git+https://github.com/amarkum/kompactor.git"     # or: uv tool in
 kompactor setup
 ```
 
-**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.7.0.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
+**VS Code.** Download the extension file from the [Releases page](https://github.com/amarkum/kompactor/releases) (`code --install-extension kompactor-0.7.0.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
 
 The CLI and the VS Code extension read the same `~/.claude/settings.json`, so one install covers both. Setup adds Kompactor's hooks, a status line (only if you don't have one) and the `/kompactor` skill. On macOS and Linux it also sets `CLAUDE_CODE_SHELL_PREFIX`. It never replaces a status line or shell prefix you already have, and it keeps a backup in `settings.json.kompactor-backup`. 
 **Day to day:**
@@ -66,7 +66,7 @@ Everyone can install straight from the public repo. To control what your team ru
 | **Project settings** | Everyone who works in a given repo | Trust the project folder when Claude Code asks, then `/kompactor setup` once; you commit the snippet below | Same as the plugin |
 | **pip / pipx / uv** | People who manage Python tools that way | `pipx install "git+https://github.com/amarkum/kompactor.git"`, then `kompactor setup` | `pipx upgrade kompactor` |
 | **Terminal install** | Scripted machine setup, or people who don't use plugins | `git clone … && ./kompactor/install.sh` | `git pull`, then run `./install.sh` again |
-| **VS Code extension file** | VS Code users who want the status bar and dashboard inside VS Code | Install the `.vsix` from `dist/` | Install the newer `.vsix` |
+| **VS Code extension file** | VS Code users who want the status bar and dashboard inside VS Code | Install the `.vsix` from Releases | Install the newer `.vsix` |
 
 **Offer it in a project.** Commit this as `.claude/settings.json` in any repo your team works in:
 ```json

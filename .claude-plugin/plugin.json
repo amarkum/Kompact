@@ -15,5 +15,6 @@
     "compression"
   ],
   "homepage": "https://github.com/amarkum/kompactor",
-  "repository": "https://github.com/amarkum/kompactor"
+  "repository": "https://github.com/amarkum/kompactor",
+  "icon": ".claude-plugin/icon.png"
 }

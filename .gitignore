@@ -8,3 +8,4 @@ dist/*
 !dist/*.vsix
 evidence*/runs/
 evidence/**/runs/
+dist/
