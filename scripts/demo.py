@@ -20,7 +20,7 @@ if not os.environ.get("KOMPACTOR_HOME"):
     sys.exit("Set KOMPACTOR_HOME to a scratch directory first (keeps demo data out of your real stats).")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from kompactor import hooks, samples  # noqa: E402
+from kompactor import hooks, samples, store  # noqa: E402
 
 random.seed(7)
 root = Path(tempfile.mkdtemp(prefix="kompactor-demo-")) / "code"
@@ -51,7 +51,6 @@ def vary(text):
     return "\n".join(lines + random.sample(lines, min(extra, len(lines))))
 
 
-transcript = Path(os.environ["KOMPACTOR_HOME"]) / "demo-transcript.jsonl"
 for n, (name, (_, kinds)) in enumerate(list(projects.items()) * 2):
     cwd = str(root / name)
     session, context = f"demo-{n}", random.randint(14000, 22000)
@@ -62,7 +61,6 @@ for n, (name, (_, kinds)) in enumerate(list(projects.items()) * 2):
                                "tool_response": {"stdout": vary(s["text"]), "stderr": "", "interrupted": False,
                                                  "isImage": False}})
         context += random.randint(1200, 5200)
-        transcript.write_text(json.dumps({"type": "assistant", "message": {"usage": {
-            "input_tokens": 4, "cache_read_input_tokens": context, "cache_creation_input_tokens": 800}}}) + "\n")
-        hook("stop", {"session_id": session, "cwd": cwd, "transcript_path": str(transcript)})
+        store.note_context(session, context + 800)  # what the status line records from Claude Code
+        hook("stop", {"session_id": session, "cwd": cwd})
 print(f"Demo data written to {os.environ['KOMPACTOR_HOME']}. Now run: python -m kompactor ui")

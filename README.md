@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/amarkum/kompactor/main/docs/brand/kompactor-logo-light.png" alt="Kompactor" width="240">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/amarkum/kompactor/main/docs/brand/kompactor-logo-dark.png">
+    <img src="https://raw.githubusercontent.com/amarkum/kompactor/main/docs/brand/kompactor-logo-light.png" alt="Kompactor" width="240">
+  </picture>
 </p>
 
 <p align="center"><b>Cut the tokens Claude Code spends on noise.</b><br>
@@ -17,7 +20,7 @@ Most of a Claude Code session's tokens aren't your prompt or Claude's answer. Th
 
 ## Contents
 
-[Install](#install) · [After you install](#after-you-install) · [How it works](#how-it-works) · [Use it from Claude Code](#use-it-from-claude-code) · [Quality vs tokens](#quality-vs-tokens) · [See your savings](#see-your-savings) · [Turn it off](#turn-it-off-or-remove-it) · [Evidence](#evidence) · [Code graph](#code-graph) · [Teams](#use-it-across-a-team) · [Commands](#commands)
+[Install](#install) · [After you install](#after-you-install) · [How it works](#how-it-works) · [Examples](#examples) · [Use it from Claude Code](#use-it-from-claude-code) · [Quality vs tokens](#quality-vs-tokens) · [See your savings](#see-your-savings) · [Turn it off](#turn-it-off-or-remove-it) · [What it runs and changes](#what-kompactor-runs-and-changes) · [Evidence](#evidence) · [Code graph](#code-graph) · [Teams](#use-it-across-a-team) · [Troubleshooting](#troubleshooting) · [Commands](#commands) · [Support](#support-and-security)
 
 ## Install
 
@@ -37,7 +40,7 @@ pipx install kompactor        # or: pip install kompactor · uv tool install kom
 kompactor setup
 ```
 
-**VS Code.** Download `kompactor-0.7.3.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
+**VS Code.** Download `kompactor-0.7.4.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
 
 ## After you install
 
@@ -45,7 +48,7 @@ kompactor setup
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line such as `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code). It shows whether it's on, your level, savings so far and how to change things:
    ```
-   Kompactor 0.7.3: ON
+   Kompactor 0.7.4: ON
      Connected via the Claude Code plugin. New Claude Code sessions are compacted.
      Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
      Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
@@ -65,6 +68,18 @@ Kompactor uses Claude Code's hooks, so it sits between Claude's tools and Claude
 | writes a reply | gets a few lines of rules: answer first, smallest diff, reuse before writing (0–177 tokens, depending on the level). |
 
 **Nothing is lost.** Every shortened output keeps a raw copy that Claude can fetch with `kompactor show <id>`. Kompactor never changes what a command does, your permission rules still apply, and if anything goes wrong it lets the original output through. Everything runs on your machine; nothing is sent anywhere ([privacy](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md)).
+
+## Examples
+
+Ask Claude Code the way you normally would. These prompts come from the [evidence](#evidence) runs:
+
+| You ask | What Kompactor does | Measured |
+|---|---|---|
+| "Run the tests and tell me which one fails and why." | Claude sees the failing test, its error and the summary line instead of hundreds of passing tests, even when the run exits non-zero. | Go: −33% tokens; vitest: −37% cost |
+| "Where is the session cookie signed?" | Big files arrive as outlines with line ranges, and the first search adds a short map of the main modules, so Claude finds the code in fewer turns. | Flask: −26% tokens |
+| "Install the dependencies and check that it builds." | Download and progress chatter is dropped; warnings, errors and the result are kept. | `npm install`: ~33,000 › 469 tokens |
+| "What does changing `createStore` affect?" | The code graph lists the files that use it and the tests to run. | 27/27 answers correct |
+| `/kompactor review` | Lists cuts in your current diff: duplicated helpers, unused options, dead branches. | |
 
 ## Use it from Claude Code
 
@@ -117,6 +132,20 @@ kompactor start       # turn it back on
 kompactor uninstall   # remove hooks, status line, shell prefix and skill (add --purge to delete ~/.kompactor too)
 ```
 Then remove the package the way you installed it: `claude plugin uninstall kompactor`, `pipx uninstall kompactor`, or uninstall the extension in VS Code. Setup never replaces a status line or shell prefix you already had, and keeps a backup in `~/.claude/settings.json.kompactor-backup`.
+
+## What Kompactor runs and changes
+
+Everything below happens on your machine. Kompactor makes no network requests of its own and has no telemetry. (If you install the optional `tiktoken` package for exact token counts, tiktoken downloads its token table once, on first use.)
+
+**What it runs.** Python hooks that Claude Code calls (`python3 kompactor/_launch.py hook <name>` from the plugin folder): after Bash, Read, Grep, Glob and edit tool calls; before Read; at session start, subagent start and before compaction; and when a turn ends. After `/kompactor setup` on macOS and Linux, Claude's Bash commands run through Kompactor's shell prefix (`~/.kompactor/bin/kompactor-shell`) so failing runs can be compacted too. The prefix runs after Claude Code's permission check, on Claude's original command, and returns its exit code unchanged.
+
+**What it adds to Claude's context.** Compacted tool output, outlines in place of large file reads, a code map once per session, a one-line savings note after each turn, and short reply rules at session start and for subagents. The rules are plain text you can read in [`kompactor/rules.py`](https://github.com/amarkum/kompactor/blob/main/kompactor/rules.py); the level decides which ones apply (none at level 1).
+
+**What it reads.** The tool output Claude Code passes to its hooks, the files Claude reads (to outline them), your project's source (for the code graph), and the context size Claude Code gives the status line. Hooks never read your session transcripts. `kompactor estimate` and the dashboard's **Replay your history** panel read your local Claude Code session logs in `~/.claude/projects`, only when you run them, to show what Kompactor would have saved; the result isn't stored or sent anywhere.
+
+**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers (written at session start). History is deleted after 30 days by default (`retention_days`). Setup edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. Nothing is written to your repositories.
+
+**What it never does.** Change your permission rules or sandbox settings, change what a command does, or send your code or output anywhere. Details: [privacy policy](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md).
 
 ## Evidence
 
@@ -196,7 +225,17 @@ When a teammate trusts the folder, Claude Code installs the plugin; each person 
 { "preset": 4, "overrides": { "never_compact": ["terraform plan"] } }
 ```
 
-**Admins** can put the same keys in Claude Code's managed settings to roll it out to every machine. To control what your team runs, fork the repo and use `your-org/kompactor` in the commands above. The [usage guide](https://github.com/amarkum/kompactor/blob/main/docs/usage.html) (also in the dashboard as **Guide**) covers rollout, troubleshooting and FAQs.
+**Admins** can put the same keys in Claude Code's managed settings to roll it out to every machine. To control what your team runs, fork the repo and use `your-org/kompactor` in the commands above. The dashboard's **Guide** page covers rollout, settings and FAQs in more detail.
+
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| No savings line after replies | Restart Claude Code after setup, then run `kompactor doctor`: it checks the installation and shows recent hook errors. The dashboard's **Self-test** panel runs every hook once. |
+| An output looks too short | Claude can fetch the original with `kompactor show <id>` (the id is in the shortened output), or search earlier outputs with `kompactor search "text"`. |
+| A command should never be shortened | Add it to **Never compact these commands** on the dashboard, or in `.kompactor.json` (`"never_compact": ["terraform plan"]`). For a single run, start the command with `KOMPACTOR_RAW=1`. |
+| Something seems off | `kompactor stop` turns Kompactor off at once; every hook also lets the original output through if it hits an error. Errors are logged to `~/.kompactor/hook-errors.log`. |
+| The dashboard port is busy | `kompactor start` picks a free port by itself and prints the address. |
 
 ## Commands
 
@@ -217,7 +256,7 @@ kompactor ui                      the dashboard, in the foreground
 ## Development
 
 ```bash
-python -m unittest discover tests     # 81 tests, including the real shell prefix run as Claude Code runs it
+python -m unittest discover tests     # 80 tests, including the real shell prefix run as Claude Code runs it
 node vscode/test/smoke.js             # VS Code extension against a mock API
 ./scripts/build-vsix.sh               # › dist/kompactor-<version>.vsix
 python scripts/bump_version.py X.Y.Z  # bump every version; pushing to main publishes to PyPI
@@ -227,4 +266,10 @@ How Claude Code's hooks behave on success, failure and very long output, and why
 
 Kompactor was called Kompact until version 0.4; installing it replaces an old Kompact install's settings.
 
-[Privacy](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md) · [MIT License](https://github.com/amarkum/kompactor/blob/main/LICENSE)
+## Support and security
+
+- **Questions, bugs and ideas:** [open an issue](https://github.com/amarkum/kompactor/issues).
+- **Security problems:** please report them privately, as described in [SECURITY.md](https://github.com/amarkum/kompactor/blob/main/SECURITY.md).
+- **Privacy:** [PRIVACY.md](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md) explains what Kompactor stores and how to delete it.
+
+[MIT License](https://github.com/amarkum/kompactor/blob/main/LICENSE)

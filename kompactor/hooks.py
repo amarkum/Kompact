@@ -284,28 +284,6 @@ def session_start(event: dict, cfg: dict) -> None:
         _emit({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}})
 
 
-def _context_tokens(transcript_path: str) -> int:
-    """Size of the context Claude last saw, from the newest usage block in the transcript."""
-    try:
-        with open(transcript_path, "rb") as f:
-            f.seek(0, 2)
-            f.seek(max(0, f.tell() - 400_000))
-            tail = f.read().decode("utf-8", "replace").splitlines()
-    except (OSError, TypeError):
-        return 0
-    for line in reversed(tail):
-        if '"usage"' not in line:
-            continue
-        try:
-            u = json.loads(line).get("message", {}).get("usage", {})
-        except ValueError:
-            continue
-        if u:
-            return int(u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0)
-                       + u.get("cache_creation_input_tokens", 0))
-    return 0
-
-
 def turn_message(turn: dict, totals: dict) -> str:
     parts = []
     if turn["saved"] > 0:
@@ -325,7 +303,7 @@ def stop(event: dict, cfg: dict) -> None:
     if event.get("stop_hook_active"):
         return
     session = event.get("session_id", "")
-    ctx = _context_tokens(event.get("transcript_path", ""))
+    ctx = store.context_size(session)  # recorded by the status line; transcripts are never read
     turn, totals = store.close_turn(session, cfg["project"], ctx)
     msg = turn_message(turn, totals)
     store.write_live({"ts": time.time(), "session": session, "project": cfg["project"], "preset": cfg["preset"],

@@ -435,12 +435,6 @@ class PresetAndLanguageTests(unittest.TestCase):
 
 
 class DocsTests(unittest.TestCase):
-    def test_docs_copy_in_sync(self):
-        import subprocess
-        root = Path(__file__).resolve().parent.parent
-        self.assertEqual(subprocess.run([sys.executable, str(root / "scripts/sync_docs.py"), "--check"]).returncode, 0,
-                         "docs/usage.html is stale: run python scripts/sync_docs.py")
-
     def test_versions_agree(self):
         root = Path(__file__).resolve().parent.parent
         import re as _re
@@ -469,9 +463,15 @@ class TurnAndSetupTests(unittest.TestCase):
         ev = {"session_id": "turn1", "tool_input": {"command": "git log"}, "cwd": TMP,
               "tool_response": {"stdout": GIT_LOG, "stderr": "", "interrupted": False, "isImage": False}}
         run_hook("post-bash", ev)
+        from kompactor import cli
+        # Claude Code tells the status line how big the context is; Kompactor records that number
+        sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "workspace": {"current_dir": TMP},
+                                            "context_window": {"total_input_tokens": 21000}}))
+        with redirect_stdout(io.StringIO()):
+            cli.main(["statusline"])
+        # ...and never reads the session transcript, even when the event names one
         transcript = Path(TMP, "t.jsonl")
-        transcript.write_text(json.dumps({"type": "assistant", "message": {"usage": {
-            "input_tokens": 5, "cache_read_input_tokens": 20000, "cache_creation_input_tokens": 995}}}) + "\n")
+        transcript.write_text(json.dumps({"type": "assistant", "message": {"usage": {"input_tokens": 99999}}}) + "\n")
         sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "transcript_path": str(transcript), "cwd": TMP}))
         buf = io.StringIO()
         with redirect_stdout(buf):
@@ -482,7 +482,6 @@ class TurnAndSetupTests(unittest.TestCase):
         self.assertIn("context ≈", msg)
         live = store.read_live()
         self.assertEqual(live["session"], "turn1")
-        from kompactor import cli
         sys.stdin = io.StringIO(json.dumps({"session_id": "turn1", "workspace": {"current_dir": TMP}}))
         buf = io.StringIO()
         with redirect_stdout(buf):
@@ -558,7 +557,7 @@ class SourceTests(unittest.TestCase):
     """The dashboard shows teammates install commands for the public repo, or a fork named by KOMPACTOR_REPO."""
 
     def test_parse_source(self):
-        self.assertEqual(installer.parse_source("https://ghp_secret@github.com/acme/kompactor.git"),
+        self.assertEqual(installer.parse_source("https://someone@github.com/acme/kompactor.git"),
                          {"repo": "acme/kompactor", "clone": "https://github.com/acme/kompactor.git",
                           "marketplace": "acme/kompactor", "dir": "kompactor"})
         self.assertEqual(installer.parse_source("git@github.com:acme/kompactor.git")["marketplace"], "acme/kompactor")
@@ -567,13 +566,9 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(installer.parse_source(""), {})
 
     def test_source_defaults_to_the_public_repo(self):
-        from unittest import mock
-        with mock.patch.dict(os.environ, {"KOMPACTOR_REPO": ""}):
-            self.assertEqual(installer.source()["marketplace"], "amarkum/kompactor")
-        with mock.patch.dict(os.environ, {"KOMPACTOR_REPO": "acme/kompactor"}):  # a team's fork
-            self.assertEqual(installer.source()["clone"], "https://github.com/acme/kompactor.git")
-        with mock.patch.dict(os.environ, {"KOMPACTOR_REPO": "https://ghp_x@git.acme.dev/tools/kompactor.git"}):
-            self.assertNotIn("ghp_x", json.dumps(installer.source()))
+        self.assertEqual(installer.source("")["marketplace"], "amarkum/kompactor")
+        self.assertEqual(installer.source("acme/kompactor")["clone"], "https://github.com/acme/kompactor.git")  # a fork
+        self.assertNotIn("someone@", json.dumps(installer.source("https://someone@git.acme.dev/tools/kompactor.git")))
 
 
 if __name__ == "__main__":

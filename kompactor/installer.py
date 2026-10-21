@@ -91,7 +91,7 @@ def prefix_path() -> Path:
 
 def prefix_active() -> bool:
     """True inside a Claude Code session whose Bash commands run through Kompactor's shell prefix."""
-    cur = os.environ.get(PREFIX_ENV, "")
+    cur = os.environ.get("CLAUDE_CODE_SHELL_PREFIX", "")
     return bool(PREFIX_OURS.search(cur)) and os.path.exists(cur)
 
 
@@ -122,10 +122,10 @@ def parse_source(url: str) -> dict:
     return {"repo": repo, "clone": url, "marketplace": url, "dir": parts[-1]}
 
 
-def source() -> dict:
+def source(repo=None) -> dict:
     """The repo the dashboard's setup instructions name: Kompactor's public repo, or a team's fork set
     with KOMPACTOR_REPO (owner/repo or a git URL). Nothing is read from git or install records."""
-    url = os.environ.get("KOMPACTOR_REPO", "").strip() or DEFAULT_REPO
+    url = (os.environ.get("KOMPACTOR_REPO", "") if repo is None else repo).strip() or DEFAULT_REPO
     if re.fullmatch(r"[\w.-]+/[\w.-]+", url):
         url = f"https://github.com/{url}"
     return parse_source(url)
@@ -292,6 +292,15 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
 # self-test: run every installed hook command exactly as Claude Code would
 
 
+def _selftest_env(tmp: str) -> dict:
+    """Only what a hook needs to start: the self-test never hands hooks the rest of your environment."""
+    env = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", ""),
+           "USERPROFILE": os.environ.get("USERPROFILE", ""), "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+           "TMPDIR": os.environ.get("TMPDIR", ""), "TEMP": os.environ.get("TEMP", ""),
+           "TMP": os.environ.get("TMP", ""), "LANG": os.environ.get("LANG", "")}
+    return {**{k: v for k, v in env.items() if v}, "KOMPACTOR_HOME": tmp}
+
+
 def selftest() -> list:
     """Run each Kompactor hook from settings.json with a realistic event in an isolated
     KOMPACTOR_HOME. Returns [{hook, ok, ms, detail}]."""
@@ -337,7 +346,7 @@ def selftest() -> list:
                 continue
             cmd = f"{launcher()} hook {handler}"  # plugin hooks: exercise the same code path
         ev = {"session_id": "kompactor-selftest", "cwd": tmp, "hook_event_name": event, **events[handler]}
-        env = dict(os.environ, KOMPACTOR_HOME=tmp)
+        env = _selftest_env(tmp)
         t0 = _time.time()
         try:
             p = subprocess.run(cmd, shell=True, input=json.dumps(ev), capture_output=True, text=True, timeout=20,
@@ -372,7 +381,7 @@ def _check_prefix(prefix: str, tmp: str) -> dict:
     t0 = _time.time()
     try:
         p = subprocess.run([prefix, full], capture_output=True, text=True, timeout=30,
-                           env=dict(os.environ, KOMPACTOR_HOME=tmp))
+                           env=_selftest_env(tmp))
         ok = p.returncode == 1 and "test_boom" in p.stdout and "test_7 PASSED" not in p.stdout and "[kompactor:" in p.stdout
         detail = "ok" if ok else f"exit {p.returncode}: {(p.stdout + p.stderr)[-160:]}"
     except (OSError, subprocess.TimeoutExpired) as e:

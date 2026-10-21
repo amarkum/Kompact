@@ -391,7 +391,7 @@ def cmd_uninstall(a):
         print("  Kept savings history and config in ~/.kompactor (add --purge to delete).")
     if installer.status()["plugin_enabled"]:
         print("  The Claude Code plugin is still enabled; run: claude plugin uninstall kompactor")
-    print("  If you installed with pip/pipx/uv, also run: pipx uninstall kompactor")
+    print("  Installed it as a Python package? Remove that too, with the tool you installed it with (pip, pipx or uv).")
     return 0
 
 
@@ -411,13 +411,18 @@ def cmd_statusline(a):
         print("Kompactor · stopped (kompactor start)")
         return 0
     sid = event.get("session_id", "")
+    ctx = (event.get("context_window") or {}).get("total_input_tokens")
+    ctx = int(ctx) if isinstance(ctx, (int, float)) and ctx > 0 else 0
+    if sid and ctx:
+        store.note_context(sid, ctx)
     cfg = config.load((event.get("workspace") or {}).get("current_dir") or event.get("cwd") or os.getcwd())
     name = config.PRESETS[cfg["preset"]]["name"]
     tot = store.session_totals(sid) if sid else {}
     if tot.get("saved", 0) > 0:
         parts = [f"Kompactor −{hooks._fmt(tot['saved'])}"]
-        if tot["context"] and tot["in_context_saved"] > 0:
-            parts.append(f"ctx −{100 * tot['in_context_saved'] / (tot['context'] + tot['in_context_saved']):.0f}%")
+        ctx = ctx or tot["context"]
+        if ctx and tot["in_context_saved"] > 0:
+            parts.append(f"ctx −{100 * tot['in_context_saved'] / (ctx + tot['in_context_saved']):.0f}%")
         if tot["last_turn_saved"] > 0:
             parts.append(f"last turn −{hooks._fmt(tot['last_turn_saved'])}")
         parts.append(name)

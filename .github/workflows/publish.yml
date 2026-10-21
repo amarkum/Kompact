@@ -1,7 +1,7 @@
 name: Test and publish
 
-# Every push to main runs the tests and builds the package. When the version in kompactor/__init__.py
-# isn't on PyPI yet, the build is published, so a release is: python scripts/bump_version.py X.Y.Z,
+# Every push to main runs the tests and builds the package, then publishes it; a version that is
+# already on PyPI is skipped, so a release is: python scripts/bump_version.py X.Y.Z,
 # commit, push to main. Pushing a tag vX.Y.Z works the same way.
 # Uses PyPI trusted publishing: pypi.org trusts this workflow, so no API token is stored anywhere.
 on:
@@ -36,18 +36,7 @@ jobs:
         run: |
           python -m pip install --upgrade build
           python -m build --outdir pkg
-      - name: Is this version on PyPI yet?
-        id: pypi
-        run: |
-          version=$(python -c "import kompactor; print(kompactor.__version__)")
-          if python -c "import sys, urllib.request; urllib.request.urlopen(f'https://pypi.org/pypi/kompactor/{sys.argv[1]}/json')" "$version" 2>/dev/null; then
-            echo "Kompactor $version is already on PyPI, so there is nothing to publish."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
       - name: Publish
-        if: steps.pypi.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: pkg/

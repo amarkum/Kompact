@@ -29,7 +29,7 @@ def main(version: str) -> None:
         d = json.loads(p.read_text())
         d["version"] = version
         p.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
-    for rel in ("README.md", "kompactor/static/usage.html", "docs/usage.html"):
+    for rel in ("README.md", "kompactor/static/usage.html"):
         p = ROOT / rel
         p.write_text(re.sub(r"kompactor-\d+\.\d+\.\d+\.vsix", f"kompactor-{version}.vsix", p.read_text()))
     print(f"version {version}: pyproject.toml, kompactor/__init__.py, plugin.json, vscode/package.json, docs")

@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS turns (
     session TEXT, idx INTEGER, ts REAL, project TEXT, raw_tokens INTEGER, kept_tokens INTEGER,
     context_tokens INTEGER, features TEXT
 );
+CREATE TABLE IF NOT EXISTS context (
+    session TEXT PRIMARY KEY, tokens INTEGER, ts REAL
+);
 """
 
 
@@ -113,6 +116,19 @@ def close_turn(session: str, project: str, context_tokens: int = 0):
     return turn, totals
 
 
+def note_context(session: str, tokens: int) -> None:
+    """The context size Claude Code hands the status line (context_window.total_input_tokens).
+    Kompactor never reads session transcripts for it."""
+    with connect() as db:
+        db.execute("INSERT OR REPLACE INTO context VALUES (?,?,?)", (session, int(tokens), time.time()))
+
+
+def context_size(session: str) -> int:
+    with connect() as db:
+        row = db.execute("SELECT tokens FROM context WHERE session=?", (session,)).fetchone()
+    return row[0] if row else 0
+
+
 def session_totals(session: str) -> dict:
     """Savings so far for one session (for status lines when several sessions run at once)."""
     with connect() as db:
@@ -138,6 +154,7 @@ def prune(retention_days: float) -> None:
             db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
         db.execute("DELETE FROM reads WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM flags WHERE ts < ?", (time.time() - 2 * 86400,))
+        db.execute("DELETE FROM context WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM sessions WHERE COALESCE(NULLIF(last_turn, 0), started) < ?", (cutoff,))
 
 
