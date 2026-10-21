@@ -133,13 +133,13 @@ svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-w
       <div class="cards">
         <div class="card"><b>Claude Code plugin</b><span class="muted">Recommended. Run these in any Claude Code session, one at a time. The last one adds the status line and the shell prefix, which a plugin can't set itself.</span>
           <pre><code>/plugin marketplace add <span data-repo>your-org/kompactor</span>
-/plugin install kompactor@kompactor
+/plugin install stackcone@kompactor
 /kompactor setup</code></pre></div>
         <div class="card"><b>pip / pipx / uv</b><span class="muted">macOS, Linux and Windows. Needs Python 3.9 or newer and nothing else.</span>
           <pre><code>pipx install kompactor
 kompactor setup</code></pre></div>
         <div class="card"><b>VS Code</b><span class="muted">Download the extension file from the repo's Releases page, then click <b>Enable</b> when Kompactor asks.</span>
-          <pre><code>code --install-extension kompactor-0.7.5.vsix</code></pre></div>
+          <pre><code>code --install-extension kompactor-0.7.6.vsix</code></pre></div>
       </div>
       <p class="muted">Windows: run <code>.\kompactor\install.ps1</code> from a clone, or use the VS Code extension. The CLI and the VS Code extension read the same <code>~/.claude/settings.json</code>, so one install covers both. A backup of that file is kept as <code>settings.json.kompactor-backup</code>.</p>
       <p class="muted">Setup adds hooks, a status line (if you don't have one) and, on macOS and Linux, Claude Code's <code>CLAUDE_CODE_SHELL_PREFIX</code> setting pointing at <code>~/.kompactor/bin/kompactor-shell</code>, which is what lets Kompactor compact failing commands. It never replaces a status line or shell prefix you already have. Restart open Claude Code sessions after setup.</p>
@@ -151,7 +151,7 @@ kompactor setup</code></pre></div>
       <p>Everyone can install from the public repo or PyPI. To control what your team runs, fork the repo (privately if you like) and point the commands at your fork; each person's own git access is enough.</p>
       <div class="tbl"><table>
         <tr><th>Way</th><th>Who it's for</th><th>What each person does</th><th>Updating</th></tr>
-        <tr><td><b>Plugin</b></td><td>Everyone on Claude Code, CLI or VS Code</td><td>The three plugin commands under Install, once</td><td>Automatic with <code>autoUpdate</code> (below); or <code>claude plugin marketplace update kompactor</code>, then <code>claude plugin update kompactor@kompactor</code></td></tr>
+        <tr><td><b>Plugin</b></td><td>Everyone on Claude Code, CLI or VS Code</td><td>The three plugin commands under Install, once</td><td>Automatic with <code>autoUpdate</code> (below); or <code>claude plugin marketplace update kompactor</code>, then <code>claude plugin update stackcone@kompactor</code></td></tr>
         <tr><td><b>Project settings</b></td><td>Everyone who works in a given repo</td><td>Trust the project folder when Claude Code asks, then <code>/kompactor setup</code> once; you commit the snippet below</td><td>Same as the plugin</td></tr>
         <tr><td><b>pip / pipx / uv</b></td><td>People who manage Python tools that way</td><td><code>pipx install kompactor</code>, then <code>kompactor setup</code></td><td><code>pipx upgrade kompactor</code></td></tr>
         <tr><td><b>Terminal install</b></td><td>Scripted machine setup, or people who don't use plugins</td><td><code>git clone</code>, then <code>./kompactor/install.sh</code></td><td><code>git pull</code>, then run <code>./install.sh</code> again</td></tr>
@@ -163,7 +163,7 @@ kompactor setup</code></pre></div>
   "extraKnownMarketplaces": {
     "kompactor": { "source": { "source": "github", "repo": "<span data-repo>your-org/kompactor</span>" }, "autoUpdate": true }
   },
-  "enabledPlugins": { "kompactor@kompactor": true }
+  "enabledPlugins": { "stackcone@kompactor": true }
 }</code></pre>
       <p class="muted">When a teammate opens the project and accepts Claude Code's prompt to trust the folder, Claude Code adds the marketplace and turns the plugin on. Each person then runs <code>/kompactor setup</code> once (plugins can't set the status line or the shell prefix themselves). <code>autoUpdate</code> keeps everyone on your latest release: teammates get a new version when <code>version</code> in <code>.claude-plugin/plugin.json</code> changes, and <code>python scripts/bump_version.py 0.4.1</code> bumps it everywhere.</p>
       <h3>Private-repo access</h3>
@@ -175,7 +175,7 @@ kompactor setup</code></pre></div>
       <h3>Script it</h3>
       <p>The plugin commands also work outside the chat, for onboarding scripts:</p>
       <pre><code>claude plugin install kompactor --marketplace <span data-repo>your-org/kompactor</span>   <span class="c"># Claude Code 2.1.292+</span>
-claude plugin marketplace add <span data-repo>your-org/kompactor</span> && claude plugin install kompactor@kompactor   <span class="c"># older</span></code></pre>
+claude plugin marketplace add <span data-repo>your-org/kompactor</span> && claude plugin install stackcone@kompactor   <span class="c"># older</span></code></pre>
       <h3>Roll out to every machine</h3>
       <p>For admins: managed settings take the same <code>extraKnownMarketplaces</code> and <code>enabledPlugins</code> keys. They live in <code>/Library/Application Support/ClaudeCode/managed-settings.json</code> on macOS, <code>/etc/claude-code/managed-settings.json</code> on Linux and WSL, <code>C:\Program Files\ClaudeCode\managed-settings.json</code> on Windows, or the managed settings in your claude.ai organisation. <code>strictKnownMarketplaces</code> limits people to approved marketplaces.</p>
       <h3>Plain <code>pip install kompactor</code></h3>

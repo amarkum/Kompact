@@ -519,7 +519,7 @@ class TurnAndSetupTests(unittest.TestCase):
             self.assertTrue(p.with_suffix(".json.kompactor-backup").exists())
             self.assertFalse(skill.exists())
             # with the plugin enabled, only the status line is managed
-            d["enabledPlugins"] = {"kompactor@kompactor": True}
+            d["enabledPlugins"] = {"stackcone@kompactor": True}
             d.pop("statusLine")
             p.write_text(json.dumps(d))
             installer.install()

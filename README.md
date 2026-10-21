@@ -29,7 +29,7 @@ Pick one. All of them set up the same thing, and the CLI and the VS Code extensi
 **Claude Code plugin** (recommended). In any Claude Code session, one line at a time:
 ```
 /plugin marketplace add amarkum/kompactor
-/plugin install kompactor@kompactor
+/plugin install stackcone@kompactor
 /kompactor setup
 ```
 The last step adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself. Then restart Claude Code.
@@ -40,7 +40,7 @@ pipx install kompactor        # or: pip install kompactor · uv tool install kom
 kompactor setup
 ```
 
-**VS Code.** Download `kompactor-0.7.5.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
+**VS Code.** Download `kompactor-0.7.6.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
 
 ## After you install
 
@@ -48,7 +48,7 @@ kompactor setup
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line such as `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code). It shows whether it's on, your level, savings so far and how to change things:
    ```
-   Kompactor 0.7.5: ON
+   Kompactor 0.7.6: ON
      Connected via the Claude Code plugin. New Claude Code sessions are compacted.
      Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
      Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
@@ -131,7 +131,7 @@ kompactor stop        # pause: Claude Code output passes through untouched; sett
 kompactor start       # turn it back on
 kompactor uninstall   # remove hooks, status line, shell prefix and skill (add --purge to delete ~/.kompactor too)
 ```
-Then remove the package the way you installed it: `claude plugin uninstall kompactor`, `pipx uninstall kompactor`, or uninstall the extension in VS Code. Setup never replaces a status line or shell prefix you already had, and keeps a backup in `~/.claude/settings.json.kompactor-backup`.
+Then remove the package the way you installed it: `claude plugin uninstall stackcone@kompactor`, `pipx uninstall kompactor`, or uninstall the extension in VS Code. Setup never replaces a status line or shell prefix you already had, and keeps a backup in `~/.claude/settings.json.kompactor-backup`.
 
 ## What Kompactor runs and changes
 
@@ -215,7 +215,7 @@ Supported languages and what Kompactor knows about each: [docs/languages.md](htt
   "extraKnownMarketplaces": {
     "kompactor": { "source": { "source": "github", "repo": "amarkum/kompactor" }, "autoUpdate": true }
   },
-  "enabledPlugins": { "kompactor@kompactor": true }
+  "enabledPlugins": { "stackcone@kompactor": true }
 }
 ```
 When a teammate trusts the folder, Claude Code installs the plugin; each person then runs `/kompactor setup` once.

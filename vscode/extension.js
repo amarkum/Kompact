@@ -76,7 +76,7 @@ function hookCommands() {
     const cmds = [];
     for (const entries of Object.values(s.hooks || {}))
       for (const e of entries || []) for (const h of e.hooks || []) if (String(h.command || "").includes("kompactor")) cmds.push(h.command);
-    const plugin = Object.entries(s.enabledPlugins || {}).some(([k, v]) => ["kompactor@kompactor", "kompactor@claude-plugins-official"].includes(k) && v);
+    const plugin = Object.entries(s.enabledPlugins || {}).some(([k, v]) => ["stackcone@kompactor", "kompactor@claude-plugins-official"].includes(k) && v);
     return { cmds, plugin };
   } catch (e) {
     return { cmds: [], plugin: false };
