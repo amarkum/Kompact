@@ -8,9 +8,6 @@ mkdir -p vscode/python/kompactor dist
 cp kompactor/*.py kompactor/ui.html vscode/python/kompactor/
 cp -r kompactor/static vscode/python/kompactor/   # fonts, logo and the usage guide the dashboard serves
 cp LICENSE vscode/LICENSE
-# so the dashboard can show teammates the install commands for the repo this was built from (no credentials)
-origin=$(git remote get-url origin 2>/dev/null | sed -E 's#^(https?://)[^/@]*@#\1#' || true)
-if [ -n "$origin" ]; then echo "$origin" > vscode/python/.kompactor-source; fi
 rm -f dist/kompactor-*.vsix   # dist/ holds the current release only; older ones stay in git history
 cd vscode
 npx --yes @vscode/vsce@3 package --no-dependencies --allow-missing-repository --out ../dist/

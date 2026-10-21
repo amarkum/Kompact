@@ -40,7 +40,7 @@ jobs:
         id: pypi
         run: |
           version=$(python -c "import kompactor; print(kompactor.__version__)")
-          if curl -sfo /dev/null "https://pypi.org/pypi/kompactor/$version/json"; then
+          if python -c "import sys, urllib.request; urllib.request.urlopen(f'https://pypi.org/pypi/kompactor/{sys.argv[1]}/json')" "$version" 2>/dev/null; then
             echo "Kompactor $version is already on PyPI, so there is nothing to publish."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else

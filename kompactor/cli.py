@@ -459,7 +459,7 @@ def cmd_presets(a):
 
 def cmd_doctor(a):
     print(f"kompactor {__version__}  python {sys.version.split()[0]}  home {store.home()}")
-    print(f"tokenizer: {'tiktoken' if tokens._ENC else 'heuristic (pip install tiktoken for exact counts)'}")
+    print(f"tokenizer: {'tiktoken' if tokens._ENC else 'heuristic (for exact counts, add the optional tiktoken package)'}")
     with store.connect() as db:
         print(f"sqlite fts5: {'yes' if db.fts else 'no (search falls back to LIKE)'}")
     st = installer.status()

@@ -555,7 +555,7 @@ class TurnAndSetupTests(unittest.TestCase):
 
 
 class SourceTests(unittest.TestCase):
-    """Each install names the repo it came from, so the dashboard can show teammates the right commands."""
+    """The dashboard shows teammates install commands for the public repo, or a fork named by KOMPACTOR_REPO."""
 
     def test_parse_source(self):
         self.assertEqual(installer.parse_source("https://ghp_secret@github.com/acme/kompactor.git"),
@@ -566,31 +566,14 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(installer.parse_source(ssh)["clone"], ssh)
         self.assertEqual(installer.parse_source(""), {})
 
-    def test_plugin_install_reads_its_marketplace(self):
-        plugins = Path(tempfile.mkdtemp(), "plugins")
-        root = plugins / "cache" / "acme-tools" / "kompactor" / "0.4.0"
-        root.mkdir(parents=True)
-        known = plugins / "known_marketplaces.json"
-        for src, want in (({"source": "github", "repo": "acme/kompactor"}, "https://github.com/acme/kompactor"),
-                          ({"source": "git", "url": "https://git.acme.dev/kompactor.git"},
-                           "https://git.acme.dev/kompactor.git"),
-                          ({"source": "directory", "path": str(plugins)}, "")):  # a folder that isn't a clone
-            known.write_text(json.dumps({"acme-tools": {"source": src}}))
-            self.assertEqual(installer._plugin_source(root), want)
-        self.assertEqual(installer._plugin_source(plugins / "elsewhere" / "a" / "b" / "c"), "")
-
-    def test_pip_install_from_git(self):
+    def test_source_defaults_to_the_public_repo(self):
         from unittest import mock
-        root = Path(tempfile.mkdtemp()).resolve()
-        dist = mock.Mock()
-        dist.locate_file.return_value = root
-        with mock.patch("importlib.metadata.distribution", return_value=dist):
-            dist.read_text.return_value = json.dumps({"url": "https://github.com/acme/kompactor.git",
-                                                      "vcs_info": {"vcs": "git", "commit_id": "955ccd6"}})
-            self.assertEqual(installer._pip_source(root), "https://github.com/acme/kompactor.git")
-            self.assertEqual(installer._pip_source(root / "other"), "")  # a different copy
-            dist.read_text.return_value = json.dumps({"url": f"file://{root}", "dir_info": {"editable": True}})
-            self.assertEqual(installer._pip_source(root), "")
+        with mock.patch.dict(os.environ, {"KOMPACTOR_REPO": ""}):
+            self.assertEqual(installer.source()["marketplace"], "amarkum/kompactor")
+        with mock.patch.dict(os.environ, {"KOMPACTOR_REPO": "acme/kompactor"}):  # a team's fork
+            self.assertEqual(installer.source()["clone"], "https://github.com/acme/kompactor.git")
+        with mock.patch.dict(os.environ, {"KOMPACTOR_REPO": "https://ghp_x@git.acme.dev/tools/kompactor.git"}):
+            self.assertNotIn("ghp_x", json.dumps(installer.source()))
 
 
 if __name__ == "__main__":

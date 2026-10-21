@@ -129,9 +129,9 @@ Kompactor is meant to live in an organisation's private repo; nothing is publish
 - **Rollout per project:** a committed `.claude/settings.json` can list the marketplace and enable the plugin,
   so Claude Code offers it to everyone who opens the project.
 - **Team defaults:** a committed `.kompactor.json` sets the level and any setting for a repo (section 6).
-- **Exact commands for your repo:** the installers record where they were installed from (`.kompactor-source`,
-  credentials stripped), and a clone or plugin install reads its git remote, so the dashboard and guide show
-  the commands with your repo filled in.
+- **Exact commands for your repo:** the dashboard and guide show install commands for the public repo,
+  `amarkum/kompactor`, or for a team's fork when `KOMPACTOR_REPO` names it. Kompactor never reads git remotes
+  or install records to work this out.
 - **Name:** the tool was called Kompact. It was renamed because an unrelated PyPI package, `kompact`, installs a
   `kompact` command, which would have been called instead of this tool on machines that have both.
   Installing Kompactor replaces an old Kompact install's hooks, status line, shell prefix and skill, and

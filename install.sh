@@ -1,13 +1,10 @@
 #!/bin/sh
-# Kompactor installer (macOS / Linux). From a clone of your team's repo:
-#   ./install.sh
-# Or without a clone:
-#   KOMPACTOR_REPO=amarkum/kompactor sh install.sh
+# Kompactor installer (macOS / Linux), run from a clone:
+#   git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh
+# Without a clone, use PyPI instead: pipx install kompactor && kompactor setup
 # Copies Kompactor to ~/.kompactor/app (no pip needed), adds a `kompactor` command,
 # enables it for Claude Code (CLI + VS Code extension) and opens the dashboard.
 set -e
-REPO="${KOMPACTOR_REPO:-}"
-REF="${KOMPACTOR_REF:-main}"
 DEST="${KOMPACTOR_APP:-$HOME/.kompactor/app}"
 BIN="${KOMPACTOR_BIN:-$HOME/.local/bin}"
 
@@ -19,30 +16,20 @@ for c in python3 python; do
 done
 [ -n "$PY" ] || { echo "Kompactor needs Python 3.9 or newer (python3)." >&2; exit 1; }
 
-# Run from a checkout (`git clone … && ./install.sh`)? Install that copy; otherwise download.
+# Installs the copy this script sits in.
 SRC=""
 case "$0" in
   *install.sh) d="$(cd "$(dirname "$0")" && pwd)"; [ -f "$d/kompactor/_launch.py" ] && SRC="$d" ;;
 esac
+[ -n "$SRC" ] || { echo "Run ./install.sh from a clone of Kompactor, or install from PyPI: pipx install kompactor" >&2; exit 1; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-ORIGIN=""
-if [ -n "$SRC" ]; then
-  ORIGIN="$(git -C "$SRC" remote get-url origin 2>/dev/null || true)"
-  echo "Installing Kompactor from $SRC…"
-  mkdir -p "$TMP/src" && cp -R "$SRC/." "$TMP/src/" && rm -rf "$TMP/src/.git"
-else
-  [ -n "$REPO" ] || { echo "Run ./install.sh from a clone of your Kompactor repo, or set KOMPACTOR_REPO=your-org/kompactor." >&2; exit 1; }
-  ORIGIN="https://github.com/$REPO"
-  echo "Downloading Kompactor ($REPO@$REF)…"
-  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$TMP"
-fi
+echo "Installing Kompactor from $SRC…"
+mkdir -p "$TMP/src" && cp -R "$SRC/." "$TMP/src/" && rm -rf "$TMP/src/.git"
 [ "$(cd "$DEST" 2>/dev/null && pwd)" = "$SRC" ] && { echo "Run install.sh from a clone outside $DEST." >&2; exit 1; }
 rm -rf "$DEST"
 mkdir -p "$(dirname "$DEST")"
 mv "$TMP"/*/ "$DEST"
-# so the dashboard can show teammates the exact install commands for your repo (credentials stripped)
-[ -n "$ORIGIN" ] && printf '%s\n' "$ORIGIN" | sed -E 's#^(https?://)[^/@]*@#\1#' > "$DEST/.kompactor-source"
 
 mkdir -p "$BIN"
 cat > "$BIN/kompactor" <<SHIM
