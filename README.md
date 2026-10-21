@@ -27,7 +27,7 @@ Kompactor is public on GitHub at [`amarkum/kompactor`](https://github.com/amarku
 **Claude Code plugin** (recommended). Run these in any Claude Code session, one at a time:
 ```
 /plugin marketplace add amarkum/kompactor
-/plugin install token@kompactor
+/plugin install kompactor@kompactor
 /kompactor setup
 ```
 The last step adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself. Restart Claude Code afterwards.
@@ -44,7 +44,7 @@ pipx install "git+https://github.com/amarkum/kompactor.git"     # or: uv tool in
 kompactor setup
 ```
 
-**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.5.0.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
+**VS Code.** Install the extension file from [`dist/`](dist/) (`code --install-extension kompactor-0.7.0.vsix`, or Extensions › `⋯` › *Install from VSIX…*), then click **Enable** when Kompactor asks. The status bar starts showing savings.
 
 The CLI and the VS Code extension read the same `~/.claude/settings.json`, so one install covers both. Setup adds Kompactor's hooks, a status line (only if you don't have one) and the `/kompactor` skill. On macOS and Linux it also sets `CLAUDE_CODE_SHELL_PREFIX`. It never replaces a status line or shell prefix you already have, and it keeps a backup in `settings.json.kompactor-backup`. 
 **Day to day:**
@@ -62,7 +62,7 @@ Everyone can install straight from the public repo. To control what your team ru
 
 | Way | Who it's for | What each person does | Updating |
 |---|---|---|---|
-| **Plugin** | Everyone on Claude Code (CLI or VS Code) | The three commands above, once | Automatic with `autoUpdate` (below); or `claude plugin marketplace update kompactor`, then `claude plugin update token@kompactor` |
+| **Plugin** | Everyone on Claude Code (CLI or VS Code) | The three commands above, once | Automatic with `autoUpdate` (below); or `claude plugin marketplace update kompactor`, then `claude plugin update kompactor@kompactor` |
 | **Project settings** | Everyone who works in a given repo | Trust the project folder when Claude Code asks, then `/kompactor setup` once; you commit the snippet below | Same as the plugin |
 | **pip / pipx / uv** | People who manage Python tools that way | `pipx install "git+https://github.com/amarkum/kompactor.git"`, then `kompactor setup` | `pipx upgrade kompactor` |
 | **Terminal install** | Scripted machine setup, or people who don't use plugins | `git clone … && ./kompactor/install.sh` | `git pull`, then run `./install.sh` again |
@@ -74,7 +74,7 @@ Everyone can install straight from the public repo. To control what your team ru
   "extraKnownMarketplaces": {
     "kompactor": { "source": { "source": "github", "repo": "amarkum/kompactor" }, "autoUpdate": true }
   },
-  "enabledPlugins": { "token@kompactor": true }
+  "enabledPlugins": { "kompactor@kompactor": true }
 }
 ```
 When a teammate opens the project and accepts Claude Code's prompt to trust the folder, Claude Code adds the marketplace and turns the plugin on. Each person then runs `/kompactor setup` once (plugins can't set the status line or the shell prefix themselves). `autoUpdate` keeps everyone on your latest release; teammates get a new version when `version` in `.claude-plugin/plugin.json` changes, and `python scripts/bump_version.py 0.4.1` bumps it everywhere. `claude plugin marketplace add amarkum/kompactor --scope project` writes the marketplace entry for you.
@@ -90,7 +90,7 @@ When a teammate opens the project and accepts Claude Code's prompt to trust the 
 **Script it.** The plugin commands also work outside the chat, for onboarding scripts:
 ```bash
 claude plugin install kompactor --marketplace amarkum/kompactor   # Claude Code 2.1.292+; older:
-claude plugin marketplace add amarkum/kompactor && claude plugin install token@kompactor
+claude plugin marketplace add amarkum/kompactor && claude plugin install kompactor@kompactor
 ```
 **Roll out to every machine (admins).** Managed settings take the same `extraKnownMarketplaces` and `enabledPlugins` keys: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL, `C:\Program Files\ClaudeCode\managed-settings.json` on Windows, or the managed settings in your claude.ai organisation. `strictKnownMarketplaces` limits people to approved marketplaces, such as `{ "source": "github", "repo": "your-org/*" }`.
 

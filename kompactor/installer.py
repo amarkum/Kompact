@@ -195,7 +195,7 @@ def _prefix_state(settings: dict) -> str:
 
 
 def plugin_enabled(settings: dict) -> bool:
-    return any(k in ("token@kompactor", "kompactor@kompactor") and v for k, v in (settings.get("enabledPlugins") or {}).items())
+    return any(k in ("kompactor@kompactor", "kompactor@claude-plugins-official") and v for k, v in (settings.get("enabledPlugins") or {}).items())
 
 
 def status(project: str = "") -> dict:
