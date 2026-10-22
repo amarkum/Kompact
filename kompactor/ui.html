@@ -716,7 +716,7 @@ function renderParts() {
   const bench = (P) => {
     const b = P.bench && T[P.bench];
     if (!b) return P.est ? "" : `<div class="part-est muted">${P.note}</div>`;
-    return `<div class="part-est${b.cost > 0 ? " worse" : ""}">${signed(b.cost)} cost by itself in ${lenName(B).toLowerCase()} sessions <span class="muted">· ${signed(b.tokens)} tokens · ${b.sessions} sessions each way</span></div>`;
+    return `<div class="part-est${b.cost > 0 ? " worse" : ""}">${signed(b.cost)} cost by itself in ${lenName(B).toLowerCase()} sessions <span class="muted">· ${signed(b.tokens)} tokens · ${b.sessions} session${b.sessions === 1 ? "" : "s"} each way</span></div>`;
   };
   const mine = (P) => {
     if (!P.est || !P.isOn(eff)) return "";

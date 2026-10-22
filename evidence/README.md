@@ -8,6 +8,7 @@ tools, turn limit and budget cap. The two arms run interleaved, so model drift a
   installed as a plugin (hooks and the `/kompactor` skill) with the shell prefix on, as `kompactor setup` leaves it.
   [`results.json`](results.json) has every session: tokens by type, cost, turns, the answer, each tool
   call with its result size, and Kompactor's own ledger.
+- [`sessions`](sessions/REPORT.md) measures cost by session length: the same tasks on cobra, Flask, click and zustand, from one command (about 2 turns) to twenty steps (about 27 turns), without Kompactor, at each level, and with each technique by itself, 2 runs each. Its summary is what the Configuration page shows. Made with `bench/sessions.py`.
 - [`real-repos`](real-repos/REPORT.md) measures compaction itself, without Claude sessions: real test suites, builds, `git log`/`git diff` and `grep` in 6 repositories (Python, TypeScript, C, Swift, Java), 22 outputs, with one planted failure per failing run. Median −61% per output at Balanced; every planted failure line reached Claude at levels 1, 3 and 5. Two of the repositories are private and reported by numbers only. Made with `bench/real_repos.py`.
 - [`EXAMPLE.md`](EXAMPLE.md) shows, side by side, what Claude received for the same failing vitest run
   without Kompactor (15,617 characters, mostly passing tests) and with it (1,039 characters, exit code kept).

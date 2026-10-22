@@ -48,6 +48,7 @@ def only(technique: str) -> dict:
 # arm -> (preset, overrides); None is the run without Kompactor
 ARMS = {"baseline": None, **{f"level-{p}": (p, {}) for p in range(1, 6)}, **{t: (3, only(t)) for t in TECHNIQUES}}
 LENGTHS = ["short", "medium", "long", "xlong"]
+LABELS = {"short": "Short", "medium": "Medium", "long": "Long", "xlong": "Very long"}
 
 
 def change(base: float, with_: float) -> float:
@@ -89,7 +90,8 @@ def summary(results: list, meta: dict, repos=()) -> dict:
             "sessions": len(base), "correct": sum(r["correct"] for r in base),
             "tasks": sorted({r["task"] for r in base}), "arms": arms,
         }
-    return {"date": meta.get("date"), "model": ", ".join(meta.get("models", [])), "reps": meta.get("reps"),
+    models = sorted({m for r in results for m in r.get("models", [])})
+    return {"date": meta.get("date"), "model": ", ".join(models), "reps": meta.get("reps"),
             "claude_version": meta.get("claude_version"), "kompactor_version": meta.get("kompactor_version"),
             "repos": ", ".join(repos[:-1]) + f" and {repos[-1]}" if len(repos) > 1 else "".join(repos),
             "lengths": lengths}
@@ -105,7 +107,7 @@ def report(doc: dict) -> str:
              f"{doc['reps']} run(s) each; Δ is against the same tasks without Kompactor. Technique rows have one "
              "technique on (at Balanced strength) and everything else off. Made with `bench/sessions.py`.", ""]
     for length, L in doc["lengths"].items():
-        lines += [f"## {length.capitalize()} sessions ({L['turns']:g} turns on average without Kompactor)", "",
+        lines += [f"## {LABELS[length]} sessions ({L['turns']:g} turns on average without Kompactor)", "",
                   f"Without Kompactor: {L['tokens']:,} tokens and ${L['cost']:.3f} per session, "
                   f"{L['correct']}/{L['sessions']} correct. Tasks: {', '.join(L['tasks'])}.", "",
                   "| Arm | Δ cost | Δ tokens | Δ output tokens | Turns | Correct |", "|---|---:|---:|---:|---:|---:|"]
