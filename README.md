@@ -88,8 +88,9 @@ The last step adds the status line and the shell prefix that compacts failing co
 pipx install kompactor        # or: pip install kompactor · uv tool install kompactor
 kompactor setup
 ```
+If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor setup` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code.** Download `kompactor-0.7.8.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
+**VS Code.** Download `kompactor-0.7.9.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
 
 **From source:**
 ```bash
@@ -102,7 +103,7 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line like `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code):
    ```
-   Kompactor 0.7.8: ON
+   Kompactor 0.7.9: ON
      Connected via the Claude Code plugin. New Claude Code sessions are compacted.
      Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
      Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
@@ -342,7 +343,7 @@ Everything below happens on your machine. Kompactor makes no network requests of
 
 **What it reads.** The tool output Claude Code passes to its hooks, the files Claude reads (to outline them), your project's source (for the code graph), and the context size Claude Code gives the status line. Hooks never read your session transcripts. `kompactor estimate` and the dashboard's **Replay your history** panel read your local Claude Code session logs in `~/.claude/projects` only when you run them; the result isn't stored or sent anywhere.
 
-**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers. History is deleted after 30 days by default. Setup edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. Nothing is written to your repositories.
+**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers. When `kompactor` isn't on your PATH, it adds one link to that launcher in a writable folder that already is (`~/.local/bin`, `~/bin`, `/opt/homebrew/bin` or `/usr/local/bin`); it never edits shell files or replaces an existing command, and `kompactor uninstall` removes the link. History is deleted after 30 days by default. Setup edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. Nothing is written to your repositories.
 
 **What it never does.** Change your permission rules or sandbox settings, change what a command does, or send your code or output anywhere. Details: [privacy policy](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md).
 
@@ -350,6 +351,7 @@ Everything below happens on your machine. Kompactor makes no network requests of
 
 | Problem | What to do |
 |---|---|
+| `kompactor: command not found` | pip put the command in a folder that isn't on your PATH. Run `python3 -m kompactor setup` (or `start`) once: it links `kompactor` into a writable folder already on your PATH, such as `~/.local/bin`. Claude Code plugin installs do this at the first session. |
 | No savings line after replies | Restart Claude Code after setup, then run `kompactor doctor`: it checks the installation and shows recent hook errors. The dashboard's **Self-test** panel runs every hook once. |
 | An output looks too short | Claude can fetch the original with `kompactor show <id>`, or search earlier outputs with `kompactor search "text"`. |
 | A command should never be shortened | Add it to **Never compact these commands** on the dashboard, or to `never_compact` in `.kompactor.json`. For a single run, start the command with `KOMPACTOR_RAW=1`. |

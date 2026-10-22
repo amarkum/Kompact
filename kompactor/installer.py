@@ -64,6 +64,43 @@ def write_shim(only_if_changed: bool = False) -> Path:
             f.chmod(0o755)
     return d / "kompactor"
 
+
+# Where a `kompactor` command can be linked when pip put it in a folder that isn't on PATH.
+PATH_DIRS = ("~/.local/bin", "~/bin", "/opt/homebrew/bin", "/usr/local/bin")
+
+
+def link_on_path(path=None, dirs=None) -> str:
+    """Make `kompactor` work in any terminal. A pip install into a Python whose scripts folder isn't on
+    PATH leaves the command unreachable, so link the stable launcher into the first writable folder of
+    `dirs` that is already on PATH. Never edits shell files or replaces an existing command.
+    Returns the link it made, or ""."""
+    path = os.environ.get("PATH", "") if path is None else path
+    dirs = PATH_DIRS if dirs is None else dirs
+    if os.name == "nt" or shutil.which("kompactor", path=path):
+        return ""
+    on_path = {os.path.realpath(p) for p in path.split(os.pathsep) if p}
+    target = write_shim(only_if_changed=True)
+    for d in dirs:
+        d = os.path.expanduser(d)
+        link = Path(d, "kompactor")
+        if os.path.realpath(d) not in on_path or not os.access(d, os.W_OK) or link.exists() or link.is_symlink():
+            continue
+        try:
+            link.symlink_to(target)
+        except OSError:
+            continue
+        return str(link)
+    return ""
+
+
+def unlink_from_path(dirs=None) -> None:
+    """Remove the links link_on_path made, and only those."""
+    target = str(shim_dir() / "kompactor")
+    for d in PATH_DIRS if dirs is None else dirs:
+        link = Path(os.path.expanduser(d), "kompactor")
+        if link.is_symlink() and os.readlink(link) == target:
+            link.unlink()
+
 PREFIX_ENV = "CLAUDE_CODE_SHELL_PREFIX"
 # Claude Code runs every Bash command as `kompactor-shell '<command>'`. Only commands that look like
 # tests, builds, linters or installs start Python; the rest (and everything, if Kompactor is gone)
@@ -270,6 +307,7 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
             pass
     skill = skill_path(scope, project)
     if uninstall:
+        unlink_from_path()
         if skill.exists() and "Kompactor token saver" in skill.read_text():
             skill.unlink()
             try:

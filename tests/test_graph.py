@@ -11,7 +11,8 @@ from pathlib import Path
 
 os.environ.setdefault("KOMPACTOR_HOME", tempfile.mkdtemp())
 
-from kompactor import config, graph, hooks  # noqa: E402
+from kompactor import config, graph, hooks, installer  # noqa: E402
+installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
 
 
 def make_repo(files: dict) -> str:

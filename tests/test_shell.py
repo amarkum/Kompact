@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from kompactor import filters, hooks, installer, shellwrap, tokens  # noqa: E402
+installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
 
 PASSING = "".join(f"tests/test_mod.py::test_case_{i} PASSED{' ' * 30}[{i // 5:3d}%]\n" for i in range(500))
 FAILURE = ("=================================== FAILURES ===================================\n"

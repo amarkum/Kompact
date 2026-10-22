@@ -2,6 +2,10 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.7.9
+
+- `kompactor: command not found` after `pip install` is fixed on first run: `python3 -m kompactor setup` or `start` (or the plugin's first session) links the command into a writable folder already on PATH, such as `~/.local/bin`. `kompactor uninstall` removes the link.
+
 ## 0.7.8
 
 - README rewritten as a full reference: features, usage, every setting and environment variable, evidence, supported languages, FAQ and development guide.

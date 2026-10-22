@@ -287,6 +287,12 @@ def _prefix_note(st):
     print(f"  {note}")
 
 
+def _path_note(link):
+    if link:
+        where = os.path.dirname(link).replace(os.path.expanduser("~"), "~", 1)
+        print(f"  Added the `kompactor` command to {where}, so it works in any terminal.")
+
+
 def cmd_setup(a):
     """One-step setup: enable hooks for CLI + VS Code, then open the dashboard."""
     target = installer.install(statusline=config.read_file()["general"].get("statusline", True))
@@ -295,6 +301,7 @@ def cmd_setup(a):
     print(f"  Claude Code CLI:   {'found' if st['claude_cli'] else 'not found'}")
     print(f"  VS Code extension: {st['vscode_extension'] or 'not found'} (uses the same settings)")
     _prefix_note(st)
+    _path_note(installer.link_on_path())
     print("\nNext: restart Claude Code, then work as usual. The status line shows what each turn saved.")
     print("  `kompactor` shows status and how it works · `kompactor stop` turns it off · "
           "`kompactor uninstall` removes it")
@@ -342,6 +349,7 @@ def cmd_start(a):
     if not st["plugin_enabled"] and not st["hooks_installed"]:
         installer.install(statusline=config.read_file()["general"].get("statusline", True))
     print("✓ Kompactor is on: new Claude Code sessions are compacted.")
+    _path_note(installer.link_on_path())
     d = _dashboard()
     if not d:
         from . import server

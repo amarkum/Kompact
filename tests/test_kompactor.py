@@ -12,6 +12,7 @@ TMP = tempfile.mkdtemp()
 os.environ["KOMPACTOR_HOME"] = os.path.join(TMP, "home")
 
 from kompactor import config, estimate, filters, hooks, installer, langs, outline, server, store, tokens  # noqa: E402
+installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
 
 
 def run_hook(name, event):
@@ -564,6 +565,24 @@ class SourceTests(unittest.TestCase):
         ssh = "ssh://git@gitlab.acme.dev/tools/kompactor.git"
         self.assertEqual(installer.parse_source(ssh)["clone"], ssh)
         self.assertEqual(installer.parse_source(""), {})
+
+    def test_command_linked_onto_path_when_missing(self):
+        from unittest import mock
+        tmp = Path(tempfile.mkdtemp())
+        on_path, off_path, shim = tmp / "bin", tmp / "elsewhere", tmp / "shim"
+        on_path.mkdir(); off_path.mkdir()
+        with mock.patch.object(installer, "shim_dir", return_value=shim):
+            # only a writable folder that is already on PATH gets the link
+            link = installer.link_on_path(path=str(on_path), dirs=(str(off_path), str(on_path)))
+            self.assertEqual(link, str(on_path / "kompactor"))
+            self.assertEqual(os.readlink(link), str(shim / "kompactor"))
+            self.assertEqual(installer.link_on_path(path=str(on_path), dirs=(str(on_path),)), "")  # already there
+            installer.unlink_from_path(dirs=(str(on_path),))
+            self.assertFalse(Path(link).is_symlink())
+            (on_path / "kompactor").write_text("someone else's")  # never replaced
+            self.assertEqual(installer.link_on_path(path=str(on_path), dirs=(str(on_path),)), "")
+            installer.unlink_from_path(dirs=(str(on_path),))
+            self.assertTrue((on_path / "kompactor").exists())
 
     def test_source_defaults_to_the_public_repo(self):
         self.assertEqual(installer.source("")["marketplace"], "amarkum/kompactor")
