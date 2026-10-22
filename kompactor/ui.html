@@ -658,7 +658,8 @@ function estimate(p, e) {
   return { tech: Math.round(100 * (1 - t)), compact: Math.round(c), total: Math.round(100 * (1 - t * (1 - c / 100))) };
 }
 function levelSaving(i) {
-  const e = i === cfg.preset ? effective() : presetKnobs(i), E = estimate(i, e);
+  // your changes apply to every card, so switching compaction off lowers them all and they stay in order
+  const e = Object.assign(presetKnobs(i), cfg.overrides || {}), E = estimate(i, e);
   const why = [`trimming & rules ≈${E.tech}%`, e.compact_window ? `compacting at ${Math.round(e.compact_window / 1000)}K ≈${E.compact}%` : "no early compacting"];
   return `<span class="lv-save"><b>≈${E.total}%</b> lower cost (approx.)<span class="lv-why">${why.join(" · ")}</span></span>`;
 }
@@ -676,7 +677,7 @@ function renderLevels() {
   $("lvName").textContent = `You're on ${P.name}`;
   const E = estimate(cfg.preset, effective()), changed = Object.keys(cfg.overrides || {}).length;
   $("lvSave").hidden = false;
-  $("lvSave").textContent = `≈${E.total}% lower cost${changed ? " with your changes" : ""}`;
+  $("lvSave").textContent = `≈${E.total}% lower cost${changed ? " with your changes (they apply to every card)" : ""}`;
   $("lvDesc").textContent = "An approximation from Kompactor's benchmark, not a promise for your own sessions: about how much lower the cost of a long Claude Code session is with these settings. Trimming and reply rules are measured in real benchmark sessions; compacting earlier adds to that once a conversation grows past the level's size. Change the level, a switch or any setting below and the figures update.";
 }
 $("toAdvanced").onclick = () => $("advanced").scrollIntoView({ behavior: "smooth" });
