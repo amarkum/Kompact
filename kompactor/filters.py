@@ -32,7 +32,8 @@ RUN_PREFIXES = (("uv", "run"), ("poetry", "run"), ("pipenv", "run"), ("python", 
                 ("hatch", "run"), ("rye", "run"))
 BUILD_TOOLS = {"npm", "pnpm", "yarn", "pip", "pip3", "uv", "poetry", "pdm", "cargo", "go", "mvn", "gradle", "gradlew",
                "docker", "apt", "apt-get", "brew", "bundle", "composer", "make", "cmake", "tsc", "bun", "conda",
-               "vite", "next", "webpack", "turbo", "nx", "rollup", "esbuild", "parcel", "expo", "docker-compose"}
+               "vite", "next", "webpack", "turbo", "nx", "rollup", "esbuild", "parcel", "expo", "docker-compose",
+               "swift", "dotnet", "xcodebuild", "mix"}
 
 
 SETUP_WORDS = {"cd", "pushd", "popd", "export", "source", ".", "set", "unset", "alias", "ulimit", "umask", "exit", "true", ":"}
@@ -405,7 +406,16 @@ def f_git_net(lines, opts):
 
 PASSING = re.compile(
     r"(\bPASS(ED)?\b(?!.*\bFAIL)|^\s*[✓✔√]|^\s*ok\s|^--- PASS|^=== (RUN|PAUSE|CONT|NAME)|\.\.\. ok$|^\s*test \S+ \.\.\. ok"
-    r"|^\?\s+\S+\s+\[no test files\]|^PASS\s|\bpassed\b.*\d+ms$|^\s*\.+\s*\[\s*\d+%\]$)")
+    r"|^\?\s+\S+\s+\[no test files\]|^PASS\s|\bpassed\b.*\d+ms$|^\s*\.+\s*\[\s*\d+%\]$"
+    r"|^Test Case '.*' passed \(|^Test Suite '.*' (started|passed) at |^\s*Passed \S+ \[\d)")
+XCTEST_STARTED = re.compile(r"^Test Case '(.*)' started\.?$")
+XCTEST_DONE = re.compile(r"^Test Case '(.*)' (passed|failed|skipped)")
+# Noise that is dropped even though it says ERROR or WARNING: Maven's fixed help footer and JVM notices.
+ALWAYS_NOISE = re.compile(
+    r"^\[ERROR\] (To see the full stack trace of the errors|Re-run Maven using the -X switch|For more information about the "
+    r"errors and possible solutions|\[Help \d+\] https?://)|^\[ERROR\]\s*$|^WARNING: (A terminally deprecated method|"
+    r"sun\.misc\.Unsafe::|Please consider reporting this to the maintainers|A restricted method in java\.lang|"
+    r"java\.lang\.System::load|Use --enable-native-access|Restricted methods will be blocked)")
 FAILED = re.compile(r"\b(FAILED|FAIL|failed|failures?|ERROR|panicked|panic:)\b")
 
 
@@ -417,7 +427,9 @@ TEST_BOILER = re.compile(
 def f_test(lines, opts):
     if not opts["test_hide_passing"]:
         return lines
-    kept = [ln for ln in lines if not PASSING.search(ln) and not (BUILD_NOISE.match(ln) and not IMPORTANT.search(ln))]
+    finished = {m.group(1) for m in map(XCTEST_DONE.match, lines) if m}  # a started test that never finished crashed
+    kept = [ln for ln in lines if not PASSING.search(ln) and not (BUILD_NOISE.match(ln) and not IMPORTANT.search(ln))
+            and not ALWAYS_NOISE.match(ln) and not ((m := XCTEST_STARTED.match(ln)) and m.group(1) in finished)]
     if opts["test_boilerplate"]:
         kept = [ln for ln in kept if not TEST_BOILER.match(ln)]
     dropped = len(lines) - len(kept)
@@ -436,7 +448,13 @@ BUILD_NOISE = re.compile(
     r"Resolving|Resolved|Prepared|Audited|Get:\d|Hit:\d|Ign:\d|Reading (package|state)|Building dependency tree|"
     r"Unpacking|Selecting previously|Setting up|Processing triggers|\[INFO\] Download|Progress \(\d|"
     r"go: (downloading|finding|extracting)|"
-    r"#\d+ (sha256|extracting|resolve|transferring|DONE|CACHED|\[internal\])|npm (http|timing|sill|verb))", re.I)
+    r"#\d+ (sha256|extracting|resolve|transferring|DONE|CACHED|\[internal\])|npm (http|timing|sill|verb)|"
+    r"\[\d+/\d+\] (Compiling|Emitting module|Write|Linking|Building|Merging|Copying|Applying|Planning|Generating)|"
+    r"Building for (debugging|production)\.\.\.|"
+    r"\[INFO\]\s*$|\[INFO\] -{5,}|\[INFO\] --- .* ---$|\[INFO\]\s+(Scanning for projects|skip non existing|"
+    r"Using auto detected provider|Recompiling the module|Nothing to compile|No sources to compile|Building jar|"
+    r"from pom\.xml|Copying \d+ resources?|Using '.*' encoding|Compiling \d+ source files?|T E S T S|Results:)|"
+    r"> Task \S+( (UP-TO-DATE|NO-SOURCE|FROM-CACHE|SKIPPED))?$)", re.I)
 PKG_LINE = re.compile(r"^\s*([+\-~]) ([\w.\-\[\]]+)[=@ ]=?\s*v?[\w.+\-]+$")  # uv / pnpm "+ pkg==1.2" lines
 
 
@@ -452,6 +470,8 @@ def f_build(lines, opts):
         m = PKG_LINE.match(ln)
         if m:
             pkgs[m.group(1)].append(m.group(2))
+            continue
+        if ALWAYS_NOISE.match(ln):
             continue
         out.append(ln)
     for sign, label in (("+", "added"), ("-", "removed"), ("~", "changed")):
@@ -587,6 +607,10 @@ def _wrappable_words(w) -> bool:
                        for a in rest)
     if p == "docker":
         return sub == "build" or (sub in ("compose", "buildx") and "build" in rest[:2])
+    if p in ("swift", "dotnet"):
+        return sub in ("build", "test", "restore")
+    if p in ("mix", "deno"):
+        return sub in ("test", "compile", "check")
     if p in ("next", "vite", "nuxt", "astro", "remix", "expo", "turbo", "nx"):
         return "build" in rest[:3] or any(FINITE_SCRIPT.match(a.split(":")[-1]) for a in rest[1:3] if sub == "run")
     if p in ("webpack", "rollup", "esbuild", "tsup", "parcel"):

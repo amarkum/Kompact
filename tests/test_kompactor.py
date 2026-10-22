@@ -213,6 +213,42 @@ TS_SRC = textwrap.dedent('''\
     ''')
 
 
+class MoreRunnerTests(unittest.TestCase):
+    """XCTest, Maven and Gradle output, as `swift test`, `mvn test` and `./gradlew test` print it."""
+
+    def compact(self, cmd, text, code):
+        opts = {k: config.PRESETS[3][k] for k in config.KNOBS}
+        opts["languages"] = []
+        return filters.compress(cmd, text, code, stash_id=1, opts=opts)
+
+    def test_xctest_keeps_failures_and_tests_that_never_finished(self):
+        ok = "".join(f"Test Case '-[T.A test{i}]' started.\nTest Case '-[T.A test{i}]' passed (0.001 seconds).\n" for i in range(60))
+        raw = ("Building for debugging...\n[3/9] Compiling Files Files.swift\nTest Suite 'All tests' started at 2026-10-22 19:00:00.000.\n"
+               + ok + "Test Case '-[T.A testCrash]' started.\n"
+               "/x/Tests/A.swift:5: error: -[T.A testBad] : XCTAssertEqual failed: (\"81\") is not equal to (\"90\")\n"
+               "Test Case '-[T.A testBad]' failed (0.002 seconds).\n\t Executed 62 tests, with 1 failure (0 unexpected)\n")
+        out = self.compact("swift test", raw, 1)
+        self.assertIn("XCTAssertEqual failed", out)
+        self.assertIn("testCrash]' started", out)  # no passed/failed line: it crashed, so it stays
+        self.assertIn("Executed 62 tests, with 1 failure", out)
+        self.assertNotIn("test7]", out)
+        self.assertNotIn("Compiling Files", out)
+        self.assertTrue(filters.wrappable("swift test") and filters.wrappable("dotnet test"))
+
+    def test_maven_drops_banners_and_help_footer_but_keeps_failures(self):
+        raw = ("WARNING: sun.misc.Unsafe::staticFieldBase has been called by x\n[INFO] Scanning for projects...\n[INFO] \n"
+               "[INFO] --- surefire:3.6.0:test (default-test) @ demo ---\n[INFO]   from pom.xml\n"
+               + "".join(f"[INFO] Running demo.T{i}\n[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0 -- in demo.T{i}\n" for i in range(30))
+               + "[ERROR]   PlantedTests.planted:10 PLANTED ==> expected: <90> but was: <81>\n[INFO] BUILD FAILURE\n"
+               "[ERROR] Failed to execute goal surefire on project demo: There are test failures.\n[ERROR] \n"
+               "[ERROR] Re-run Maven using the -X switch to enable full debug logging.\n[ERROR] [Help 1] http://cwiki.apache.org/x\n")
+        out = self.compact("mvn test", raw, 1)
+        self.assertIn("PlantedTests.planted:10 PLANTED", out)
+        self.assertIn("Failed to execute goal", out)
+        for gone in ("Scanning for projects", "--- surefire", "Re-run Maven", "[Help 1]", "sun.misc.Unsafe", "from pom.xml"):
+            self.assertNotIn(gone, out)
+
+
 class ListingTests(unittest.TestCase):
     def test_ls_recursive(self):
         raw = "src:\nmain.py\nutil\n\nsrc/util:\n" + "\n".join(f"mod{i}.py" for i in range(70))

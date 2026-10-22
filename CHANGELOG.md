@@ -4,6 +4,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- Swift, Maven and Gradle output: XCTest's per-test started/passed lines and suite banners, Swift's build progress, Maven's plugin banners, routine [INFO] lines and fixed help footer, Gradle's up-to-date tasks and the JVM's sun.misc.Unsafe notices are dropped; failures, summaries and a test that started but never finished are kept. `swift`, `dotnet`, `mix` and `deno` builds and tests now go through the shell prefix, so their failing runs are compacted too. Found by the real-repository benchmark: `swift test` went from 2,779 to 244 tokens and a failing `mvn test` from 1,242 to 425, with the failure kept.
 - `kompactor rules`: the reply and code rules plus code-graph tips for Cursor, Windsurf, Cline, Codex (`AGENTS.md`), GitHub Copilot, Gemini CLI and Aider, in each one's rules file. Shared files get a marked block that is updated in place; `--remove` takes it out.
 - Choose which subagents get the reply and code rules: a pattern matched against the subagent's type (dashboard setting or `KOMPACTOR_SUBAGENT_MATCHER`, e.g. `explore|general`). Subagents whose type isn't reported, or a bad pattern, still get them.
 - Fixed: the dashboard saved "Keep history for" as true/false, so changing it could prune history older than 1 day instead of the chosen number. General settings now keep their types, and an old true/false value falls back to 30 days.
