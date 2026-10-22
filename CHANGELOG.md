@@ -2,6 +2,10 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- Configuration: switch and setting changes apply to every level card, so switching compaction off lowers them all and they stay in order from Max quality to Max savings. Before, only the selected card changed.
+
 ## 0.8.7
 
 - Configuration shows approximate savings from Kompactor's benchmark, not from your own sessions. `bench/sessions.py` runs real headless Claude Code sessions on cobra (Go), Flask and click (Python) and zustand (TypeScript) in four lengths, from one command (about 2 turns) to twenty steps (about 27 turns): without Kompactor, at each level, and with each technique switched on by itself. Each level card shows one approximate cost saving, rising from Max quality to Max savings: the level's measured trimming and reply rules, plus compacting earlier at the level's size. Each switch shows what its technique saved by itself, and the cards and "Your settings" update as you pick a level, flip a switch or change a setting. Results are in `evidence/sessions`.
