@@ -1,0 +1,88 @@
+{
+  "name": "kompactor",
+  "displayName": "Kompactor: Claude Code token saver",
+  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. Quality-vs-tokens levels, per-turn savings in the status bar, and a settings dashboard.",
+  "version": "0.7.9",
+  "publisher": "kompactor",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "ai coding",
+    "anthropic",
+    "claude",
+    "claude code",
+    "context",
+    "context window",
+    "cost",
+    "tokens"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kompactor.openDashboard",
+        "title": "Kompactor: Open Dashboard"
+      },
+      {
+        "command": "kompactor.choosePreset",
+        "title": "Kompactor: Choose Quality vs Tokens Level"
+      },
+      {
+        "command": "kompactor.enable",
+        "title": "Kompactor: Enable for Claude Code"
+      },
+      {
+        "command": "kompactor.disable",
+        "title": "Kompactor: Disable for Claude Code"
+      },
+      {
+        "command": "kompactor.showLastTurn",
+        "title": "Kompactor: Show Last Turn Savings"
+      },
+      {
+        "command": "kompactor.openInBrowser",
+        "title": "Kompactor: Open Dashboard in Browser"
+      }
+    ],
+    "configuration": {
+      "title": "Kompactor",
+      "properties": {
+        "kompactor.turnSummary": {
+          "type": "string",
+          "enum": [
+            "statusBar",
+            "notification",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Briefly show the turn's savings in the status bar",
+            "Show a notification after every Claude Code turn",
+            "Don't announce turns (the status bar item still updates)"
+          ],
+          "default": "statusBar",
+          "description": "How to show the tokens Kompactor saved after each Claude Code turn."
+        },
+        "kompactor.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show running Kompactor savings in the status bar."
+        },
+        "kompactor.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python 3.9+ used to run Kompactor. Leave empty to auto-detect (python3, python, py -3)."
+        }
+      }
+    }
+  },
+  "icon": "icon.png"
+}

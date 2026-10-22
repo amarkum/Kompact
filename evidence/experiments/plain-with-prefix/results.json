@@ -1,0 +1,712 @@
+{
+ "meta": {
+  "kompact_version": "0.3.0",
+  "preset": 3,
+  "overrides": {
+   "bash_plain": true
+  },
+  "reps": 3,
+  "claude_version": "2.1.304 (Claude Code)",
+  "models": [
+   "claude-haiku-5-5",
+   "claude-sonnet-5-5"
+  ],
+  "date": "2026-10-20"
+ },
+ "results": [
+  {
+   "task": "py-failing-tests",
+   "lang": "python",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1217,
+    "output": 309,
+    "cache_read": 64178,
+    "cache_write": 10279,
+    "total": 75983
+   },
+   "cost": 0.0505821,
+   "turns": 2,
+   "wall_s": 9.9,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test failed: 482 passed, 4 skipped, 1 failed.\n\n**`tests/test_helpers.py::TestStreaming::test_async_view`**\n- **Key error:** `RuntimeError: Install Flask with the 'async' extra in order to use async views.`\n- **Why:** The test uses an async view. `app.async_to_sync` (`src/flask/app.py:1096`) tries to import `asgiref`, which isn't installed in `.venv`, so it raises. This is a missing optional dependency in the environment, not a code bug. Installing `asgiref` (the `flask[async]` extra) should fix it.\n\nI didn't change any code or install anything.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v 2>&1 | tail -80",
+     "result_chars": 3448,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "py-failing-tests",
+   "lang": "python",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1217,
+    "output": 318,
+    "cache_read": 65783,
+    "cache_write": 8671,
+    "total": 75989
+   },
+   "cost": 0.0444006,
+   "turns": 2,
+   "wall_s": 22.3,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails (1 failed, 482 passed, 4 skipped):\n\n**`tests/test_helpers.py::TestStreaming::test_async_view`**\n- Key error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.`\n- Why: the test defines an async view. `Flask.async_to_sync` (`src/flask/app.py:1096`) tries to import `asgiref.sync.async_to_sync`, and `asgiref` isn't installed in `.venv`. This is an environment problem, not a code bug. Installing the `async` extra (`pip install asgiref`, or `pip install -e .[async]`) should fix it.\n\nI didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v 2>&1 | tail -80",
+     "result_chars": 3448,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "py-failing-tests",
+   "lang": "python",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1217,
+    "output": 363,
+    "cache_read": 65787,
+    "cache_write": 8697,
+    "total": 76064
+   },
+   "cost": 0.044954999999999995,
+   "turns": 2,
+   "wall_s": 8.7,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test failed out of 487: 482 passed, 4 were skipped, and I changed no code.\n\n**Failing test:** `tests/test_helpers.py::TestStreaming::test_async_view`\n\n**Key error:** `RuntimeError: Install Flask with the 'async' extra in order to use async views.`\n\n**Why:** The test defines an `async def` view. Flask's `app.async_to_sync` (`src/flask/app.py:1096`) tries to import `asgiref.sync`, and the import fails. The `asgiref` package isn't installed in `.venv`, so the cause is the environment and not a bug in Flask. Installing `asgiref` (the `flask[async]` extra) should fix it. I haven't done that, since you asked me not to change anything.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v 2>&1 | tail -80",
+     "result_chars": 3448,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "go-failing-test",
+   "lang": "go",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1200,
+    "output": 684,
+    "cache_read": 102028,
+    "cache_write": 8947,
+    "total": 112859
+   },
+   "cost": 0.0528292,
+   "turns": 3,
+   "wall_s": 15.3,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `TestFailGenFishCompletionFile` in `fish_completions_test.go`. It's in the root `github.com/spf13/cobra` package, and I ran it alone to confirm. The `doc` package passes.\n\n**Error:** a nil pointer dereference panic at `fish_completions_test.go:141`.\n\n```\npanic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]\n```\n\n**Cause:** the test expects `GenFishCompletionFile` to return `os.ErrPermission`. It creates a file with mode `0400` and passes that path in. Line 141 is `t.Errorf(\"got: %s, ...\", got.Error(), ...)`. `got` is `nil`, so `got.Error()` panics.\n\n`GenFishCompletionFile` returned no error, so the file was writable. The sandbox is running as root (`/tmp/claude-0/...`), and root ignores file permission bits. The test is environment-dependent rather than a bug in cobra. It should pass as a non-root user.\n\nThe panic aborts the whole test binary, so any tests that would have run after it in the package didn't run. I made no code changes.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "go test -v ./... 2>&1 | grep -E \"^(--- FAIL|FAIL|panic|\\s+.*_test\\.go|ok)\" | head -50",
+     "result_chars": 716,
+     "kompact": false
+    },
+    {
+     "tool": "Bash",
+     "arg": "go test -v -run TestFailGenFishCompletionFile . 2>&1 | head -20; sed -n 125,145p fish_completions_test.go",
+     "result_chars": 1532,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "go-failing-test",
+   "lang": "go",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1200,
+    "output": 841,
+    "cache_read": 103293,
+    "cache_write": 8607,
+    "total": 113941
+   },
+   "cost": 0.053165699999999996,
+   "turns": 3,
+   "wall_s": 13.3,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**`TestFailGenFishCompletionFile`** in the root `cobra` package fails, and it panics.\n\n```\n--- FAIL: TestFailGenFishCompletionFile (0.00s)\npanic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]\ngithub.com/spf13/cobra.TestFailGenFishCompletionFile\n    fish_completions_test.go:141\nFAIL\tgithub.com/spf13/cobra\t0.292s\n```\n\n**Cause:** the test expects `GenFishCompletionFile` to fail with `os.ErrPermission`. It creates the file with mode `0400` (read-only) and tries to write to it. This session appears to run as root (the paths are under `/root` and `/tmp/claude-0`), and root ignores file permissions. The write succeeds, so `got` is `nil`.\n\nThe `errors.Is(got, os.ErrPermission)` check then fails. Line 141 calls `got.Error()` on that nil error, which causes the panic.\n\nIt's an environment issue rather than a code bug. The test should pass as a non-root user.\n\nThe panic aborted the root package's test run. Cobra's other test output (`TestCalledAs` and the rest) showed only passes in what I saw. I filtered the output, so I haven't confirmed that no other test failed in that package. The sub-packages ran afterward, and `TestGenManDoc` and its neighbours passed.\n\nI didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "go test -v ./... 2>&1 | grep -E \"^(--- FAIL|FAIL|panic|\\s+.*_test\\.go)\" -A5 | head -60",
+     "result_chars": 2028,
+     "kompact": false
+    },
+    {
+     "tool": "Read",
+     "arg": "/tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995e86384d2c/scratchpad/bench/cobra/fish_completions_test.go",
+     "result_chars": 539,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "ts-typecheck",
+   "lang": "typescript",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1206,
+    "output": 227,
+    "cache_read": 62436,
+    "cache_write": 7981,
+    "total": 71850
+   },
+   "cost": 0.0403853,
+   "turns": 2,
+   "wall_s": 8.2,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`npx tsc --noEmit -p .` reports 2 errors, both in `source/zz-kompact.ts`. I haven't fixed anything.\n\n1. `source/zz-kompact.ts:1:14` \u2013 TS2322: Type 'string' is not assignable to type 'number'.\n2. `source/zz-kompact.ts:3:2` \u2013 TS2322: Type 'number' is not assignable to type 'string'.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx tsc --noEmit -p . 2>&1 | head -200",
+     "result_chars": 182,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "go-failing-test",
+   "lang": "go",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1200,
+    "output": 891,
+    "cache_read": 103379,
+    "cache_write": 8838,
+    "total": 114308
+   },
+   "cost": 0.054598299999999995,
+   "turns": 4,
+   "wall_s": 11.6,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`TestFailGenFishCompletionFile` fails. It's in `fish_completions_test.go:141`, in package `github.com/spf13/cobra`, and it panics instead of failing cleanly:\n\n```\n--- FAIL: TestFailGenFishCompletionFile (0.00s)\npanic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]\ngithub.com/spf13/cobra.TestFailGenFishCompletionFile\n    fish_completions_test.go:141 +0x25b\nFAIL\tgithub.com/spf13/cobra\t0.635s\n```\n\n**Cause:** The test creates a file with mode `0400` (read-only) and expects `GenFishCompletionFile` to return `os.ErrPermission` when it tries to write to it. This session runs as root (uid 0), and root ignores file permission bits. The write succeeds and `GenFishCompletionFile` returns `nil`. The test's error branch then calls `got.Error()` on that nil error, which causes the panic. I didn't change any code.\n\nThe panic aborts the whole `cobra` package run, so tests that would have run after it in that package never ran. The `TestCalledAs` and `TestGenManDoc` output shown above passed. I didn't see a result for every test.\n\nRunning as a non-root user should let this test pass.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "go test -v ./... 2>&1 | grep -E \"^(--- FAIL|FAIL|panic|\\s+.*_test\\.go)\" -A6 | head -80",
+     "result_chars": 2164,
+     "kompact": false
+    },
+    {
+     "tool": "Read",
+     "arg": "/tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995e86384d2c/scratchpad/bench/cobra/fish_completions_test.go",
+     "result_chars": 539,
+     "kompact": false
+    },
+    {
+     "tool": "Bash",
+     "arg": "id -u",
+     "result_chars": 1,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "ts-typecheck",
+   "lang": "typescript",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1206,
+    "output": 323,
+    "cache_read": 63366,
+    "cache_write": 7138,
+    "total": 72033
+   },
+   "cost": 0.038066300000000004,
+   "turns": 2,
+   "wall_s": 8.2,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`npx tsc --noEmit -p .` reported 2 errors, both in `source/zz-kompact.ts`:\n\n1. `source/zz-kompact.ts:1:14`: TS2322, Type 'string' is not assignable to type 'number'.\n2. `source/zz-kompact.ts:3:2`: TS2322, Type 'number' is not assignable to type 'string'.\n\nI didn't fix anything, as you asked.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx tsc --noEmit -p . 2>&1 | tail -100",
+     "result_chars": 182,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "ts-typecheck",
+   "lang": "typescript",
+   "condition": "baseline",
+   "tokens": {
+    "input": 1206,
+    "output": 322,
+    "cache_read": 63370,
+    "cache_write": 7140,
+    "total": 72038
+   },
+   "cost": 0.0380647,
+   "turns": 2,
+   "wall_s": 14.8,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`npx tsc --noEmit -p .` reported 2 errors, both in `source/zz-kompact.ts`:\n\n1. `source/zz-kompact.ts:1:14`: TS2322, Type 'string' is not assignable to type 'number'.\n2. `source/zz-kompact.ts:3:2`: TS2322, Type 'number' is not assignable to type 'string'.\n\nI haven't fixed anything, as you asked.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx tsc --noEmit -p . 2>&1 | head -200",
+     "result_chars": 182,
+     "kompact": false
+    }
+   ],
+   "kompact": null
+  },
+  {
+   "task": "ts-typecheck",
+   "lang": "typescript",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1206,
+    "output": 215,
+    "cache_read": 63703,
+    "cache_write": 7387,
+    "total": 72511
+   },
+   "cost": 0.038016,
+   "turns": 2,
+   "wall_s": 7.8,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`npx tsc --noEmit -p .` reported 2 errors, both in `source/zz-kompact.ts`. I haven't fixed anything.\n\n- `source/zz-kompact.ts:1:14` \u2014 TS2322: Type 'string' is not assignable to type 'number'.\n- `source/zz-kompact.ts:3:2` \u2014 TS2322: Type 'number' is not assignable to type 'string'.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx tsc --noEmit -p .",
+     "result_chars": 194,
+     "kompact": false
+    }
+   ],
+   "kompact": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   }
+  },
+  {
+   "task": "py-failing-tests",
+   "lang": "python",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1217,
+    "output": 409,
+    "cache_read": 66119,
+    "cache_write": 9214,
+    "total": 76959
+   },
+   "cost": 0.0475162,
+   "turns": 2,
+   "wall_s": 8.7,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "1 test failed, 482 passed, 4 skipped. I changed no code.\n\n**Failure:** `tests/test_helpers.py::TestStreaming::test_async_view`\n- **Key error:** `RuntimeError: Install Flask with the 'async' extra in order to use async views.`\n- **Why:** The test registers an `async def` view. `app.async_to_sync` (`src/flask/app.py:1096`) tries `from asgiref.sync import async_to_sync`, and that import fails with `ImportError`. So `asgiref` isn't installed in `.venv`. This is a missing optional dependency, not a code bug.\n\n**Skipped (4):** The three dotenv tests are `test_load_dotenv`, `test_dotenv_path` and `test_disable_dotenv_from_env`. They skip with \"dotenv is not installed\". The output only shows those three, and the fourth skip was among the lines Kompact hid.\n\nInstalling `asgiref` (the `async` extra) should fix the failure.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v",
+     "result_chars": 4097,
+     "kompact": true
+    }
+   ],
+   "kompact": {
+    "events": 1,
+    "saved": 1281,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1281
+     }
+    }
+   }
+  },
+  {
+   "task": "go-failing-test",
+   "lang": "go",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1198,
+    "output": 452,
+    "cache_read": 66079,
+    "cache_write": 8098,
+    "total": 75827
+   },
+   "cost": 0.0435143,
+   "turns": 2,
+   "wall_s": 9.1,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**`TestFailGenFishCompletionFile`** fails, in `fish_completions_test.go:141`, with a nil pointer dereference panic:\n\n```\n--- FAIL: TestFailGenFishCompletionFile (0.00s)\npanic: runtime error: invalid memory address or nil pointer dereference [recovered]\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]\n```\n\nThe panic aborts the whole `github.com/spf13/cobra` package run (`FAIL github.com/spf13/cobra 0.411s`), so any tests that would have run after it didn't.\n\nI haven't looked at line 141 yet, so I can't say why the value is nil. A likely cause is that the test expects an error from writing to an unwritable path. That can happen when the tests run as root, since root ignores file permissions, but I haven't checked this. I didn't change any code.\n\nThe `[Debug] [Error] ... unknown flag: --localroot` line is log output from another test. It isn't tied to this failure.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "go test -v ./... 2>&1",
+     "result_chars": 1550,
+     "kompact": true
+    }
+   ],
+   "kompact": {
+    "events": 1,
+    "saved": 1729,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1729
+     }
+    }
+   }
+  },
+  {
+   "task": "py-failing-tests",
+   "lang": "python",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1217,
+    "output": 336,
+    "cache_read": 66120,
+    "cache_write": 9215,
+    "total": 76888
+   },
+   "cost": 0.0467903,
+   "turns": 2,
+   "wall_s": 8.0,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_helpers.py::TestStreaming::test_async_view`.\n\n**Error:** `RuntimeError: Install Flask with the 'async' extra in order to use async views.` It is raised at `src/flask/app.py:1096` in `async_to_sync`. The `asgiref` import fails because `asgiref` isn't installed in `.venv`, and the test defines an `async def` view.\n\nThe rest of the run was 482 passed and 4 skipped. The 3 dotenv tests in `test_cli.py` were skipped because `dotenv` isn't installed. The reason for the fourth skip was in the hidden output, so I haven't seen it.\n\nI didn't change any code. Installing `asgiref` (the `flask[async]` extra) should fix the failure.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v",
+     "result_chars": 4097,
+     "kompact": true
+    }
+   ],
+   "kompact": {
+    "events": 1,
+    "saved": 1281,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1281
+     }
+    }
+   }
+  },
+  {
+   "task": "ts-typecheck",
+   "lang": "typescript",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1206,
+    "output": 268,
+    "cache_read": 63698,
+    "cache_write": 7445,
+    "total": 72617
+   },
+   "cost": 0.038777500000000006,
+   "turns": 2,
+   "wall_s": 9.2,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`tsc` reported 2 errors, both in `source/zz-kompact.ts`:\n\n1. `source/zz-kompact.ts:1:14`: TS2322, Type 'string' is not assignable to type 'number'.\n2. `source/zz-kompact.ts:3:2`: TS2322, Type 'number' is not assignable to type 'string'.\n\nI haven't fixed anything.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx tsc --noEmit -p .",
+     "result_chars": 194,
+     "kompact": false
+    }
+   ],
+   "kompact": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   }
+  },
+  {
+   "task": "go-failing-test",
+   "lang": "go",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1198,
+    "output": 476,
+    "cache_read": 66083,
+    "cache_write": 8099,
+    "total": 75856
+   },
+   "cost": 0.0437207,
+   "turns": 2,
+   "wall_s": 10.1,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**`TestFailGenFishCompletionFile`** fails, in `fish_completions_test.go:141`, with a nil pointer dereference panic:\n\n```\n--- FAIL: TestFailGenFishCompletionFile (0.00s)\npanic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]\n\tgithub.com/spf13/cobra.TestFailGenFishCompletionFile\n\tfish_completions_test.go:141 +0x25b\nFAIL\tgithub.com/spf13/cobra\t0.403s\n```\n\nThe panic stops the test binary, so any tests that hadn't run yet in the `github.com/spf13/cobra` package never executed. The `[Debug] [Error] ... unknown flag: --localroot` line just before it is log output, not the failure.\n\nThe test most likely expects an error from generating the fish completion file and gets `nil` instead. That is a guess, because I didn't open line 141. You may be running as root, which can write to paths the test expects to be unwritable. I haven't changed any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "go test -v ./...",
+     "result_chars": 1550,
+     "kompact": true
+    }
+   ],
+   "kompact": {
+    "events": 1,
+    "saved": 1729,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1729
+     }
+    }
+   }
+  },
+  {
+   "task": "ts-typecheck",
+   "lang": "typescript",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1206,
+    "output": 292,
+    "cache_read": 63702,
+    "cache_write": 7472,
+    "total": 72672
+   },
+   "cost": 0.039125900000000005,
+   "turns": 2,
+   "wall_s": 9.9,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "`tsc` reported 2 errors, both in `source/zz-kompact.ts`. I haven't fixed either.\n\n1. `source/zz-kompact.ts:1:14` \u2013 TS2322: Type 'string' is not assignable to type 'number'.\n2. `source/zz-kompact.ts:3:2` \u2013 TS2322: Type 'number' is not assignable to type 'string'.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx tsc --noEmit -p .",
+     "result_chars": 194,
+     "kompact": false
+    }
+   ],
+   "kompact": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   }
+  },
+  {
+   "task": "py-failing-tests",
+   "lang": "python",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1217,
+    "output": 440,
+    "cache_read": 66119,
+    "cache_write": 9216,
+    "total": 76992
+   },
+   "cost": 0.0478342,
+   "turns": 2,
+   "wall_s": 11.7,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test failed: 1 failed, 482 passed, 4 skipped. I changed no code.\n\n**Failed**\n- `tests/test_helpers.py::TestStreaming::test_async_view`\n  - Key error: `RuntimeError: Install Flask with the 'async' extra in order to use async views.`\n  - Why: the test defines an `async def` view, so `Flask.async_to_sync` (`src/flask/app.py:1096`) tries to import `asgiref.sync`. That import fails because `asgiref` isn't installed in `.venv`. This is a missing optional dependency, not a code bug.\n\n**Skipped**\n- Three skips are in `tests/test_cli.py`, all with the reason \"dotenv is not installed\": `test_load_dotenv`, `test_dotenv_path` and `test_disable_dotenv_from_env`.\n- The output shows only those three skips. The fourth skip was in the hidden passing-test lines, so I don't know which test it was or why it skipped.\n\nInstalling the `async` extra (`asgiref`) should fix the failure. I can do that if you'd like.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v",
+     "result_chars": 4097,
+     "kompact": true
+    }
+   ],
+   "kompact": {
+    "events": 1,
+    "saved": 1281,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1281
+     }
+    }
+   }
+  },
+  {
+   "task": "go-failing-test",
+   "lang": "go",
+   "condition": "kompact",
+   "tokens": {
+    "input": 1200,
+    "output": 827,
+    "cache_read": 103663,
+    "cache_write": 9470,
+    "total": 115160
+   },
+   "cost": 0.0565147,
+   "turns": 3,
+   "wall_s": 12.5,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**`TestFailGenFishCompletionFile` fails**, in `fish_completions_test.go:141`. It panics, and the panic aborts the whole `github.com/spf13/cobra` package run:\n\n```\n--- FAIL: TestFailGenFishCompletionFile (0.00s)\npanic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x69629b]\n...\ngithub.com/spf13/cobra.TestFailGenFishCompletionFile(...)\n\tfish_completions_test.go:141 +0x25b\nFAIL\tgithub.com/spf13/cobra\t0.423s\n```\n\n**Cause:** the test opens a file with mode `0400` and expects `GenFishCompletionFile` to return `os.ErrPermission`. This session runs as root (`/root/.ccr/...`), and root ignores file permission bits. The call succeeds and returns `nil`. The test then calls `got.Error()` on that `nil` error at line 141, which causes the nil-pointer panic.\n\nThis looks like an environment problem, not a code bug. The test would likely pass as a non-root user. I didn't change any code.\n\nThe panic stopped the run, so any tests after it in that package didn't run. Other failures could be hidden behind it. Kompact hid 809 passing-test lines, and the full output is available with `kompact show 1`.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "go test -v ./... 2>&1",
+     "result_chars": 1550,
+     "kompact": true
+    },
+    {
+     "tool": "Read",
+     "arg": "/tmp/claude-0/-home-user-Kompact/ee47be7b-ad62-53d9-9071-995e86384d2c/scratchpad/bench/cobra/fish_completions_test.go",
+     "result_chars": 581,
+     "kompact": false
+    }
+   ],
+   "kompact": {
+    "events": 2,
+    "saved": 1729,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1729
+     },
+     "code_map": {
+      "count": 1,
+      "saved": 0
+     }
+    }
+   }
+  }
+ ]
+}

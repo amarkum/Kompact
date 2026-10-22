@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kompactor</title>
+<link rel="icon" href="/static/logo-mark.svg" type="image/svg+xml">
+<style>
+/* Layout: app shell — quiet sidebar, one content column; panels only where a block is a separate object. */
+@font-face { font-family: "Plex Sans"; src: url("/static/fonts/plex-sans-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url("/static/fonts/plex-sans-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url("/static/fonts/plex-sans-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url("/static/fonts/plex-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url("/static/fonts/plex-mono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8; --panel: #ffffff; --side: #fafbfc; --line: #e3e5ea; --line-2: #eef0f3;
+  --ink: #111318; --ink-2: #4a505c; --ink-3: #868c98; --hover: #eef0f4; --sel: #e6e9ef;
+  --brand: #f5a524; --brand-ink: #925400; --brand-soft: #fdf1dc;
+  --bar: #3d4452; --good: #12713a; --good-soft: #e3f3e8; --bad: #b3232c; --bad-soft: #fbe9ea;
+  --code: #f4f5f7; --shadow: 0 1px 2px rgba(17, 19, 24, .04); --logo-tile: #111318;
+  --select-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23868c98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --sans: "Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0c0d10; --panel: #131519; --side: #101216; --line: #23262d; --line-2: #1b1e24;
+    --ink: #eceef2; --ink-2: #a8aeba; --ink-3: #6d7380; --hover: #1b1e24; --sel: #23262d;
+    --brand-ink: #f6b64a; --brand-soft: #2b2112;
+    --bar: #b0b6c2; --good: #45c07f; --good-soft: #13261b; --bad: #f07070; --bad-soft: #2c1517;
+    --code: #0f1114; --shadow: none; --logo-tile: #262a33;
+    --select-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c0d10; --panel: #131519; --side: #101216; --line: #23262d; --line-2: #1b1e24;
+  --ink: #eceef2; --ink-2: #a8aeba; --ink-3: #6d7380; --hover: #1b1e24; --sel: #23262d;
+  --brand-ink: #f6b64a; --brand-soft: #2b2112;
+  --bar: #b0b6c2; --good: #45c07f; --good-soft: #13261b; --bad: #f07070; --bad-soft: #2c1517;
+  --code: #0f1114; --shadow: none; --logo-tile: #262a33;
+  --select-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+code, pre, .mono { font-family: var(--mono); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+svg.chev { width: 12px; height: 12px; stroke-width: 2; vertical-align: -1px; color: var(--ink-3); }
+
+/* shell */
+.app { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 20px; padding: 18px 12px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px; font-weight: 600; font-size: 17px; letter-spacing: -0.02em; }
+.brand svg { width: 24px; height: 24px; flex: none; }
+.brand .ver { font: 500 11px var(--mono); color: var(--ink-3); letter-spacing: 0; margin-left: auto; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; text-align: left; padding: 7px 10px; border-radius: 7px; color: var(--ink-2); cursor: pointer; font-weight: 500; }
+.nav button:hover { background: var(--hover); color: var(--ink); }
+.nav button[aria-current="page"] { background: var(--sel); color: var(--ink); }
+.side-foot { margin-top: auto; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 12.5px; color: var(--ink-2); }
+.side-foot .state { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.dot.on { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.dot.off { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); }
+.side-foot .row2 { display: flex; justify-content: space-between; align-items: center; }
+main { min-width: 0; padding: 26px max(16px, 3.2vw) 72px; max-width: 1200px; width: 100%; }
+.page-head { display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; }
+.page-head h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
+.page-head p { margin: 4px 0 0; color: var(--ink-2); max-width: 64ch; }
+.head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.stack { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@media (max-width: 980px) { .cols { grid-template-columns: 1fr; } }
+
+/* panels */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); min-width: 0; }
+.panel-h { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--line-2); flex-wrap: wrap; }
+.panel-h h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.panel-h .sub { color: var(--ink-3); font-size: 12.5px; margin-top: 1px; }
+.panel-b { padding: 16px; }
+.empty { color: var(--ink-3); padding: 28px 8px; text-align: center; font-size: 13px; }
+
+/* metrics strip */
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.metric { padding: 16px 18px; border-left: 1px solid var(--line-2); min-width: 0; }
+.metric:first-child { border-left: 0; }
+.metric .k { color: var(--ink-2); font-size: 12.5px; }
+.metric .v { font: 500 26px/1.25 var(--mono); letter-spacing: -0.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.metric .v .good { color: var(--good); }
+.metric .f { color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+@media (max-width: 760px) { .metrics { grid-template-columns: 1fr 1fr; } .metric:nth-child(3) { border-left: 0; } .metric:nth-child(n+3) { border-top: 1px solid var(--line-2); } }
+
+/* controls */
+.btn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 7px; padding: 6px 12px; font-weight: 500; cursor: pointer; white-space: nowrap; text-decoration: none; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn.primary:hover { opacity: .9; }
+.btn.ghost { border-color: transparent; background: none; color: var(--ink-2); }
+.btn.sm { padding: 3px 9px; font-size: 12.5px; }
+.btn:disabled { opacity: .5; cursor: default; }
+select, input[type="text"], input[type="number"], input[type="search"] { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; min-width: 0; }
+.team-note { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+select { appearance: none; -webkit-appearance: none; background-image: var(--select-chev); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px 12px; padding-right: 30px; cursor: pointer; }
+input[type="number"] { width: 84px; font-family: var(--mono); }
+.seg { display: inline-flex; background: var(--hover); border-radius: 8px; padding: 2px; gap: 2px; max-width: 100%; overflow-x: auto; }
+.seg button { border: 0; background: none; padding: 4px 11px; border-radius: 6px; color: var(--ink-2); cursor: pointer; font-weight: 500; font-size: 12.5px; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.switch { position: relative; width: 34px; height: 20px; flex: none; display: inline-block; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.switch span { position: absolute; inset: 0; background: var(--line); border-radius: 999px; transition: background .15s; cursor: pointer; }
+.switch span::after { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; border-radius: 50%; background: var(--panel); transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.switch input:checked + span { background: var(--ink); }
+.switch input:checked + span::after { transform: translateX(14px); }
+.switch input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+input[type="range"] { accent-color: var(--ink); width: 150px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hover); color: var(--ink-2); white-space: nowrap; }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.brand { background: var(--brand-soft); color: var(--brand-ink); }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+th { color: var(--ink-3); font-weight: 500; font-size: 12px; }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.scroll-x { overflow-x: auto; }
+
+/* chart */
+.chart { position: relative; min-height: 120px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.tip { position: absolute; pointer-events: none; z-index: 5; display: none; min-width: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+.tip .t { color: var(--ink-2); }
+.bars { display: grid; gap: 12px; }
+.bar-row { display: grid; grid-template-columns: minmax(110px, 160px) 1fr 64px; gap: 12px; align-items: center; font-size: 13px; }
+.bar-row .track { height: 8px; border-radius: 4px; background: var(--hover); overflow: hidden; }
+.bar-row .fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--bar); }
+.bar-row .n { text-align: right; color: var(--ink-2); font-family: var(--mono); }
+
+/* quality */
+.levels { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+.lv-ends { display: flex; justify-content: space-between; color: var(--ink-3); font-size: 12.5px; }
+.lv-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.lv-steps button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 10px 10px 9px; text-align: left; cursor: pointer; display: grid; gap: 2px; min-width: 0; }
+.lv-steps button:hover { border-color: var(--ink-3); }
+.lv-steps button[aria-checked="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.lv-steps b { font-weight: 600; font-size: 13px; }
+.lv-steps small { color: var(--ink-3); font-size: 11.5px; font-family: var(--mono); }
+.lv-meter { height: 3px; border-radius: 2px; background: var(--line-2); overflow: hidden; margin-top: 6px; }
+.lv-meter i { display: block; height: 100%; background: var(--brand); }
+@media (max-width: 760px) { .lv-steps { grid-template-columns: repeat(5, minmax(104px, 1fr)); overflow-x: auto; padding-bottom: 4px; } }
+.level-detail { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: baseline; margin-top: 4px; }
+.level-detail .name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.level-detail .desc { color: var(--ink-2); }
+.pv-bar { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+pre.code { margin: 0; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 0; font-size: 12px; line-height: 1.55; height: 420px; overflow: auto; }
+pre.code .ln { display: block; padding: 0 12px 0 24px; white-space: pre-wrap; word-break: break-word; position: relative; }
+pre.code .ln.rm { color: var(--ink-3); background: var(--bad-soft); }
+pre.code .ln.rm::before { content: "−"; position: absolute; left: 9px; color: var(--bad); }
+pre.code .ln.note { color: var(--brand-ink); background: var(--brand-soft); }
+pre.code .ln.note::before { content: "+"; position: absolute; left: 9px; }
+pre.out { margin: 0; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; max-height: 460px; overflow: auto; }
+.group { border-top: 1px solid var(--line-2); }
+.group:first-child { border-top: 0; }
+.group-h { padding: 14px 16px 6px; }
+.group-h h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.group-h p { margin: 2px 0 0; color: var(--ink-3); font-size: 12.5px; }
+.knob { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 10px 16px; }
+.knob + .knob { border-top: 1px dashed var(--line-2); }
+.knob .label { font-weight: 500; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.knob .help { color: var(--ink-3); font-size: 12.5px; max-width: 70ch; }
+.knob .help code { font-size: 11.5px; background: var(--code); border: 1px solid var(--line-2); border-radius: 4px; padding: 0 4px; color: var(--ink-2); }
+.knob .ctl { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+.mod { font-size: 11px; color: var(--brand-ink); background: var(--brand-soft); border-radius: 4px; padding: 0 6px; font-weight: 500; }
+.reset { border: 0; background: none; color: var(--ink-3); cursor: pointer; font-size: 12px; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 640px) { .knob { grid-template-columns: 1fr; } .knob .ctl { justify-content: flex-start; } }
+
+/* graph */
+.graph-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 280px; }
+#gsvg { width: 100%; height: 480px; display: block; }
+.graph-side { border-left: 1px solid var(--line-2); padding: 14px 16px; font-size: 13px; display: grid; align-content: start; gap: 12px; min-width: 0; }
+.graph-side h4 { margin: 0; font: 500 12.5px var(--mono); word-break: break-all; }
+.graph-side ul { margin: 0; padding-left: 16px; color: var(--ink-2); }
+.graph-side li { overflow-wrap: anywhere; }
+.graph-side .lbl { color: var(--ink-3); font-size: 12px; }
+@media (max-width: 900px) { .graph-wrap { grid-template-columns: 1fr; } #gsvg { height: 360px; } .graph-side { border-left: 0; border-top: 1px solid var(--line-2); } }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--ink-3); font-size: 12px; align-items: center; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.ask { display: flex; gap: 8px; flex-wrap: wrap; }
+.ask input { flex: 1 1 240px; }
+
+/* setup */
+.check { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; padding: 12px 16px; align-items: start; border-top: 1px solid var(--line-2); }
+.check:first-child { border-top: 0; }
+.check .t { font-weight: 500; }
+.check .d { color: var(--ink-3); font-size: 12.5px; word-break: break-word; }
+.mark { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px; }
+.mark.ok { background: var(--good-soft); color: var(--good); }
+.mark.no { background: var(--hover); color: var(--ink-3); }
+.mark.warn { background: var(--brand-soft); color: var(--brand-ink); }
+.mark svg { width: 12px; height: 12px; stroke-width: 2.4; }
+.snip { display: flex; align-items: center; gap: 8px; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 6px 6px 12px; font: 12.5px var(--mono); overflow-x: auto; }
+.snip code { flex: 1; white-space: nowrap; }
+.snip.block { align-items: flex-start; }
+.snip.block code { white-space: pre; }
+.share-group { display: grid; gap: 6px; }
+.share-group .lbl { color: var(--ink-2); font-size: 12.5px; }
+.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(8px); background: var(--ink); color: var(--panel); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; z-index: 30; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+[hidden] { display: none !important; }
+
+/* phone */
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: sticky; top: 0; z-index: 20; height: auto; gap: 10px; padding: 12px max(16px, env(safe-area-inset-left, 0px)) 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .nav { flex-direction: row; overflow-x: auto; gap: 4px; }
+  .nav button { width: auto; white-space: nowrap; }
+  .side-foot { display: none; }
+  main { padding-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" style="fill: var(--logo-tile)"/><rect x="17" y="14" width="7.5" height="36" rx="3.75" fill="#F4F4F5"/><path d="M45 15 L29 32 L45 49" fill="none" stroke="#F5A524" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      kompactor <span class="ver" id="ver"></span>
+    </div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <div class="side-foot" id="sideFoot"></div>
+  </aside>
+
+  <main>
+    <section data-page="overview">
+      <div class="page-head">
+        <div><h1>Overview</h1><p>Tokens Kompactor kept out of Claude's context, turn by turn.</p></div>
+        <div class="head-actions">
+          <select id="range" aria-label="Time range"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="365">Last 12 months</option></select>
+          <select id="projFilter" aria-label="Project"></select>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel metrics" id="metrics"></div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>Saved per turn</h2><div class="sub">Each bar is one Claude reply; the latest is highlighted. Hover for before and after.</div></div>
+            <div class="seg" role="group" aria-label="View"><button id="vChart" aria-pressed="true">Chart</button><button id="vTable" aria-pressed="false">Table</button></div></div>
+          <div class="panel-b"><div class="chart" id="turnChart"></div><div id="turnTable" class="scroll-x" hidden></div></div>
+        </div>
+        <div class="cols">
+          <div class="panel"><div class="panel-h"><div><h2>Biggest wins</h2><div class="sub">Commands whose output shrank the most</div></div></div><div class="scroll-x" id="topTable"></div></div>
+          <div class="panel"><div class="panel-h"><div><h2>Where savings come from</h2><div class="sub">Tokens saved by feature</div></div></div><div class="panel-b"><div class="bars" id="featBars"></div></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>Replay your history</h2><div class="sub">Run your past Claude Code sessions through the current settings. Nothing leaves this machine.</div></div><button class="btn" id="estBtn"></button></div>
+          <div id="estOut" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <section data-page="quality" hidden>
+      <div class="page-head"><div><h1>Quality vs tokens</h1><p>One level sets everything. Toward quality, Claude sees more raw output; toward savings, less.</p></div></div>
+      <div class="stack">
+        <div class="panel"><div class="panel-b levels">
+          <div class="lv-ends"><span id="endL"></span><span id="endR"></span></div>
+          <div class="lv-steps" id="levels" role="radiogroup" aria-label="Quality versus tokens level"></div>
+          <div class="level-detail"><span class="name" id="lvName"></span><span class="chip brand" id="lvSave"></span><span class="desc" id="lvDesc"></span></div>
+        </div></div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>Live preview</h2><div class="sub">Exactly what Claude would receive for realistic Python, Go, React and TypeScript output</div></div><span class="chip" id="pvTotal"></span></div>
+          <div class="panel-b stack" style="gap:12px">
+            <div class="pv-bar"><div class="seg" id="samples" role="group" aria-label="Sample"></div>
+              <label class="head-actions" style="gap:8px;font-size:12.5px;color:var(--ink-2)"><span class="switch"><input type="checkbox" id="showRemoved" checked><span></span></span>Show removed lines</label></div>
+            <div class="pv-bar" style="font-size:12.5px;color:var(--ink-2)"><span class="mono" id="pvCmd"></span><span id="pvStat"></span></div>
+            <pre class="code" id="pvPane" tabindex="0" aria-label="Preview output"></pre>
+          </div>
+        </div>
+        <div class="panel" id="groups"></div>
+        <div class="panel">
+          <div class="group-h" style="padding-bottom:4px"><h3>In Claude Code</h3><p>How savings are shown. These don't depend on the level.</p></div>
+          <div class="knob"><div><div class="label">Show savings after each turn</div><div class="help">A one-line summary after every Claude reply, such as "−8.2k tokens this turn".</div></div><div class="ctl"><label class="switch"><input type="checkbox" id="gTurn"><span></span></label></div></div>
+          <div class="knob"><div><div class="label">Status line</div><div class="help">Running savings in the Claude Code terminal status line. Never replaces a status line you already have.</div></div><div class="ctl"><label class="switch"><input type="checkbox" id="gStatus"><span></span></label></div></div>
+          <div class="knob"><div><div class="label">Keep history for</div><div class="help">Savings history and stashed raw outputs older than this are deleted.</div></div><div class="ctl"><input type="number" id="gRetention" min="1" max="365" aria-label="Days of history"><span style="color:var(--ink-3)">days</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section data-page="graph" hidden>
+      <div class="page-head">
+        <div><h1>Code graph</h1><p>Functions, classes, imports and calls, indexed on this machine so Claude finds code without reading whole files.</p></div>
+        <div class="head-actions"><select id="gProject" aria-label="Project"></select><button class="btn" id="gBuild"></button></div>
+      </div>
+      <div class="stack" id="graphBody"></div>
+    </section>
+
+    <section data-page="projects" hidden>
+      <div class="page-head"><div><h1>Projects &amp; languages</h1><p>Give a repo its own level, and choose how languages are detected.</p></div></div>
+      <div class="stack">
+        <div class="panel">
+          <div class="group-h"><h3>Languages</h3><p>Profiles decide which files open as outlines, which count as generated, which stack frames are library noise and which lock files collapse in diffs.</p></div>
+          <div class="knob"><div><div class="label">Detection</div><div class="help">Auto-detect reads pyproject.toml, go.mod, package.json and tsconfig.json in each repo.</div></div>
+            <div class="ctl"><div class="seg" role="group" aria-label="Language detection"><button id="lAuto">Auto-detect</button><button id="lManual">Always use</button></div></div></div>
+          <div class="knob"><div class="ctl" id="langs" style="justify-content:flex-start;flex-wrap:wrap"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>Projects</h2><div class="sub">Every repo used with Kompactor. A project can override the global level.</div></div></div>
+          <div class="scroll-x" id="projTable"></div>
+          <div class="panel-b" style="border-top:1px solid var(--line-2)"><div class="ask"><input type="text" id="newProj" placeholder="/path/to/repo" aria-label="Project path"><button class="btn" id="addProj">Add project</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section data-page="setup" hidden>
+      <div class="page-head"><div><h1>Setup</h1><p>The Claude Code CLI and the VS Code extension read the same settings file, so one switch covers both.</p></div>
+        <div class="head-actions"><button class="btn" id="disableBtn">Disable</button><button class="btn primary" id="enableBtn"></button></div></div>
+      <div class="stack">
+        <div class="panel" id="checks"></div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>Self-test</h2><div class="sub">Runs every installed hook exactly as Claude Code would, in an isolated folder</div></div><button class="btn" id="testBtn"></button></div>
+          <div class="scroll-x" id="testOut"><div class="empty">Not run yet.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>Share with your team</h2><div class="sub" id="shareSub">Any one of these is enough</div></div></div>
+          <div class="panel-b stack" style="gap:12px" id="snips"></div>
+        </div>
+      </div>
+    </section>
+
+    <section data-page="guide" hidden>
+      <div class="page-head"><div><h1>Guide</h1><p>How Kompactor works and how to use it day to day.</p></div><div class="head-actions"><a class="btn" href="/static/usage.html" target="_blank" rel="noopener" id="guideOpen"></a></div></div>
+      <iframe class="guide" id="guideFrame" title="Kompactor guide"></iframe>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const TOKEN = "__KOMPACTOR_TOKEN__";
+const $ = (id) => document.getElementById(id);
+const I = {
+  overview: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+  quality: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  graph: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8.3 7.1l7.4.9M7 8.4l1.4 7.2M16.4 10l-5.6 6.2"/>',
+  projects: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  setup: '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/>',
+  guide: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5M8 7h7M8 11h5"/>',
+  right: '<path d="M9 6l6 6-6 6"/>', left: '<path d="M15 6l-6 6 6 6"/>', down: '<path d="M6 9l6 6 6-6"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', dash: '<path d="M7 12h10"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>', copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  play: '<path d="M7 5l12 7-12 7z"/>', search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+};
+const icon = (n, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+const chev = (d = "right") => icon(d, "i chev");
+const fmt = (n) => { n = +n || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(1) + "M" : a >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n)); };
+const pct = (a, b) => (b ? Math.round((100 * a) / b) + "%" : "—");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rich = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+const pair = (a, b) => `<span class="num">${fmt(a)}</span> ${chev()} <span class="num">${fmt(b)}</span>`;
+const short = (p) => { const s = (p || "").split(/[\\/]/).filter(Boolean); return s.slice(-2).join("/") || p || ""; };
+const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1700); };
+const local = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Kompactor-Token": TOKEN }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+let S, cfg, saveTimer, pvTimer, sampleId = "pytest", lastTurns = [], graphData = null;
+
+/* navigation */
+const PAGES = [["overview", "Overview"], ["quality", "Quality vs tokens"], ["graph", "Code graph"], ["projects", "Projects & languages"], ["setup", "Setup"], ["guide", "Guide"]];
+function go(page) {
+  document.querySelectorAll("section[data-page]").forEach((s) => (s.hidden = s.dataset.page !== page));
+  document.querySelectorAll("#nav button").forEach((b) => b.setAttribute("aria-current", b.dataset.page === page ? "page" : "false"));
+  local.set("kompactor-page", page);
+  if (page === "overview") requestAnimationFrame(() => turnChart(lastTurns));
+  if (page === "graph") loadGraph();
+  if (page === "guide") { const th = document.documentElement.dataset.theme || ""; const src = `/static/usage.html${th ? "?theme=" + th : ""}`; if ($("guideFrame").getAttribute("src") !== src) $("guideFrame").src = src; }
+}
+$("nav").innerHTML = PAGES.map(([p, label]) => `<button data-page="${p}">${icon(p)}<span>${label}</span></button>`).join("");
+$("nav").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.page); };
+
+/* settings model */
+const presetKnobs = (p) => Object.fromEntries(S.knob_order.map((k) => [k, S.presets[p][k]]));
+const effective = () => Object.assign(presetKnobs(cfg.preset), cfg.overrides || {});
+function save(body, msg = "Saved") {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => { try { cfg = (await api("/api/config", body)).config; renderSide(); toast(msg); } catch (e) { toast("Couldn't save: " + e.message); } }, 220);
+}
+function renderSide() {
+  const st = S.setup, on = st.hooks_installed || st.plugin_enabled;
+  const th = document.documentElement.dataset.theme || "system";
+  $("sideFoot").innerHTML = `<div class="state"><span class="dot ${on ? "on" : "off"}"></span>${on ? "Active in Claude Code" : "Not enabled"}</div>
+    <div class="row2"><span>Level</span><span class="chip">${esc(S.presets[cfg.preset].name)}</span></div>
+    <div class="seg" role="group" aria-label="Theme" style="width:100%">${["system", "light", "dark"].map((t) => `<button data-theme-set="${t}" aria-pressed="${t === th}" style="flex:1">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div>`;
+  $("sideFoot").querySelectorAll("[data-theme-set]").forEach((b) => (b.onclick = () => {
+    const t = b.dataset.themeSet;
+    if (t === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+    local.set("kompactor-theme", t === "system" ? "" : t); renderSide(); turnChart(lastTurns); if (graphData) renderGraph();
+  }));
+}
+
+/* quality */
+const GROUPS = [
+  ["Command output", "What Claude sees when a Bash command runs.", ["bash", "bash_wrap", "bash_plain", "bash_min_tokens", "bash_max_lines", "max_line_chars", "grep_per_file", "test_hide_passing", "test_boilerplate", "trim_stack_frames", "diff_context", "git_log_compact", "never_compact"]],
+  ["File reads", "How big files are opened.", ["read_outline", "read_outline_lines", "read_graph_context", "read_dedupe"]],
+  ["Code graph", "The local index of your code.", ["graph", "session_map_tokens"]],
+  ["Reply style", "How Claude writes. Code, commands and errors are never shortened.", ["style", "code_style", "subagent_rules"]],
+];
+function renderLevels() {
+  $("endL").innerHTML = `${chev("left")} More quality`;
+  $("endR").innerHTML = `More savings ${chev("right")}`;
+  $("levels").innerHTML = [1, 2, 3, 4, 5].map((i) => `<button role="radio" aria-checked="${i === cfg.preset}" data-p="${i}" tabindex="${i === cfg.preset ? 0 : -1}">
+      <b>${esc(S.presets[i].name)}</b><small>≈${S.preset_savings[i]}% fewer</small><span class="lv-meter"><i style="width:${S.preset_savings[i]}%"></i></span></button>`).join("");
+  const P = S.presets[cfg.preset];
+  $("lvName").textContent = P.name;
+  $("lvSave").textContent = `≈${S.preset_savings[cfg.preset]}% fewer tokens on the samples`;
+  $("lvDesc").innerHTML = rich(P.blurb);
+}
+$("levels").onclick = (e) => { const b = e.target.closest("button"); if (b) setPreset(+b.dataset.p); };
+$("levels").onkeydown = (e) => {
+  const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+  if (!d) return; e.preventDefault(); setPreset(Math.min(5, Math.max(1, cfg.preset + d))); $("levels").querySelector('[aria-checked="true"]').focus();
+};
+function setPreset(p) { cfg.preset = p; renderLevels(); renderKnobs(); preview(); renderSide(); save({ preset: p }, `${S.presets[p].name} saved`); }
+
+function control(k, v) {
+  const [label, , type, a, b, step] = S.knobs[k];
+  if (type === "bool") return `<label class="switch"><input type="checkbox" data-k="${k}" ${v ? "checked" : ""} aria-label="${esc(label)}"><span></span></label>`;
+  if (type === "int") return `<input type="range" data-k="${k}" min="${a}" max="${b}" step="${step}" value="${v}" aria-label="${esc(label)}"><input type="number" data-k="${k}" min="${a}" max="${b}" step="${step}" value="${v}" aria-label="${esc(label)} value">`;
+  if (type === "list") return `<input type="text" data-k="${k}" value="${esc((v || []).join(", "))}" placeholder="e.g. terraform plan" style="width:240px" aria-label="${esc(label)}">`;
+  return `<div class="seg" role="group" aria-label="${esc(label)}">${a.map((o) => `<button data-k="${k}" data-v="${o}" aria-pressed="${o === v}">${o}</button>`).join("")}</div>`;
+}
+function setKnob(k, v) {
+  if (JSON.stringify(v) === JSON.stringify(presetKnobs(cfg.preset)[k])) delete cfg.overrides[k]; else cfg.overrides[k] = v;
+  preview(); save({ overrides: cfg.overrides });
+}
+function renderKnobs() {
+  cfg.overrides = cfg.overrides || {};
+  const eff = effective(), base = presetKnobs(cfg.preset), ov = cfg.overrides;
+  const changed = Object.keys(ov).filter((k) => JSON.stringify(ov[k]) !== JSON.stringify(base[k]));
+  $("groups").innerHTML = GROUPS.map(([title, desc, keys], gi) => `<div class="group"><div class="group-h"><h3>${title}</h3><p>${desc}</p></div>` +
+    keys.filter((k) => S.knobs[k]).map((k) => {
+      const [label, help] = S.knobs[k], mod = changed.includes(k);
+      return `<div class="knob"><div><div class="label">${esc(label)}${mod ? ` <span class="mod">changed</span> <button class="reset" data-reset="${k}">Reset</button>` : ""}</div><div class="help">${rich(help)}</div></div><div class="ctl">${control(k, eff[k])}</div></div>`;
+    }).join("") + (gi === GROUPS.length - 1 && changed.length ? `<div class="knob"><div class="help">${changed.length} setting${changed.length > 1 ? "s differ" : " differs"} from the ${esc(S.presets[cfg.preset].name)} level.</div><div class="ctl"><button class="btn sm" id="resetAll">Reset all to level</button></div></div>` : "") + `</div>`).join("");
+  $("groups").querySelectorAll("input[data-k]").forEach((el) => {
+    const k = el.dataset.k;
+    if (el.type === "checkbox") el.onchange = () => { setKnob(k, el.checked); renderKnobs(); };
+    else if (el.type === "range") { el.oninput = () => { el.nextElementSibling.value = el.value; setKnob(k, +el.value); }; el.onchange = renderKnobs; }
+    else if (el.type === "number") el.onchange = () => { const v = Math.min(+el.max, Math.max(+el.min, +el.value || 0)); el.previousElementSibling.value = v; setKnob(k, v); renderKnobs(); };
+    else el.onchange = () => { setKnob(k, el.value.split(",").map((s) => s.trim()).filter(Boolean)); renderKnobs(); };
+  });
+  $("groups").querySelectorAll("button[data-v]").forEach((b) => (b.onclick = () => { setKnob(b.dataset.k, b.dataset.v); renderKnobs(); }));
+  $("groups").querySelectorAll("[data-reset]").forEach((b) => (b.onclick = () => { delete cfg.overrides[b.dataset.reset]; renderKnobs(); preview(); save({ overrides: cfg.overrides }, "Reset"); }));
+  const ra = $("resetAll"); if (ra) ra.onclick = () => { cfg.overrides = {}; renderKnobs(); preview(); save({ overrides: {} }, "Reset to level"); };
+}
+function preview() { clearTimeout(pvTimer); pvTimer = setTimeout(runPreview, 120); }
+async function runPreview() {
+  const langs = cfg.languages.mode === "manual" ? cfg.languages.selected : [];
+  const all = (await api("/api/preview", { knobs: effective(), languages: langs })).samples;
+  const raw = all.reduce((a, s) => a + s.raw, 0), kept = all.reduce((a, s) => a + s.kept, 0);
+  $("pvTotal").innerHTML = `All samples ${pair(raw, kept)} · −${pct(raw - kept, raw)}`;
+  $("samples").innerHTML = all.map((s) => `<button data-s="${s.id}" aria-pressed="${s.id === sampleId}">${esc(s.short)}</button>`).join("");
+  $("samples").querySelectorAll("button").forEach((b) => (b.onclick = () => { sampleId = b.dataset.s; runPreview(); }));
+  const s = all.find((x) => x.id === sampleId) || all[0];
+  $("pvCmd").textContent = "$ " + s.cmd;
+  $("pvStat").innerHTML = s.raw === s.kept ? `${fmt(s.raw)} tokens · unchanged at this level` : `${pair(s.raw, s.kept)} tokens · −${pct(s.raw - s.kept, s.raw)}`;
+  const rows = $("showRemoved").checked ? s.segments : s.segments.filter((x) => x[0] !== "drop");
+  $("pvPane").innerHTML = rows.map(([t, ln]) => `<span class="ln${t === "drop" ? " rm" : t === "note" ? " note" : ""}">${esc(ln) || " "}</span>`).join("");
+}
+$("showRemoved").onchange = runPreview;
+$("gTurn").onchange = (e) => save({ general: { turn_summary: e.target.checked } });
+$("gRetention").onchange = (e) => save({ general: { retention_days: Math.max(1, Math.min(365, +e.target.value || 30)) } });
+$("gStatus").onchange = async (e) => {
+  save({ general: { statusline: e.target.checked } });
+  if (S.setup.hooks_installed || S.setup.plugin_enabled) { try { S.setup = (await api("/api/setup", { action: "install", statusline: e.target.checked })).setup; renderSetup(); } catch (err) { toast(err.message); } }
+};
+
+/* overview */
+$("vChart").onclick = () => { $("vChart").setAttribute("aria-pressed", true); $("vTable").setAttribute("aria-pressed", false); $("turnChart").hidden = false; $("turnTable").hidden = true; turnChart(lastTurns); };
+$("vTable").onclick = () => { $("vTable").setAttribute("aria-pressed", true); $("vChart").setAttribute("aria-pressed", false); $("turnChart").hidden = true; $("turnTable").hidden = false; };
+window.addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(() => turnChart(lastTurns), 150); });
+const FEAT = { bash: "Command output", read_outline: "Outline-first reads", read_dedupe: "Skipped re-reads", run: "kompactor run" };
+
+function turnChart(turns) {
+  lastTurns = turns || [];
+  const el = $("turnChart");
+  if (!lastTurns.length) { el.innerHTML = `<div class="empty">No turns yet. Each Claude reply appears here once Kompactor is enabled.</div>`; return; }
+  if (!el.clientWidth) return;
+  const W = el.clientWidth, H = W < 520 ? 190 : 240, L = 46, B = 24, T = 10, R = 6;
+  const vals = lastTurns.map((t) => Math.max(0, t.raw - t.kept));
+  const nice = (v) => { const p = Math.pow(10, Math.floor(Math.log10(Math.max(v, 1)))); return [1, 2, 2.5, 5, 10].map((m) => m * p).find((x) => x >= v); };
+  const top = nice(Math.max(...vals, 1)), n = lastTurns.length, slot = (W - L - R) / n, bw = Math.max(2, Math.min(26, slot - 2));
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Tokens saved per turn, ${n} turns">`;
+  [0, top / 2, top].forEach((t) => (s += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line-2)"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" font-size="11" font-family="var(--mono)" fill="var(--ink-3)">${fmt(t)}</text>`));
+  vals.forEach((v, i) => {
+    const x = L + i * slot + (slot - bw) / 2, h = v ? Math.max(2, y(0) - y(v)) : 0, r = Math.min(3, bw / 2, h), y0 = y(0), y1 = y0 - h;
+    if (h) s += `<path d="M${x},${y0}V${y1 + r}Q${x},${y1} ${x + r},${y1}H${x + bw - r}Q${x + bw},${y1} ${x + bw},${y1 + r}V${y0}Z" fill="${i === n - 1 ? "var(--brand)" : "var(--bar)"}"/>`;
+    s += `<rect x="${L + i * slot}" y="${T}" width="${slot}" height="${H - T - B}" fill="transparent" data-i="${i}"/>`;
+  });
+  const every = Math.ceil(n / Math.max(3, Math.floor(W / 80)));
+  lastTurns.forEach((t, i) => { if ((n - 1 - i) % every === 0) s += `<text x="${L + i * slot + slot / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${i === n - 1 ? "latest" : "−" + (n - 1 - i)}</text>`; });
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-3)"/></svg><div class="tip" id="tip"></div>`;
+  el.innerHTML = s;
+  const tip = $("tip");
+  el.querySelectorAll("rect[data-i]").forEach((r) => {
+    r.onmousemove = (e) => {
+      const t = lastTurns[+r.dataset.i], v = t.raw - t.kept, box = el.getBoundingClientRect();
+      const feats = Object.entries(t.features || {}).filter(([, x]) => x > 0).map(([k, x]) => `${FEAT[k] || k} −${fmt(x)}`).join(" · ");
+      tip.innerHTML = `<div><b>−${fmt(v)} tokens</b> <span class="t">(−${pct(v, t.raw)})</span></div><div class="t">${pair(t.raw, t.kept)} tool output</div>${t.context ? `<div class="t">context ${fmt(t.context)}</div>` : ""}${feats ? `<div class="t">${esc(feats)}</div>` : ""}<div class="t">${esc(short(t.project))} · ${new Date(t.ts * 1000).toLocaleString()}</div>`;
+      tip.style.display = "block";
+      tip.style.left = Math.max(0, Math.min(e.clientX - box.left + 14, box.width - tip.offsetWidth - 4)) + "px";
+      tip.style.top = Math.max(0, e.clientY - box.top - tip.offsetHeight - 8) + "px";
+    };
+    r.onmouseleave = () => (tip.style.display = "none");
+  });
+  $("turnTable").innerHTML = `<table><tr><th>When</th><th>Project</th><th class="n">Before</th><th class="n">After</th><th class="n">Saved</th></tr>` +
+    lastTurns.slice().reverse().map((t) => `<tr><td>${new Date(t.ts * 1000).toLocaleString()}</td><td>${esc(short(t.project))}</td><td class="n">${fmt(t.raw)}</td><td class="n">${fmt(t.kept)}</td><td class="n">−${fmt(t.raw - t.kept)}</td></tr>`).join("") + `</table>`;
+}
+
+async function loadStats() {
+  const st = await api(`/api/stats?days=${$("range").value}&project=${encodeURIComponent($("projFilter").value)}`);
+  const live = st.live || {}, lt = live.turn || {}, tot = live.session_totals || {};
+  const smaller = tot.context && tot.in_context_saved > 0 ? Math.round((100 * tot.in_context_saved) / (tot.context + tot.in_context_saved)) : 0;
+  $("metrics").innerHTML = [
+    ["Tokens kept out of context", `<span class="good">−${fmt(st.saved)}</span>`, `${st.events} compactions · ${st.sessions} sessions`],
+    ["Tool output reduced", pct(st.saved, st.raw), `${pair(st.raw, st.kept)} tokens`],
+    ["Last turn", lt.saved > 0 ? "−" + fmt(lt.saved) : "0", lt.saved > 0 ? `${pair(lt.raw, lt.kept)} · −${pct(lt.saved, lt.raw)}` : "nothing to trim yet"],
+    ["Context now", tot.context ? fmt(tot.context) : "—", smaller ? `≈${smaller}% smaller than without Kompactor` : "of the current session"],
+  ].map(([k, v, f]) => `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div><div class="f">${f}</div></div>`).join("");
+  turnChart(st.turns);
+  $("topTable").innerHTML = st.top.length ? `<table><tr><th>Command</th><th class="n">Runs</th><th class="n">Before</th><th class="n">After</th></tr>` +
+    st.top.map((t) => `<tr><td class="mono" style="font-size:12px">${esc(t.cmd.slice(0, 64))}</td><td class="n">${t.runs}</td><td class="n">${fmt(t.raw)}</td><td class="n">${fmt(t.kept)}</td></tr>`).join("") + `</table>` : `<div class="empty">Nothing yet.</div>`;
+  const total = st.features.reduce((a, f) => a + Math.max(0, f.raw - f.kept), 0);
+  $("featBars").innerHTML = st.features.length ? st.features.map((f) => { const v = Math.max(0, f.raw - f.kept);
+    return `<div class="bar-row"><span>${esc(FEAT[f.feature] || f.feature)}</span><div class="track"><div class="fill" style="width:${total ? (100 * v) / total : 0}%"></div></div><span class="n">${fmt(v)}</span></div>`; }).join("") : `<div class="empty">Nothing yet.</div>`;
+}
+$("range").onchange = loadStats; $("projFilter").onchange = loadStats;
+$("estBtn").onclick = async () => {
+  $("estBtn").disabled = true; $("estOut").hidden = false; $("estOut").innerHTML = `<div class="empty">Replaying sessions…</div>`;
+  try {
+    const e = await api("/api/estimate", {});
+    $("estOut").innerHTML = e.calls ? `<div class="metrics"><div class="metric"><div class="k">Sessions replayed</div><div class="v">${e.sessions}</div><div class="f">${e.calls} API calls</div></div>
+      <div class="metric"><div class="k">Tool output removed</div><div class="v">${pct(e.saved_tool, e.tool_tokens)}</div><div class="f">${pair(e.tool_tokens, e.tool_tokens - e.saved_tool)}</div></div>
+      <div class="metric"><div class="k">Billed tokens saved</div><div class="v">${pct(e.saved_billed, e.billed)}</div><div class="f">−${fmt(e.saved_billed)} of ${fmt(e.billed)}</div></div>
+      <div class="metric"><div class="k">Cost saved</div><div class="v">${pct(e.saved_cost, e.cost)}</div><div class="f">cache reads 0.1×, writes 1.25×</div></div></div>` : `<div class="empty">No Claude Code history found on this machine.</div>`;
+  } catch (err) { $("estOut").innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+  $("estBtn").disabled = false;
+};
+
+/* code graph */
+async function loadGraph(force) {
+  const project = $("gProject").value;
+  $("gBuild").innerHTML = `${icon("refresh")}Build graph`;
+  if (!project) { $("graphBody").innerHTML = `<div class="panel"><div class="empty">No projects yet. Start Claude Code in a repo with Kompactor enabled, or add one under Projects &amp; languages.</div></div>`; return; }
+  if (force) { $("gBuild").disabled = true; $("gBuild").innerHTML = `${icon("refresh")}Building…`; }
+  try { graphData = force ? await api("/api/graph/build", { project }) : await api(`/api/graph?project=${encodeURIComponent(project)}`); }
+  catch (e) { toast(e.message); }
+  $("gBuild").disabled = false; $("gBuild").innerHTML = `${icon("refresh")}${graphData && graphData.exists ? "Rebuild" : "Build graph"}`;
+  renderGraph();
+}
+function renderGraph() {
+  const g = graphData;
+  if (!g || !g.exists) { $("graphBody").innerHTML = `<div class="panel"><div class="empty">No graph for this project yet. Build it now (about a second), or it builds when a Claude Code session starts here.</div></div>`; return; }
+  const ratio = g.approx_source_tokens && g.map_tokens ? Math.round(g.approx_source_tokens / g.map_tokens) : 0;
+  $("graphBody").innerHTML = `
+    <div class="panel metrics">
+      <div class="metric"><div class="k">Files</div><div class="v">${g.files}</div><div class="f">${g.units} modules · built in ${g.meta.seconds ?? "?"}s</div></div>
+      <div class="metric"><div class="k">Symbols</div><div class="v">${fmt(g.symbols)}</div><div class="f">${fmt(g.refs)} references</div></div>
+      <div class="metric"><div class="k">Code map</div><div class="v">${fmt(g.map_tokens)}</div><div class="f">tokens, vs ≈${fmt(g.approx_source_tokens)} to read the source${ratio ? ` (${ratio}× less)` : ""}</div></div>
+      <div class="metric"><div class="k">Likely dead code</div><div class="v">${g.unused.dead}</div><div class="f">${g.unused.public} exported but unused · ${g.cycles} import cycle${g.cycles === 1 ? "" : "s"}</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Module map</h2><div class="sub">The ${g.nodes.length} most depended-on modules. Larger means more central. Select one for details.</div></div>
+        <div class="legend"><span><i style="background:var(--ink)"></i>code</span><span><i style="background:var(--brand)"></i>selected</span>
+          <label style="display:inline-flex;gap:7px;align-items:center;cursor:pointer"><span class="switch"><input type="checkbox" id="gAux"><span></span></span>Tests &amp; examples</label></div></div>
+      <div class="graph-wrap"><svg id="gsvg" role="img" aria-label="Module dependency graph"></svg><div class="graph-side" id="gside"></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Ask the graph</h2><div class="sub">The same answers Claude gets from <span class="mono">kompactor graph</span></div></div>
+        <div class="seg" role="group" aria-label="Reports"><button data-a="report">Report</button><button data-a="unused">Unused code</button><button data-a="debt">Debt</button></div></div>
+      <div class="panel-b stack" style="gap:10px">
+        <div class="ask"><input type="search" id="gq" placeholder="Words, a file or a symbol, e.g. session cookie" aria-label="Graph question"><button class="btn" data-a="query">${icon("search")}Find code</button><button class="btn" data-a="impact">Impact</button><button class="btn" data-a="explain">Explain</button></div>
+        <pre class="out" id="gout">Search by topic, or pick a report.</pre>
+      </div>
+    </div>`;
+  $("gAux").checked = local.get("kompactor-graph-aux") === "1";
+  $("gAux").onchange = () => { local.set("kompactor-graph-aux", $("gAux").checked ? "1" : "0"); drawGraph(g); };
+  requestAnimationFrame(() => drawGraph(g));
+  document.querySelectorAll("#graphBody [data-a]").forEach((b) => (b.onclick = () => askGraph(b.dataset.a)));
+  $("gq").onkeydown = (e) => { if (e.key === "Enter") askGraph("query"); };
+}
+async function askGraph(action) {
+  const q = $("gq").value.trim();
+  if (["query", "impact", "explain"].includes(action) && !q) { $("gq").focus(); return; }
+  $("gout").textContent = "…";
+  try { $("gout").textContent = (await api(`/api/graph/${action}`, { project: $("gProject").value, q })).text; } catch (e) { $("gout").textContent = e.message; }
+}
+function drawGraph(g) {
+  const svg = $("gsvg"); if (!svg) return;
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 480;
+  const withAux = $("gAux") && $("gAux").checked;
+  const nodes = g.nodes.filter((d) => withAux || !d.aux).map((d) => ({ ...d })), idx = new Map(nodes.map((d, i) => [d.id, i]));
+  const E = g.edges.map((e) => [idx.get(e.source), idx.get(e.target)]).filter(([a, b]) => a !== undefined && b !== undefined);
+  const n = nodes.length, k = Math.sqrt((W * H) / Math.max(n, 1)) * 0.6, maxR = Math.max(...nodes.map((d) => d.rank), 1e-9);
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  nodes.forEach((d) => { d.x = W / 2 + (rnd() - 0.5) * W * 0.6; d.y = H / 2 + (rnd() - 0.5) * H * 0.6; d.r = 4 + 11 * Math.sqrt(d.rank / maxR); });
+  let t = W / 8;
+  for (let it = 0; it < 320; it++) {
+    const dx = new Float64Array(n), dy = new Float64Array(n);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      let x = nodes[i].x - nodes[j].x, y = nodes[i].y - nodes[j].y; const d = Math.hypot(x, y) || 0.01, f = (k * k) / d;
+      x /= d; y /= d; dx[i] += x * f; dy[i] += y * f; dx[j] -= x * f; dy[j] -= y * f;
+    }
+    for (const [a, b] of E) { let x = nodes[a].x - nodes[b].x, y = nodes[a].y - nodes[b].y; const d = Math.hypot(x, y) || 0.01, f = (d * d) / k; x /= d; y /= d; dx[a] -= x * f; dy[a] -= y * f; dx[b] += x * f; dy[b] += y * f; }
+    for (let i = 0; i < n; i++) {
+      dx[i] += (W / 2 - nodes[i].x) * 0.9; dy[i] += (H / 2 - nodes[i].y) * 0.9;
+      const d = Math.hypot(dx[i], dy[i]) || 1, m = Math.min(d, t), pad = nodes[i].r + 8;
+      nodes[i].x = Math.min(W - pad, Math.max(pad, nodes[i].x + (dx[i] / d) * m)); nodes[i].y = Math.min(H - pad, Math.max(pad + 10, nodes[i].y + (dy[i] / d) * m));
+    }
+    t *= 0.985;
+  }
+  for (let it = 0; it < 80; it++) {  // keep nodes from overlapping
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const a = nodes[i], b = nodes[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, min = a.r + b.r + 10;
+      if (d < min) { const m = (min - d) / 2, ux = dx / d, uy = dy / d; a.x -= ux * m; a.y -= uy * m; b.x += ux * m; b.y += uy * m; }
+    }
+    nodes.forEach((d) => { d.x = Math.min(W - d.r - 8, Math.max(d.r + 8, d.x)); d.y = Math.min(H - d.r - 8, Math.max(d.r + 8, d.y)); });
+  }
+  const base = (p) => { const parts = p.replace(/\/$/, "").split("/"); const f = parts.pop() || p; return /^(__init__\.py|index\.[jt]sx?)$/.test(f) && parts.length ? parts.pop() + "/" + f : f; };
+  const boxes = [], labels = new Map();
+  for (const d of nodes.slice().sort((a, b) => b.rank - a.rank).slice(0, 16)) {  // place labels without collisions
+    const text = base(d.id), w = text.length * 6.7 + 4, h = 13;
+    for (const [lx, anchor] of [[d.x + d.r + 4, "start"], [d.x - d.r - 4, "end"]]) {
+      const x0 = anchor === "start" ? lx : lx - w, box = [x0, d.y - h / 2, x0 + w, d.y + h / 2];
+      const hit = box[0] < 2 || box[2] > W - 2 || boxes.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]) ||
+        nodes.some((o) => o !== d && o.x + o.r > box[0] && o.x - o.r < box[2] && o.y + o.r > box[1] && o.y - o.r < box[3]);
+      if (!hit) { boxes.push(box); labels.set(d.id, { x: lx, anchor, text }); break; }
+    }
+  }
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = E.map(([a, b]) => `<line x1="${nodes[a].x}" y1="${nodes[a].y}" x2="${nodes[b].x}" y2="${nodes[b].y}" stroke="var(--line)" data-e="${a}-${b}"/>`).join("") +
+    nodes.map((d, i) => `<g data-n="${i}" style="cursor:pointer" tabindex="0" role="button" aria-label="${esc(d.id)}"><circle cx="${d.x}" cy="${d.y}" r="${d.r}" fill="${d.aux ? "var(--panel)" : "var(--ink)"}" stroke="${d.aux ? "var(--ink-3)" : "var(--panel)"}" stroke-width="1.5"/>` +
+      (labels.has(d.id) ? `<text x="${labels.get(d.id).x}" y="${d.y + 4}" text-anchor="${labels.get(d.id).anchor}" font-size="11" font-family="var(--mono)" fill="var(--ink-2)" paint-order="stroke" stroke="var(--panel)" stroke-width="3">${esc(labels.get(d.id).text)}</text>` : "") + `</g>`).join("");
+  const select = (i) => {
+    const d = nodes[i];
+    svg.querySelectorAll("g[data-n] circle").forEach((c, j) => c.setAttribute("fill", j === i ? "var(--brand)" : nodes[j].aux ? "var(--panel)" : "var(--ink)"));
+    svg.querySelectorAll("line[data-e]").forEach((l) => { const [a, b] = l.dataset.e.split("-").map(Number), on = a === i || b === i; l.setAttribute("stroke", on ? "var(--brand)" : "var(--line)"); l.setAttribute("stroke-width", on ? 1.6 : 1); });
+    const imports = E.filter(([a]) => a === i).map(([, b]) => nodes[b].id), users = E.filter(([, b]) => b === i).map(([a]) => nodes[a].id);
+    const list = (xs) => `<ul>${xs.slice(0, 8).map((u) => `<li class="mono" style="font-size:12px">${esc(u)}</li>`).join("")}</ul>${xs.length > 8 ? `<div class="lbl">+${xs.length - 8} more</div>` : ""}`;
+    $("gside").innerHTML = `<h4>${esc(d.id)}</h4><div style="color:var(--ink-2)">${d.lines} lines · imported by ${d.in} · imports ${d.out}${d.test ? " · tests" : ""}</div>` +
+      (d.symbols.length ? `<div><div class="lbl">Key symbols</div><div class="mono" style="font-size:12px;line-height:1.7">${d.symbols.slice(0, 8).map(esc).join("<br>")}</div></div>` : "") +
+      (users.length ? `<div><div class="lbl">Used by</div>${list(users)}</div>` : "") + (imports.length ? `<div><div class="lbl">Imports</div>${list(imports)}</div>` : "") +
+      `<div><button class="btn sm" id="gImpact">What does changing this affect ${chev()}</button></div>`;
+    $("gImpact").onclick = () => { $("gq").value = d.id; askGraph("impact"); $("gq").scrollIntoView({ block: "center", behavior: "smooth" }); };
+  };
+  svg.onclick = (e) => { const el = e.target.closest("g[data-n]"); if (el) select(+el.dataset.n); };
+  svg.onkeydown = (e) => { const el = e.target.closest("g[data-n]"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); select(+el.dataset.n); } };
+  select(0);
+}
+$("gBuild").onclick = () => loadGraph(true);
+$("gProject").onchange = () => loadGraph();
+
+/* projects */
+function renderLangs() {
+  const mode = cfg.languages.mode || "auto", sel = cfg.languages.selected || [], detected = new Set(S.projects.flatMap((p) => p.detected));
+  $("lAuto").setAttribute("aria-pressed", mode === "auto"); $("lManual").setAttribute("aria-pressed", mode === "manual");
+  $("langs").innerHTML = Object.entries(S.languages).map(([k, label]) => `<label class="chip" style="cursor:pointer;padding:4px 10px"><input type="checkbox" value="${k}" ${(mode === "auto" ? detected.has(k) : sel.includes(k)) ? "checked" : ""} ${mode === "auto" ? "disabled" : ""}> ${esc(label)}${mode === "auto" && detected.has(k) ? ` <span style="color:var(--good)">detected</span>` : ""}</label>`).join("");
+  $("langs").querySelectorAll("input").forEach((c) => (c.onchange = () => { cfg.languages.selected = [...$("langs").querySelectorAll("input:checked")].map((x) => x.value); save({ languages: cfg.languages }); preview(); }));
+}
+const setMode = (m) => { cfg.languages.mode = m; if (m === "manual" && !cfg.languages.selected.length) cfg.languages.selected = [...new Set(S.projects.flatMap((p) => p.detected))]; renderLangs(); save({ languages: cfg.languages }); preview(); };
+$("lAuto").onclick = () => setMode("auto"); $("lManual").onclick = () => setMode("manual");
+function renderProjects() {
+  const rows = S.projects;
+  if (!rows.length) { $("projTable").innerHTML = `<div class="empty">No projects yet. They appear after the first Claude Code session with Kompactor enabled.</div>`; return; }
+  const opts = (cur, team) => (team && team.preset ? `<option value="">Team (${team.preset} · ${esc(S.presets[team.preset].name)})</option>` : `<option value="">Global (${esc(S.presets[cfg.preset].name)})</option>`) + [1, 2, 3, 4, 5].map((i) => `<option value="${i}" ${cur === i ? "selected" : ""}>${i} · ${esc(S.presets[i].name)}</option>`).join("");
+  const teamNote = (t) => t && (t.preset || t.overrides) ? `<div class="team-note">Team settings from <span class="mono">.kompactor.json</span>${t.overrides ? ` · ${Object.keys(t.overrides).length} setting${Object.keys(t.overrides).length > 1 ? "s" : ""}` : ""}</div>` : "";
+  $("projTable").innerHTML = `<table><tr><th>Project</th><th>Languages</th><th>Level</th></tr>` + rows.map((p, i) => `<tr><td><div style="font-weight:500">${esc(short(p.path))}</div><div class="mono" style="font-size:11.5px;color:var(--ink-3)">${esc(p.path)}</div>${teamNote(p.team)}</td>
+    <td>${p.detected.length ? p.detected.map((l) => `<span class="chip">${esc(S.languages[l] || l)}</span>`).join(" ") : `<span style="color:var(--ink-3)">—</span>`}</td>
+    <td><select data-i="${i}" aria-label="Level for ${esc(p.path)}">${opts(p.override ? p.override.preset : null, p.team)}</select></td></tr>`).join("") + `</table>`;
+  $("projTable").querySelectorAll("select").forEach((sel) => (sel.onchange = () => { const p = rows[+sel.dataset.i]; p.override = sel.value ? { preset: +sel.value, overrides: {} } : null; save({ project: { path: p.path, override: p.override } }, "Project saved"); }));
+}
+$("addProj").onclick = () => { const path = $("newProj").value.trim(); if (!path) return; S.projects.unshift({ path, detected: [], override: null }); $("newProj").value = ""; renderProjects(); fillProjectSelects(); save({ project: { path, override: { preset: cfg.preset, overrides: {} } } }, "Project added"); };
+
+/* setup */
+function renderSetup() {
+  const st = S.setup, hooksOk = st.hooks_installed || st.plugin_enabled;
+  const mk = (state) => `<span class="mark ${state}">${icon(state === "ok" ? "check" : state === "warn" ? "dash" : "x")}</span>`;
+  const item = (state, title, detail) => `<div class="check">${mk(state)}<div><div class="t">${title}</div><div class="d">${detail}</div></div></div>`;
+  const total = Object.keys(st.hooks || {}).length, missing = Object.entries(st.hooks || {}).filter(([, v]) => !v).map(([k]) => k);
+  $("checks").innerHTML =
+    item(hooksOk ? "ok" : "no", "Kompactor hooks", st.plugin_enabled ? "Active through the Kompactor plugin." : st.hooks_installed ? `All ${total} hooks installed in <span class="mono">${esc(st.settings_file)}</span>` : `${missing.length < total ? `Missing: ${esc(missing.join(", "))}. ` : ""}Enable adds them to <span class="mono">${esc(st.settings_file)}</span> and keeps a backup.`) +
+    item(st.claude_cli ? "ok" : "no", "Claude Code CLI", st.claude_cli ? `<span class="mono">${esc(st.claude_cli)}</span>` : "Not on PATH. That's fine if you only use VS Code.") +
+    item(st.vscode_extension || st.cursor_extension ? "ok" : "no", "Claude Code for VS Code", esc(st.vscode_extension || st.cursor_extension || "Not detected. Kompactor works with it as soon as it's installed: both read the same settings.")) +
+    item(st.statusline === "kompactor" ? "ok" : st.statusline === "other" ? "warn" : "no", "Status line", st.statusline === "kompactor" ? "Shows running savings in the CLI." : st.statusline === "other" ? "You already have a status line; Kompactor leaves it alone." : "Off.") +
+    item(st.shell_prefix === "kompactor" ? "ok" : st.shell_prefix === "none" ? "no" : "warn", "Shell prefix", {
+      kompactor: "Failing tests and builds are compacted too. Set as <span class=\"mono\">CLAUDE_CODE_SHELL_PREFIX</span>.",
+      other: "Another tool already sets <span class=\"mono\">CLAUDE_CODE_SHELL_PREFIX</span>; Kompactor leaves it alone, so only commands that succeed are compacted.",
+      missing: "Its script is missing. Click Reinstall.",
+      none: "Off. Only commands that succeed are compacted. Enable sets it (macOS and Linux)."}[st.shell_prefix] || "");
+  $("enableBtn").innerHTML = `${icon("check")}${st.plugin_enabled ? "Finish setup" : st.hooks_installed ? "Reinstall" : "Enable Kompactor"}`;
+  $("enableBtn").disabled = st.plugin_enabled && ["kompactor", "other"].includes(st.shell_prefix);  // plugins can't set the prefix themselves
+  $("disableBtn").disabled = !st.hooks_installed;
+  $("testBtn").innerHTML = `${icon("play")}Run self-test`;
+  const src = st.source || {}, repo = src.repo || "your-org/kompactor";
+  const m = src.marketplace || repo, clone = src.clone || `https://github.com/${repo}.git`, dir = src.dir || "kompactor";
+  $("shareSub").innerHTML = src.repo ? `Commands for <span class="mono">${esc(src.repo)}</span>. A team that runs its own fork sets KOMPACTOR_REPO to it.`
+    : `Commands for Kompactor's public repo. A team that runs its own fork sets KOMPACTOR_REPO to it.`;
+  const code = (c, block) => `<div class="snip${block ? " block" : ""}"><code>${esc(c)}</code><button class="btn sm ghost" data-copy="${esc(c)}" aria-label="Copy">${icon("copy")}</button></div>`;
+  const group = (label, ...codes) => `<div class="share-group"><div class="lbl">${label}</div>${codes.join("")}</div>`;
+  const teamSettings = JSON.stringify({ extraKnownMarketplaces: { kompactor: { source: m.includes("://") ? { source: "git", url: clone } : { source: "github", repo: m }, autoUpdate: true } }, enabledPlugins: { "amarkum@kompactor": true } }, null, 2);
+  $("snips").innerHTML =
+    group("Claude Code plugin: run these in any Claude Code session, one at a time", code(`/plugin marketplace add ${m}`), code("/plugin install amarkum@kompactor"), code("/kompactor setup")) +
+    group(`Everyone on a project: commit this as <span class="mono">.claude/settings.json</span>; Claude Code turns the plugin on once a teammate trusts the folder, then they run <span class="mono">/kompactor setup</span>`, code(teamSettings, true)) +
+    group("pip, pipx or uv (from PyPI)", code("pipx install kompactor"), code("kompactor setup")) +
+    group("Terminal (macOS, Linux), from a clone", code(`git clone ${clone} && ./${dir}/install.sh`)) +
+    group(`VS Code: download the <span class="mono">.vsix</span> from the repo's GitHub Releases, then click Enable`, code(`code --install-extension kompactor-${S.version}.vsix`));
+  $("snips").querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied"); } catch (e) { toast("Select the text to copy it"); } }));
+}
+async function setup(action) {
+  try { S.setup = (await api("/api/setup", { action, statusline: cfg.general.statusline })).setup; renderSetup(); renderSide(); toast(action === "install" ? "Enabled for new Claude Code sessions" : "Hooks removed"); }
+  catch (e) { toast(e.message); }
+}
+$("enableBtn").onclick = () => setup("install");
+$("disableBtn").onclick = () => setup("uninstall");
+$("testBtn").onclick = async () => {
+  $("testBtn").disabled = true; $("testOut").innerHTML = `<div class="empty">Running…</div>`;
+  try {
+    const res = (await api("/api/selftest", {})).results, ok = res.filter((r) => r.ok).length;
+    $("testOut").innerHTML = `<table><tr><th>Hook</th><th>Result</th><th class="n">Time</th><th>Detail</th></tr>` + res.map((r) => `<tr><td class="mono" style="font-size:12px">${esc(r.hook)}</td><td><span class="chip ${r.ok ? "good" : "bad"}">${r.ok ? "Pass" : "Fail"}</span></td><td class="n">${r.ms} ms</td><td style="color:var(--ink-3)">${esc(r.ok ? "" : r.detail)}</td></tr>`).join("") + `</table>`;
+    toast(`${ok} of ${res.length} checks passed`);
+  } catch (e) { $("testOut").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  $("testBtn").disabled = false;
+};
+
+/* boot */
+function fillProjectSelects() {
+  const opts = S.projects.map((p) => `<option value="${esc(p.path)}">${esc(short(p.path))}</option>`).join("");
+  $("projFilter").innerHTML = `<option value="">All projects</option>` + opts;
+  const keep = $("gProject").value; $("gProject").innerHTML = opts; if (keep) $("gProject").value = keep;
+}
+(function theme() { const t = local.get("kompactor-theme"); if (t) document.documentElement.dataset.theme = t; })();
+async function boot() {
+  S = await api("/api/state"); cfg = S.config;
+  $("ver").textContent = "v" + S.version;
+  $("estBtn").innerHTML = `${icon("play")}Run replay`;
+  $("guideOpen").innerHTML = `Open in a new tab ${chev()}`;
+  $("gTurn").checked = cfg.general.turn_summary !== false;
+  $("gStatus").checked = cfg.general.statusline !== false;
+  $("gRetention").value = cfg.general.retention_days || 30;
+  fillProjectSelects();
+  renderSide(); renderLevels(); renderKnobs(); renderLangs(); renderProjects(); renderSetup();
+  runPreview(); loadStats();
+  const start = location.hash.slice(1) || local.get("kompactor-page") || (S.setup.hooks_installed || S.setup.plugin_enabled ? "overview" : "setup");
+  go(PAGES.some(([p]) => p === start) ? start : "overview");
+  setInterval(loadStats, 5000);
+}
+boot().catch((e) => { document.querySelector("main").innerHTML = `<div class="panel"><div class="empty">Couldn't load Kompactor: ${esc(e.message)}</div></div>`; });
+</script>
+</body>
+</html>
