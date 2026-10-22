@@ -223,16 +223,16 @@ PLUGIN_SKILL = {"cmd": "~/.kompactor/bin/kompactor",
 
 SKILL = """---
 name: kompactor
-description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
+description: Kompactor token saver and code graph. Use when the user says /kompactor (start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
 Run these with Bash and report briefly. Kompactor token saver.{note}
 
 /kompactor status (or just /kompactor): run `{cmd} status` and summarise it in a few lines.
-/kompactor setup: run `{cmd} setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `{cmd} presets`; change with `{cmd} config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
-Savings: `{cmd} gain`. Dashboard: run `{cmd} start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.
-/kompactor stop: `{cmd} stop` (pauses compaction, closes the dashboard). /kompactor start: `{cmd} start --no-browser`. /kompactor uninstall: `{cmd} uninstall`, then relay any extra command it prints.
+/kompactor start: run `{cmd} start --no-browser` (turns Kompactor on: hooks, status line and the shell prefix that compacts failing commands, plus the dashboard on a free port), give the user the dashboard URL it prints, and if it says so, tell them to restart Claude Code.
+/kompactor stop: `{cmd} stop` (pauses compaction, closes the dashboard). /kompactor uninstall: `{cmd} uninstall`, then relay any extra command it prints.
+Savings: `{cmd} gain`.
 
 Code graph (local, instant):
 - `{cmd} graph query "words"` find code by topic; `{cmd} graph explain Name` one symbol, its users and tests

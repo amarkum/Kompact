@@ -264,7 +264,7 @@ def pre_compact(event: dict, cfg: dict) -> None:
 
 
 def session_start(event: dict, cfg: dict) -> None:
-    try:  # so outputs can point at `~/.kompactor/bin/kompactor` even before `kompactor setup` (plugin installs)
+    try:  # so outputs can point at `~/.kompactor/bin/kompactor` even before `kompactor start` (plugin installs)
         installer.write_shim(only_if_changed=True)
         installer.link_on_path()  # and so `kompactor` works in the user's own terminal too
     except OSError:

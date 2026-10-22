@@ -722,9 +722,9 @@ function renderSetup() {
   const group = (label, ...codes) => `<div class="share-group"><div class="lbl">${label}</div>${codes.join("")}</div>`;
   const teamSettings = JSON.stringify({ extraKnownMarketplaces: { kompactor: { source: m.includes("://") ? { source: "git", url: clone } : { source: "github", repo: m }, autoUpdate: true } }, enabledPlugins: { "amarkum@kompactor": true } }, null, 2);
   $("snips").innerHTML =
-    group("Claude Code plugin: run these in any Claude Code session, one at a time", code(`/plugin marketplace add ${m}`), code("/plugin install amarkum@kompactor"), code("/kompactor setup")) +
-    group(`Everyone on a project: commit this as <span class="mono">.claude/settings.json</span>; Claude Code turns the plugin on once a teammate trusts the folder, then they run <span class="mono">/kompactor setup</span>`, code(teamSettings, true)) +
-    group("pip, pipx or uv (from PyPI)", code("pipx install kompactor"), code("kompactor setup")) +
+    group("Claude Code plugin: run these in any Claude Code session, one at a time", code(`/plugin marketplace add ${m}`), code("/plugin install amarkum@kompactor"), code("/kompactor start")) +
+    group(`Everyone on a project: commit this as <span class="mono">.claude/settings.json</span>; Claude Code turns the plugin on once a teammate trusts the folder, then they run <span class="mono">/kompactor start</span>`, code(teamSettings, true)) +
+    group("pip, pipx or uv (from PyPI)", code("pipx install kompactor"), code("kompactor start")) +
     group("Terminal (macOS, Linux), from a clone", code(`git clone ${clone} && ./${dir}/install.sh`)) +
     group(`VS Code: download the <span class="mono">.vsix</span> from the repo's GitHub Releases, then click Enable`, code(`code --install-extension kompactor-${S.version}.vsix`));
   $("snips").querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied"); } catch (e) { toast("Select the text to copy it"); } }));

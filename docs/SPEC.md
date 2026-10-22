@@ -13,7 +13,7 @@ Existing tools each attack one layer and over-claim. Independent tests found pon
 1. Cut tokens across every layer that compounds (tool output, file reads, code navigation, reply length) without losing information Claude needs.
 2. One control: a quality-vs-tokens level, with every individual setting available for those who want it.
 3. Show the saving after every turn, in the CLI, in VS Code and in a dashboard, with numbers that survive an A/B test.
-4. Setup in one step for the Claude Code CLI and the VS Code extension; no config files to edit.
+4. One command (`kompactor start`) turns it on for the Claude Code CLI and the VS Code extension; no config files to edit.
 5. First-class Python, Go, TypeScript and React support, detected per project.
 
 ### Non-goals
@@ -116,8 +116,8 @@ General (not part of presets): show savings after each turn, status line, data r
 |---|---|
 | Dashboard (`kompactor ui`, VS Code webview) | Overview (per-turn chart, where savings come from, biggest wins), Quality (level, live preview with removed lines, grouped settings), Code graph (stats, map, interactive module graph, search), Projects & languages (with team levels from `.kompactor.json`), Setup (status, enable/disable, self-test, and "Share with your team" commands for the repo this copy came from), Guide |
 | VS Code extension | One-click enable, status-bar savings, per-turn flash or notification, level picker, dashboard webview |
-| Claude Code chat | `/kompactor`, `/kompactor setup`, `/kompactor <level>`, `/kompactor review`, `/kompactor audit`, `/kompactor debt`, `/kompactor graph <question>` |
-| CLI | `setup`, `ui`, `presets`, `config`, `gain`, `estimate`, `prove`, `graph …`, `outline`, `symbol`, `show`, `search`, `doctor` |
+| Claude Code chat | `/kompactor`, `/kompactor start`, `/kompactor stop`, `/kompactor <level>`, `/kompactor review`, `/kompactor audit`, `/kompactor debt`, `/kompactor graph <question>` |
+| CLI | `start`, `stop`, `uninstall`, `status`, `ui`, `presets`, `config`, `gain`, `estimate`, `prove`, `graph …`, `outline`, `symbol`, `show`, `search`, `doctor` |
 
 ## 8. Team use
 

@@ -1,15 +1,15 @@
 ---
 name: kompactor
-description: Kompactor token saver and code graph. Use when the user says /kompactor (setup, start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
+description: Kompactor token saver and code graph. Use when the user says /kompactor (start, stop, uninstall, status, a level name, review, audit, debt, graph), asks about token savings, or when you need to find code by topic, see who uses something, or check what a change affects.
 ---
 
 Run these with Bash and report briefly. Kompactor token saver. `~/.kompactor/bin/kompactor` is created at session start; if it's missing, use `python3 "${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py"` instead.
 
 /kompactor status (or just /kompactor): run `~/.kompactor/bin/kompactor status` and summarise it in a few lines.
-/kompactor setup: run `~/.kompactor/bin/kompactor setup --no-ui` (adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself), report what it printed, and tell the user to restart Claude Code.
 Levels: `~/.kompactor/bin/kompactor presets`; change with `~/.kompactor/bin/kompactor config preset <N>` (1 Max quality, 2 Quality, 3 Balanced, 4 Savings, 5 Max savings; map words like "balanced" or "more savings").
-Savings: `~/.kompactor/bin/kompactor gain`. Dashboard: run `~/.kompactor/bin/kompactor start --no-browser` (returns at once, picks a free port) and give the user the URL it prints.
-/kompactor stop: `~/.kompactor/bin/kompactor stop` (pauses compaction, closes the dashboard). /kompactor start: `~/.kompactor/bin/kompactor start --no-browser`. /kompactor uninstall: `~/.kompactor/bin/kompactor uninstall`, then relay any extra command it prints.
+/kompactor start: run `~/.kompactor/bin/kompactor start --no-browser` (turns Kompactor on: hooks, status line and the shell prefix that compacts failing commands, plus the dashboard on a free port), give the user the dashboard URL it prints, and if it says so, tell them to restart Claude Code.
+/kompactor stop: `~/.kompactor/bin/kompactor stop` (pauses compaction, closes the dashboard). /kompactor uninstall: `~/.kompactor/bin/kompactor uninstall`, then relay any extra command it prints.
+Savings: `~/.kompactor/bin/kompactor gain`.
 
 Code graph (local, instant):
 - `~/.kompactor/bin/kompactor graph query "words"` find code by topic; `~/.kompactor/bin/kompactor graph explain Name` one symbol, its users and tests

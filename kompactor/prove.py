@@ -111,7 +111,7 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
             settings.write_text(json.dumps(hook_settings()))
             args += ["--settings", str(settings)]
         tools += sorted({"Bash(kompactor:*)", f"Bash({installer.cli_name()}:*)"})
-        prefix = run_dir / "kompactor-shell"  # what `kompactor setup` installs as ~/.kompactor/bin/kompactor-shell
+        prefix = run_dir / "kompactor-shell"  # what `kompactor start` installs as ~/.kompactor/bin/kompactor-shell
         prefix.write_text(installer.SHELL_PREFIX.format(py=shlex.quote(sys.executable or "python3"),
                                                         script=shlex.quote(str(Path(installer.__file__).with_name("_launch.py")))))
         prefix.chmod(0o755)

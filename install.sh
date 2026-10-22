@@ -1,7 +1,7 @@
 #!/bin/sh
 # Kompactor installer (macOS / Linux), run from a clone:
 #   git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh
-# Without a clone, use PyPI instead: pipx install kompactor && kompactor setup
+# Without a clone, use PyPI instead: pipx install kompactor && kompactor start
 # Copies Kompactor to ~/.kompactor/app (no pip needed), adds a `kompactor` command,
 # enables it for Claude Code (CLI + VS Code extension) and opens the dashboard.
 set -e
@@ -40,7 +40,7 @@ chmod +x "$BIN/kompactor"
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "Note: add $BIN to your PATH to use the \`kompactor\` command." ;; esac
 
 if [ "${KOMPACTOR_NO_UI:-}" = "1" ]; then
-  "$PY" "$DEST/kompactor/_launch.py" setup --no-ui
+  "$PY" "$DEST/kompactor/_launch.py" start --no-browser
 else
-  "$PY" "$DEST/kompactor/_launch.py" setup
+  "$PY" "$DEST/kompactor/_launch.py" start
 fi

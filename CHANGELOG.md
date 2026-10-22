@@ -2,6 +2,11 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.8.0
+
+- Three commands to remember: `kompactor start` turns Kompactor on (hooks, status line, shell prefix, the `kompactor` command on PATH, and the dashboard), `kompactor stop` pauses it, `kompactor uninstall` removes it. `setup` is folded into `start`; the old name still works.
+- `/kompactor start` replaces `/kompactor setup` in Claude Code.
+
 ## 0.7.9
 
 - `kompactor: command not found` after `pip install` is fixed on first run: `python3 -m kompactor setup` or `start` (or the plugin's first session) links the command into a writable folder already on PATH, such as `~/.local/bin`. `kompactor uninstall` removes the link.

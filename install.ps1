@@ -1,6 +1,6 @@
 # Kompactor installer (Windows PowerShell), run from a clone:
 #   git clone https://github.com/amarkum/kompactor.git; .\kompactor\install.ps1
-# Without a clone, use PyPI instead: pipx install kompactor; kompactor setup
+# Without a clone, use PyPI instead: pipx install kompactor; kompactor start
 # Copies Kompactor to %USERPROFILE%\.kompactor\app (no pip needed), enables it for
 # Claude Code (CLI + VS Code extension) and opens the dashboard.
 $ErrorActionPreference = "Stop"
@@ -34,4 +34,4 @@ $Shim = Join-Path $HOME ".kompactor\kompactor.cmd"
 Set-Content -Path $Shim -Value "@`"$Py`" `"$Dest\kompactor\_launch.py`" %*"
 Write-Host "Command shim: $Shim (add $HOME\.kompactor to PATH to type 'kompactor')"
 
-& $Py "$Dest\kompactor\_launch.py" setup
+& $Py "$Dest\kompactor\_launch.py" start

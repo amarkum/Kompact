@@ -79,18 +79,18 @@ Pick one. All of them set up the same thing, and the Claude Code CLI and VS Code
 ```
 /plugin marketplace add amarkum/kompactor
 /plugin install amarkum@kompactor
-/kompactor setup
+/kompactor start
 ```
-The last step adds the status line and the shell prefix that compacts failing commands, which a plugin can't set itself. Then restart Claude Code.
+The last step turns Kompactor on: it adds the status line and the shell prefix that compacts failing commands (a plugin can't set those itself) and opens the dashboard. Then restart Claude Code.
 
 **pip / pipx / uv** (macOS, Linux, Windows):
 ```bash
 pipx install kompactor        # or: pip install kompactor · uv tool install kompactor
-kompactor setup
+kompactor start
 ```
-If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor setup` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
+If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code.** Download `kompactor-0.7.9.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
+**VS Code.** Download `kompactor-0.8.0.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
 
 **From source:**
 ```bash
@@ -103,12 +103,12 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line like `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code):
    ```
-   Kompactor 0.7.9: ON
+   Kompactor 0.8.0: ON
      Connected via the Claude Code plugin. New Claude Code sessions are compacted.
      Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
      Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
    ```
-4. **Open the dashboard:** `kompactor start` runs it in the background on a free port and prints the address.
+4. **Three commands to remember:** `kompactor start` turns it on and opens the dashboard, `kompactor stop` pauses it, `kompactor uninstall` removes it.
 
 ## How it works
 
@@ -154,10 +154,10 @@ Ask Claude Code the way you normally would. These prompts come from the [evidenc
 
 | Command | What it does |
 |---|---|
+| `kompactor start` | Turn Kompactor on: connect it to Claude Code (CLI + VS Code) and open the dashboard on a free port |
+| `kompactor stop` | Pause it and close the dashboard; settings are kept |
+| `kompactor uninstall [--purge]` | Remove it from Claude Code (`--purge` also deletes `~/.kompactor`) |
 | `kompactor` / `kompactor status` | On or off, level, savings, how it works |
-| `kompactor setup` | Connect to Claude Code (CLI + VS Code) and open the dashboard |
-| `kompactor start` / `kompactor stop` | Turn on (dashboard in the background, free port) / pause |
-| `kompactor uninstall [--purge]` | Remove from Claude Code (`--purge` also deletes `~/.kompactor`) |
 | `kompactor presets` · `kompactor config preset 4` | List levels · change level |
 | `kompactor config <setting> <value>` | Change one [setting](#settings) |
 | `kompactor gain` | Savings so far |
@@ -192,7 +192,7 @@ Settings come from, in increasing priority: the level → your global choices �
 | Setting | Type | What it does |
 |---|---|---|
 | `bash` | bool | Compact command output |
-| `bash_wrap` | bool | Compact failing commands too (needs the shell prefix from `kompactor setup`) |
+| `bash_wrap` | bool | Compact failing commands too (needs the shell prefix that `kompactor start` adds) |
 | `bash_plain` | bool | Ask Claude to run commands without `\| head`, `\| tail` or `\| grep`, since Kompactor keeps every failure |
 | `bash_min_tokens` | int | Leave outputs smaller than this untouched |
 | `bash_max_lines` | int | Max lines kept per output (head and tail kept; error lines from the middle always kept) |
@@ -274,7 +274,7 @@ kompactor graph unused                     dead-code candidates
   "enabledPlugins": { "amarkum@kompactor": true }
 }
 ```
-When a teammate trusts the folder, Claude Code installs the plugin; each person then runs `/kompactor setup` once. `autoUpdate` keeps everyone on the latest release. Admins can put the same keys in Claude Code's managed settings to roll it out to every machine, and a team that runs its own fork sets `KOMPACTOR_REPO` so the dashboard shows the fork's commands.
+When a teammate trusts the folder, Claude Code installs the plugin; each person then runs `/kompactor start` once. `autoUpdate` keeps everyone on the latest release. Admins can put the same keys in Claude Code's managed settings to roll it out to every machine, and a team that runs its own fork sets `KOMPACTOR_REPO` so the dashboard shows the fork's commands.
 
 ## Evidence
 
@@ -337,13 +337,13 @@ Command output from any language is compacted. These languages also get language
 
 Everything below happens on your machine. Kompactor makes no network requests of its own and has no telemetry. (If you install the optional `tiktoken` package for exact token counts, tiktoken downloads its token table once, on first use.)
 
-**What it runs.** Python hooks that Claude Code calls (`python3 kompactor/_launch.py hook <name>` from the plugin folder): after Bash, Read, Grep, Glob and edit tool calls; before Read; at session start, subagent start and before compaction; and when a turn ends. After `/kompactor setup` on macOS and Linux, Claude's Bash commands run through Kompactor's shell prefix (`~/.kompactor/bin/kompactor-shell`) so failing runs can be compacted too. The prefix runs after Claude Code's permission check, on Claude's original command, and returns its exit code unchanged.
+**What it runs.** Python hooks that Claude Code calls (`python3 kompactor/_launch.py hook <name>` from the plugin folder): after Bash, Read, Grep, Glob and edit tool calls; before Read; at session start, subagent start and before compaction; and when a turn ends. After `kompactor start` on macOS and Linux, Claude's Bash commands run through Kompactor's shell prefix (`~/.kompactor/bin/kompactor-shell`) so failing runs can be compacted too. The prefix runs after Claude Code's permission check, on Claude's original command, and returns its exit code unchanged.
 
 **What it adds to Claude's context.** Compacted tool output, outlines in place of large file reads, a code map once per session, a one-line savings note after each turn, and short reply rules at session start and for subagents. The rules are plain text you can read in [`kompactor/rules.py`](https://github.com/amarkum/kompactor/blob/main/kompactor/rules.py).
 
 **What it reads.** The tool output Claude Code passes to its hooks, the files Claude reads (to outline them), your project's source (for the code graph), and the context size Claude Code gives the status line. Hooks never read your session transcripts. `kompactor estimate` and the dashboard's **Replay your history** panel read your local Claude Code session logs in `~/.claude/projects` only when you run them; the result isn't stored or sent anywhere.
 
-**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers. When `kompactor` isn't on your PATH, it adds one link to that launcher in a writable folder that already is (`~/.local/bin`, `~/bin`, `/opt/homebrew/bin` or `/usr/local/bin`); it never edits shell files or replaces an existing command, and `kompactor uninstall` removes the link. History is deleted after 30 days by default. Setup edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. Nothing is written to your repositories.
+**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers. When `kompactor` isn't on your PATH, it adds one link to that launcher in a writable folder that already is (`~/.local/bin`, `~/bin`, `/opt/homebrew/bin` or `/usr/local/bin`); it never edits shell files or replaces an existing command, and `kompactor uninstall` removes the link. History is deleted after 30 days by default. `kompactor start` edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. Nothing is written to your repositories.
 
 **What it never does.** Change your permission rules or sandbox settings, change what a command does, or send your code or output anywhere. Details: [privacy policy](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md).
 
@@ -351,8 +351,8 @@ Everything below happens on your machine. Kompactor makes no network requests of
 
 | Problem | What to do |
 |---|---|
-| `kompactor: command not found` | pip put the command in a folder that isn't on your PATH. Run `python3 -m kompactor setup` (or `start`) once: it links `kompactor` into a writable folder already on your PATH, such as `~/.local/bin`. Claude Code plugin installs do this at the first session. |
-| No savings line after replies | Restart Claude Code after setup, then run `kompactor doctor`: it checks the installation and shows recent hook errors. The dashboard's **Self-test** panel runs every hook once. |
+| `kompactor: command not found` | pip put the command in a folder that isn't on your PATH. Run `python3 -m kompactor start` once: it links `kompactor` into a writable folder already on your PATH, such as `~/.local/bin`. Claude Code plugin installs do this at the first session. |
+| No savings line after replies | Restart Claude Code after `kompactor start`, then run `kompactor doctor`: it checks the installation and shows recent hook errors. The dashboard's **Self-test** panel runs every hook once. |
 | An output looks too short | Claude can fetch the original with `kompactor show <id>`, or search earlier outputs with `kompactor search "text"`. |
 | A command should never be shortened | Add it to **Never compact these commands** on the dashboard, or to `never_compact` in `.kompactor.json`. For a single run, start the command with `KOMPACTOR_RAW=1`. |
 | Something seems off | `kompactor stop` turns Kompactor off at once; every hook also lets the original output through if it hits an error. Errors are logged to `~/.kompactor/hook-errors.log`. |

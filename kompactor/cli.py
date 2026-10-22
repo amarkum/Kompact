@@ -189,7 +189,7 @@ def cmd_status(a):
     state = ("ON" if on else "STOPPED" if store.paused() else "NOT SET UP")
     print(f"Kompactor {__version__}: {state}")
     if not (st["plugin_enabled"] or st["hooks_installed"]):
-        print("  Run `kompactor setup` to connect it to Claude Code (CLI and VS Code).")
+        print("  Run `kompactor start` to connect it to Claude Code (CLI and VS Code).")
     elif store.paused():
         print("  Claude Code output passes through untouched. Turn it back on: `kompactor start`")
     else:
@@ -282,7 +282,7 @@ def _prefix_note(st):
     note = {"kompactor": "Shell prefix: on (failing tests and builds are compacted too)",
             "other": "Shell prefix: another tool already sets CLAUDE_CODE_SHELL_PREFIX, so failing commands are "
                      "not compacted",
-            "missing": "Shell prefix: its script is missing; run `kompactor setup` again",
+            "missing": "Shell prefix: its script is missing; run `kompactor start` again",
             "none": "Shell prefix: off (only commands that succeed are compacted)"}[st["shell_prefix"]]
     print(f"  {note}")
 
@@ -291,25 +291,6 @@ def _path_note(link):
     if link:
         where = os.path.dirname(link).replace(os.path.expanduser("~"), "~", 1)
         print(f"  Added the `kompactor` command to {where}, so it works in any terminal.")
-
-
-def cmd_setup(a):
-    """One-step setup: enable hooks for CLI + VS Code, then open the dashboard."""
-    target = installer.install(statusline=config.read_file()["general"].get("statusline", True))
-    st = installer.status()
-    print("✓ Kompactor plugin is enabled; hooks are active." if st["plugin_enabled"] else f"✓ Hooks installed in {target}")
-    print(f"  Claude Code CLI:   {'found' if st['claude_cli'] else 'not found'}")
-    print(f"  VS Code extension: {st['vscode_extension'] or 'not found'} (uses the same settings)")
-    _prefix_note(st)
-    _path_note(installer.link_on_path())
-    print("\nNext: restart Claude Code, then work as usual. The status line shows what each turn saved.")
-    print("  `kompactor` shows status and how it works · `kompactor stop` turns it off · "
-          "`kompactor uninstall` removes it")
-    if a.no_ui:
-        return 0
-    print("Opening the dashboard to choose your quality level…")
-    a.no_browser = False
-    return cmd_start(a)
 
 
 def _pidfile():
@@ -343,12 +324,18 @@ def _kill_dashboard() -> bool:
 
 
 def cmd_start(a):
-    """Turn compaction on and run the dashboard in the background on a free port; returns at once."""
+    """Turn Kompactor on: connect it to Claude Code (hooks, status line, shell prefix), make the
+    `kompactor` command reachable, and run the dashboard in the background on a free port.
+    Returns at once; running it again is safe."""
     (store.home() / "paused").unlink(missing_ok=True)
+    before = installer.status()
+    was_connected = before["plugin_enabled"] or before["hooks_installed"]
+    installer.install(statusline=config.read_file()["general"].get("statusline", True))
     st = installer.status()
-    if not st["plugin_enabled"] and not st["hooks_installed"]:
-        installer.install(statusline=config.read_file()["general"].get("statusline", True))
     print("✓ Kompactor is on: new Claude Code sessions are compacted.")
+    where = st["settings_file"].replace(os.path.expanduser("~"), "~", 1)
+    print(f"  Connected via {'the Claude Code plugin' if st['plugin_enabled'] else where}")
+    _prefix_note(st)
     _path_note(installer.link_on_path())
     d = _dashboard()
     if not d:
@@ -369,6 +356,8 @@ def cmd_start(a):
         d = {"pid": proc.pid, "url": f"http://127.0.0.1:{port}/"}
         _pidfile().write_text(json.dumps(d))
     print(f"  Dashboard: {d['url']}  (stop with `kompactor stop`)")
+    if not was_connected:
+        print("  Restart Claude Code so sessions that are already open use it too.")
     if not a.no_browser:
         import webbrowser
         webbrowser.open(d["url"])
@@ -486,6 +475,8 @@ def cmd_doctor(a):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["setup"]:  # the old name for `start`; older docs still say it
+        argv = ["start"] + ["--no-browser" if x == "--no-ui" else x for x in argv[1:]]
     if argv[:1] == ["prove"]:  # has its own parser
         from . import prove
         return prove.main(argv[1:])
@@ -495,6 +486,18 @@ def main(argv=None):
 
     p = sp.add_parser("status", help="is it on, your level, savings so far, and how to use it (also: plain `kompactor`)")
     p.set_defaults(fn=cmd_status)
+
+    p = sp.add_parser("start", help="turn Kompactor on: connect it to Claude Code and open the dashboard")
+    p.add_argument("--port", type=int, default=0, help="preferred port (default: any free port)")
+    p.add_argument("--no-browser", action="store_true")
+    p.set_defaults(fn=cmd_start)
+
+    p = sp.add_parser("stop", help="pause Kompactor and close the dashboard (settings are kept)")
+    p.set_defaults(fn=cmd_stop)
+
+    p = sp.add_parser("uninstall", help="stop and remove Kompactor from Claude Code settings")
+    p.add_argument("--purge", action="store_true", help="also delete ~/.kompactor (history and config)")
+    p.set_defaults(fn=cmd_uninstall)
 
     p = sp.add_parser("estimate", help="replay past Claude Code sessions and show %% Kompactor would save")
     p.add_argument("--root", help="transcripts dir (default ~/.claude/projects)")
@@ -507,28 +510,11 @@ def main(argv=None):
     p = sp.add_parser("gain", help="live savings recorded by the hooks")
     p.set_defaults(fn=cmd_gain)
 
-    p = sp.add_parser("setup", help="one-step setup: enable for Claude Code (CLI + VS Code) and open the dashboard")
-    p.add_argument("--no-ui", action="store_true")
-    p.add_argument("--port", type=int, default=0)
-    p.set_defaults(fn=cmd_setup)
-
     p = sp.add_parser("ui", help="open the settings & savings dashboard (foreground; see `start`)")
     p.add_argument("--port", type=int, default=7420)
     p.add_argument("--no-browser", action="store_true")
     p.add_argument("--exact-port", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(fn=cmd_ui)
-
-    p = sp.add_parser("start", help="turn compaction on and run the dashboard in the background")
-    p.add_argument("--port", type=int, default=0, help="preferred port (default: any free port)")
-    p.add_argument("--no-browser", action="store_true")
-    p.set_defaults(fn=cmd_start)
-
-    p = sp.add_parser("stop", help="pause compaction and stop the background dashboard")
-    p.set_defaults(fn=cmd_stop)
-
-    p = sp.add_parser("uninstall", help="stop and remove Kompactor from Claude Code settings")
-    p.add_argument("--purge", action="store_true", help="also delete ~/.kompactor (history and config)")
-    p.set_defaults(fn=cmd_uninstall)
 
     p = sp.add_parser("install", help="add Kompactor hooks to Claude Code settings")
     p.add_argument("--project", action="store_true", help="write .claude/settings.json instead of ~/.claude")
