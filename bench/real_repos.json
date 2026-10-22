@@ -1,0 +1,86 @@
+{
+  "about": "Cases for bench/real_repos.py. Planted files make one test or build fail with a known message; expect lists the lines that must reach Claude.",
+  "cases": [
+    {
+      "name": "private-python-api", "lang": "python", "private": true, "languages": ["python"],
+      "about": "A private FastAPI service: about 100 source files, 327 pytest tests (some against the Firestore emulator).",
+      "local": "~/ai-service", "link": [".venv"],
+      "commands": [
+        {"label": "pytest -v (all pass)", "cmd": ".venv/bin/python -m pytest tests -v -p no:cacheprovider", "timeout": 900},
+        {"label": "pytest -v (1 planted failure)", "cmd": ".venv/bin/python -m pytest tests -v -p no:cacheprovider", "timeout": 900,
+         "plant": {"path": "tests/test_zz_planted.py", "text": "def test_planted_failure():\n    total = 81\n    assert total == 90, \"PLANTED-FAILURE: discount applied twice\"\n"},
+         "expect": ["PLANTED-FAILURE: discount applied twice", "test_zz_planted.py"]},
+        {"label": "git log --stat -n 30", "cmd": "git log --stat -n 30", "in_original": true},
+        {"label": "git diff HEAD~8 HEAD", "cmd": "git diff HEAD~8 HEAD", "in_original": true},
+        {"label": "grep -rn \"def \" app", "cmd": "grep -rn \"def \" app"}
+      ]
+    },
+    {
+      "name": "kompactor", "lang": "python", "languages": ["python"],
+      "about": "Kompactor itself (public): 48 files, 107 unittest tests.",
+      "local": "~/kompactor",
+      "commands": [
+        {"label": "unittest -v (all pass)", "cmd": "python3 -m unittest discover -s tests -v"},
+        {"label": "unittest -v (1 planted failure)", "cmd": "python3 -m unittest discover -s tests -v", "example": true,
+         "plant": {"path": "tests/test_zz_planted.py", "text": "import unittest\n\n\nclass Planted(unittest.TestCase):\n    def test_planted(self):\n        self.assertEqual(81, 90, \"PLANTED-FAILURE: discount applied twice\")\n"},
+         "expect": ["PLANTED-FAILURE: discount applied twice", "test_zz_planted.py"]},
+        {"label": "git log --stat -n 30", "cmd": "git log --stat -n 30", "in_original": true},
+        {"label": "git diff HEAD~8 HEAD", "cmd": "git diff HEAD~8 HEAD", "in_original": true}
+      ]
+    },
+    {
+      "name": "private-ts-server", "lang": "typescript", "private": true, "languages": ["typescript"],
+      "about": "A private TypeScript (Node) API server, tested with node --test.",
+      "local": "~/astroagni", "subdir": "server", "link": ["node_modules"],
+      "commands": [
+        {"label": "npm test (all pass)", "cmd": "npm test"},
+        {"label": "npm test (1 planted failure)", "cmd": "npm test",
+         "plant": {"path": "test/zz_planted.test.ts", "text": "import { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\n\ntest(\"planted\", () => {\n  assert.equal(81, 90, \"PLANTED-FAILURE: discount applied twice\");\n});\n"},
+         "expect": ["PLANTED-FAILURE: discount applied twice", "zz_planted.test.ts"]},
+        {"label": "tsc --noEmit (1 planted type error)", "cmd": "npx tsc -p tsconfig.json --noEmit",
+         "plant": {"path": "src/zz_planted.ts", "text": "export const plantedTotal: number = \"PLANTED-TYPE-ERROR\";\n"},
+         "expect": ["zz_planted.ts", "TS2322"]},
+        {"label": "git log --stat -n 30", "cmd": "git log --stat -n 30", "in_original": true}
+      ]
+    },
+    {
+      "name": "cjson", "lang": "c", "languages": ["cpp"],
+      "about": "DaveGamble/cJSON (public C library).",
+      "url": "https://github.com/DaveGamble/cJSON", "commit": "6d9f2443ab071f86e5d9b43025a40929ec41c46c",
+      "commands": [
+        {"label": "make (clean build)", "cmd": "make"},
+        {"label": "make test", "cmd": "make test"},
+        {"label": "make (1 planted compile error)", "cmd": "make clean && make", "example": true,
+         "plant": {"path": "cJSON_Utils.c", "append": true, "text": "\nint planted_value = PLANTED_UNDECLARED_SYMBOL;\n"},
+         "expect": ["PLANTED_UNDECLARED_SYMBOL", "cJSON_Utils.c"]}
+      ]
+    },
+    {
+      "name": "swift-files", "lang": "swift", "languages": ["swift"],
+      "about": "JohnSundell/Files (public Swift package).",
+      "url": "https://github.com/JohnSundell/Files", "commit": "e85f2b4a8dfa0f242889f45236f3867d16e40480",
+      "commands": [
+        {"label": "swift build", "cmd": "swift build"},
+        {"label": "swift test (all pass)", "cmd": "swift test"},
+        {"label": "swift test (1 planted failure)", "cmd": "swift test", "example": true,
+         "plant": {"path": "Tests/FilesTests/PlantedTests.swift", "text": "import XCTest\n\nfinal class PlantedTests: XCTestCase {\n    func testPlanted() {\n        XCTAssertEqual(81, 90, \"PLANTED-FAILURE: discount applied twice\")\n    }\n}\n"},
+         "expect": ["PLANTED-FAILURE: discount applied twice", "PlantedTests"]}
+      ]
+    },
+    {
+      "name": "junit5-maven", "lang": "java", "languages": ["java"],
+      "about": "junit-team/junit5-samples, junit-jupiter-starter-maven (public Java, Maven + JUnit 5).",
+      "url": "https://github.com/junit-team/junit5-samples", "commit": "53f60c4470b2e56cce74efad7e3a8970f3619b7a",
+      "subdir": "junit-jupiter-starter-maven",
+      "commands": [
+        {"label": "mvn test (all pass)", "cmd": "mvn test"},
+        {"label": "mvn test (1 planted failure)", "cmd": "mvn test", "example": true,
+         "plant": {"path": "src/test/java/com/example/project/PlantedTests.java", "text": "package com.example.project;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\n\nimport org.junit.jupiter.api.Test;\n\nclass PlantedTests {\n    @Test\n    void planted() {\n        assertEquals(90, 81, \"PLANTED-FAILURE: discount applied twice\");\n    }\n}\n"},
+         "expect": ["PLANTED-FAILURE: discount applied twice", "PlantedTests"]},
+        {"label": "mvn test (1 planted compile error)", "cmd": "mvn test",
+         "plant": {"path": "src/main/java/com/example/project/Broken.java", "text": "package com.example.project;\n\nclass Broken {\n    int x = plantedUndeclared;\n}\n"},
+         "expect": ["plantedUndeclared", "Broken.java"]}
+      ]
+    }
+  ]
+}
