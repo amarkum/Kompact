@@ -2,6 +2,10 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.8.4
+
+- Status: savings read "2.7k tokens (−44%)" instead of "( 44.4%)".
+
 ## 0.8.3
 
 - `kompactor help` (and `-h`, `--help`) is a short, standard help page grouped by task; internal commands are hidden.

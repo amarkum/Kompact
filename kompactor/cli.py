@@ -201,7 +201,8 @@ def cmd_status(a):
     with store.connect() as db:
         raw, kept, n = db.execute("SELECT COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0), COUNT(*) "
                                   "FROM events").fetchone()
-    saved = f"{_fmt(raw - kept)} tokens ({_pct(raw - kept, raw)}) in {n} tool calls" if n else "nothing yet"
+    saved = (f"{_fmt(raw - kept)} tokens (−{100 * (raw - kept) / raw:.0f}%) in {n} tool call{'s' if n != 1 else ''}"
+             if n and raw else "nothing yet")
     d = _dashboard()
     print(f"""Kompactor {__version__} is {state}
 
