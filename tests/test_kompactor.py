@@ -767,3 +767,21 @@ class GeneralSettingsTests(unittest.TestCase):
         self.assertIsNotNone(run_hook("subagent-start", {"agent_type": "Explore", "cwd": TMP}))
         self.assertIsNone(run_hook("subagent-start", {"agent_type": "Plan", "cwd": TMP}))
         self.assertIsNotNone(run_hook("subagent-start", {"cwd": TMP}))  # type not reported: rules apply
+
+
+class AgentRulesTests(unittest.TestCase):
+    def test_rules_files_for_other_agents_round_trip(self):
+        from kompactor import rules
+        root = tempfile.mkdtemp()
+        Path(root, "AGENTS.md").write_text("# Team\n\nBe kind.\n")
+        changed = rules.write_agent_rules(root, list(rules.AGENT_FILES))
+        self.assertEqual(len(changed), len(rules.AGENT_FILES))
+        agents = Path(root, "AGENTS.md").read_text()
+        self.assertTrue(agents.startswith("# Team\n\nBe kind.\n"))
+        self.assertIn("graph impact", agents)
+        self.assertIn("alwaysApply: true", Path(root, ".cursor/rules/kompactor.mdc").read_text())
+        self.assertEqual(rules.write_agent_rules(root, list(rules.AGENT_FILES)), [])  # already up to date
+        rules.write_agent_rules(root, list(rules.AGENT_FILES), remove=True)
+        self.assertEqual(Path(root, "AGENTS.md").read_text(), "# Team\n\nBe kind.\n")
+        self.assertFalse(Path(root, "GEMINI.md").exists())
+        self.assertFalse(Path(root, ".cursor/rules/kompactor.mdc").exists())

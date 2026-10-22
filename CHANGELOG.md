@@ -4,6 +4,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- `kompactor rules`: the reply and code rules plus code-graph tips for Cursor, Windsurf, Cline, Codex (`AGENTS.md`), GitHub Copilot, Gemini CLI and Aider, in each one's rules file. Shared files get a marked block that is updated in place; `--remove` takes it out.
 - Choose which subagents get the reply and code rules: a pattern matched against the subagent's type (dashboard setting or `KOMPACTOR_SUBAGENT_MATCHER`, e.g. `explore|general`). Subagents whose type isn't reported, or a bad pattern, still get them.
 - Fixed: the dashboard saved "Keep history for" as true/false, so changing it could prune history older than 1 day instead of the chosen number. General settings now keep their types, and an old true/false value falls back to 30 days.
 - Docs in the code graph: Markdown and reStructuredText headings become searchable sections, and backticked names, paths and local links tie them to the code. `graph impact` lists "docs that mention it" and `graph explain` adds "documented in". Docs never count as modules, areas or callers.

@@ -297,6 +297,8 @@ Other clients take the same command in their MCP settings, for example `{"mcpSer
 ```
 When a teammate trusts the folder, Claude Code installs the plugin; each person then runs `/kompactor start` once. `autoUpdate` keeps everyone on the latest release. Admins can put the same keys in Claude Code's managed settings to roll it out to every machine, and a team that runs its own fork sets `KOMPACTOR_REPO` so the dashboard shows the fork's commands.
 
+**Teammates on other coding agents.** `kompactor rules` writes the same reply and code rules, plus how to use the code graph, into each agent's own rules file: `.cursor/rules/kompactor.mdc` (Cursor), `.windsurf/rules/kompactor.md` (Windsurf), `.clinerules/kompactor.md` (Cline), and a marked block in `AGENTS.md` (Codex and others), `.github/copilot-instructions.md` (GitHub Copilot), `GEMINI.md` (Gemini CLI) and `CONVENTIONS.md` (Aider). `--agent cursor` picks one; running it again updates the block in place; `--remove` takes it out and leaves the rest of each file alone. Those agents can also query the graph through `kompactor mcp`.
+
 ## Evidence
 
 `kompactor prove` runs each task in real headless Claude Code sessions (`claude -p`), 3 times without Kompactor and 3 times with it, interleaved, with the same prompt, tools, turn limit and budget cap. Tokens are input + cache writes + cache reads + output across every API call; cost is Claude Code's own figure.

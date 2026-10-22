@@ -167,6 +167,17 @@ def cmd_graph(a):
     return 0
 
 
+def cmd_rules(a):
+    from . import rules
+    root = config.project_root(a.root or os.getcwd()) or os.getcwd()
+    agents = list(rules.AGENT_FILES) if not a.agent or "all" in a.agent else a.agent
+    cfg = config.load(root)
+    changed = rules.write_agent_rules(root, agents, cfg.get("style", "lite"), cfg.get("code_style", "lean"),
+                                      installer.cli_name(), remove=a.remove)
+    print("\n".join(changed) if changed else "nothing to change")
+    return 0
+
+
 def cmd_hook(a):
     return hooks.run(a.name)
 
@@ -539,6 +550,7 @@ Code:
   outline       List a file's symbols with line ranges
   symbol        Print one definition
   mcp           Serve the code graph to any MCP client
+  rules         Give Cursor, Windsurf, Codex, Copilot... the same rules
   show          Print an output Kompactor shortened
   search        Search outputs Kompactor shortened
 
@@ -668,6 +680,13 @@ def main(argv=None):
     p.add_argument("--full", action="store_true", help="rebuild from scratch")
     p.add_argument("--out", help="export: write here (a folder for obsidian) instead of printing")
     p.set_defaults(fn=cmd_graph)
+
+    p = sp.add_parser("rules", help="write Kompactor's rules and graph tips for Cursor, Windsurf, Codex, Copilot, ...")
+    p.add_argument("--agent", action="append", choices=["all", *__import__("kompactor.rules", fromlist=["r"]).AGENT_FILES],
+                   help="which agent (repeatable; default all)")
+    p.add_argument("--root", help="repository (default: current project)")
+    p.add_argument("--remove", action="store_true", help="take Kompactor's rules out again")
+    p.set_defaults(fn=cmd_rules)
 
     p = sp.add_parser("mcp", help="MCP server for the code graph (stdio): claude mcp add kompactor -- kompactor mcp")
     p.add_argument("--root", help="project directory (default: the folder it starts in)")
