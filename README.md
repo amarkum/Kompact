@@ -262,7 +262,7 @@ The numbers are conservative: they count only what Claude would really have read
 
 ## Code graph
 
-![Code graph of Flask: a 395-token map instead of 165.8k tokens of source, and a search for "session cookie"](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-graph.png)
+![Code graph of Flask: a 395-token map instead of 299.8k tokens of source, and a search for "session cookie"](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-graph.png)
 
 A local index of your repository: functions, classes, imports and calls, plus the sections of your Markdown and reStructuredText docs and the code they mention, so `impact` and `explain` also name the docs to update. It builds in about a second (Flask: 84 files in 0.35 s), refreshes in the background after edits, and is never sent anywhere or written into your repo. Claude uses it on its own; you can query it too:
 
