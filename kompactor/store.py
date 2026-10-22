@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS events (
     raw_tokens INTEGER, kept_tokens INTEGER, project TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS stash (
-    id INTEGER PRIMARY KEY, ts REAL, cmd TEXT, output TEXT
+    id INTEGER PRIMARY KEY, ts REAL, cmd TEXT, output TEXT, session TEXT DEFAULT '', project TEXT DEFAULT '',
+    code INTEGER DEFAULT 0, shown TEXT
 );
 CREATE TABLE IF NOT EXISTS reads (
     session TEXT, path TEXT, sig TEXT, state TEXT, pending INTEGER DEFAULT 0, ts REAL,
@@ -36,6 +37,9 @@ CREATE TABLE IF NOT EXISTS context (
 );
 CREATE TABLE IF NOT EXISTS calls (
     session TEXT, ts REAL, kind TEXT
+);
+CREATE TABLE IF NOT EXISTS passes (
+    ts REAL, session TEXT, project TEXT, tool TEXT, detail TEXT, tokens INTEGER, reason TEXT
 );
 """
 
@@ -71,8 +75,16 @@ def connect() -> _Conn:
         db.execute("ALTER TABLE events ADD COLUMN project TEXT DEFAULT ''")
     if "model" not in {r[1] for r in db.execute("PRAGMA table_info(sessions)")}:  # created before v0.8.5
         db.execute("ALTER TABLE sessions ADD COLUMN model TEXT DEFAULT ''")
+    if "stash_id" not in {r[1] for r in db.execute("PRAGMA table_info(events)")}:  # created before v0.8.6
+        db.execute("ALTER TABLE events ADD COLUMN stash_id INTEGER DEFAULT 0")
+    have = {r[1] for r in db.execute("PRAGMA table_info(stash)")}
+    for col, decl in (("session", "TEXT DEFAULT ''"), ("project", "TEXT DEFAULT ''"), ("code", "INTEGER DEFAULT 0"),
+                      ("shown", "TEXT")):
+        if col not in have:  # created before v0.8.6
+            db.execute(f"ALTER TABLE stash ADD COLUMN {col} {decl}")
     db.execute("CREATE INDEX IF NOT EXISTS calls_session ON calls(session, ts)")
     db.execute("CREATE INDEX IF NOT EXISTS events_session ON events(session, ts)")
+    db.execute("CREATE INDEX IF NOT EXISTS passes_ts ON passes(ts)")
     try:
         db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS stash_fts USING fts5(output, content='stash', content_rowid='id')")
         db.fts = True
@@ -82,13 +94,73 @@ def connect() -> _Conn:
 
 
 def record(feature: str, raw: int, kept: int, detail: str = "", session: str = "", force: bool = False,
-           project: str = "") -> None:
-    """Log a saving. `force` allows negative entries (reversing an earlier estimate)."""
+           project: str = "", stash_id: int = 0) -> None:
+    """Log a saving. `force` allows negative entries (reversing an earlier estimate). `stash_id` points at the
+    raw output and what Claude was shown instead, for the per-turn preview."""
     if raw <= kept and not force:
         return
     with connect() as db:
-        db.execute("INSERT INTO events (ts, session, feature, detail, raw_tokens, kept_tokens, project) "
-                   "VALUES (?,?,?,?,?,?,?)", (time.time(), session, feature, detail[:200], raw, kept, project))
+        db.execute("INSERT INTO events (ts, session, feature, detail, raw_tokens, kept_tokens, project, stash_id) "
+                   "VALUES (?,?,?,?,?,?,?,?)", (time.time(), session, feature, detail[:200], raw, kept, project, stash_id))
+
+
+def passed(tool: str, tokens: int, detail: str, reason: str, session: str = "", project: str = "") -> None:
+    """Log a tool output Kompactor saw and left as it was, and why, so the dashboard can list it."""
+    with connect() as db:
+        db.execute("INSERT INTO passes VALUES (?,?,?,?,?,?,?)",
+                   (time.time(), session, project, tool, detail[:200], tokens, reason))
+
+
+def delete(project: str = "", since: float = 0.0, until: float = 0.0) -> int:
+    """Delete recorded history: everything, one project's, or what came between `since` and `until`
+    (0: no bound), or both. Returns the number of rows removed."""
+    until = until or float("inf")
+    where, args = "ts >= ? AND ts <= ?", [since, until]
+    if project:
+        where += " AND project = ?"
+        args.append(project)
+    n = 0
+    with connect() as db:
+        sessions = "SELECT session FROM sessions WHERE project = ?" if project else "SELECT session FROM sessions"
+        sargs = [project] if project else []
+        n += db.execute(f"DELETE FROM calls WHERE ts >= ? AND ts <= ? AND session IN ({sessions})",
+                        [since, until] + sargs).rowcount
+        for table in ("events", "turns", "passes"):
+            n += db.execute(f"DELETE FROM {table} WHERE {where}", args).rowcount
+        # a session goes with it once nothing it recorded is left
+        gone = f"COALESCE(started, 0) >= ? AND COALESCE(started, 0) <= ?{' AND project = ?' if project else ''} " \
+               "AND session NOT IN (SELECT session FROM turns UNION SELECT session FROM events)"
+        for table in ("context", "reads", "flags"):
+            db.execute(f"DELETE FROM {table} WHERE session IN (SELECT session FROM sessions WHERE {gone})", args)
+        n += db.execute(f"DELETE FROM sessions WHERE {gone}", args).rowcount
+        n += db.execute(f"DELETE FROM stash WHERE {where}", args).rowcount
+        if db.fts:
+            db.execute("INSERT INTO stash_fts(stash_fts) VALUES ('rebuild')")
+    return n
+
+
+def passes_page(days: float, project: str = "", page: int = 0, size: int = 10) -> dict:
+    """One page of the tool outputs left as they were, newest first, with the totals."""
+    where, args = "ts > ?", [time.time() - days * 86400]
+    if project:
+        where += " AND project = ?"
+        args.append(project)
+    with connect() as db:
+        total, toks = db.execute(f"SELECT COUNT(*), COALESCE(SUM(tokens),0) FROM passes WHERE {where}", args).fetchone()
+        rows = db.execute(f"SELECT ts, project, tool, detail, tokens, reason FROM passes WHERE {where} "
+                          f"ORDER BY ts DESC LIMIT ? OFFSET ?", args + [size, page * size]).fetchall()
+    return {"total": total, "tokens": toks, "page": page, "size": size,
+            "items": [{"ts": r[0], "project": r[1], "tool": r[2], "detail": r[3], "tokens": r[4], "reason": r[5]}
+                      for r in rows]}
+
+
+def projects() -> list:
+    """Every project Kompactor has seen a session in, most recent first."""
+    with connect() as db:
+        return [r[0] for r in db.execute(
+            "SELECT project, MAX(ts) AS t FROM (SELECT project, COALESCE(NULLIF(last_turn, 0), started) AS ts FROM sessions "
+            "UNION ALL SELECT project, ts FROM events UNION ALL SELECT project, ts FROM passes) "
+            "WHERE project != '' GROUP BY project ORDER BY t DESC LIMIT 50")]
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +361,7 @@ def prune(retention_days: float) -> None:
         db.execute("DELETE FROM stash WHERE ts < ?", (min(cutoff, time.time() - 7 * 86400),))
         if db.fts:
             db.execute("INSERT INTO stash_fts(stash_fts) VALUES ('rebuild')")
-        for table in ("events", "turns", "calls"):
+        for table in ("events", "turns", "calls", "passes"):
             db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
         db.execute("DELETE FROM reads WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM flags WHERE ts < ?", (time.time() - 2 * 86400,))
@@ -334,17 +406,54 @@ def read_live() -> dict:
 STASH_MAX_CHARS = 2_000_000
 
 
-def stash(cmd: str, output: str) -> int:
+def stash(cmd: str, output: str, session: str = "", project: str = "", code: int = 0) -> int:
     if len(output) > STASH_MAX_CHARS:
         output = output[:STASH_MAX_CHARS] + f"\n[kompactor: stash truncated at {STASH_MAX_CHARS} chars]"
     with connect() as db:
-        cur = db.execute("INSERT INTO stash (ts, cmd, output) VALUES (?,?,?)", (time.time(), cmd, output))
+        cur = db.execute("INSERT INTO stash (ts, cmd, output, session, project, code) VALUES (?,?,?,?,?,?)",
+                         (time.time(), cmd, output, session, project, code))
         rowid = cur.lastrowid
         if db.fts:
             db.execute("INSERT INTO stash_fts (rowid, output) VALUES (?,?)", (rowid, output))
         # keep the stash bounded
         db.execute("DELETE FROM stash WHERE id <= ?", (rowid - 500,))
         return rowid
+
+
+def set_shown(sid: int, text: str) -> None:
+    """What Claude was shown in place of stashed output `sid`."""
+    with connect() as db:
+        db.execute("UPDATE stash SET shown=? WHERE id=?", (text, sid))
+
+
+PREVIEW_CHARS = 60_000  # per output, so a huge log can't stall the dashboard
+
+
+def turn_outputs(session: str, idx: int) -> list:
+    """What one reply shortened: each saving with, for command output, its raw text and what Claude saw."""
+    with connect() as db:
+        row = db.execute("SELECT ts FROM turns WHERE session=? AND idx=?", (session, idx)).fetchone()
+        if row is None:
+            return []
+        prev = db.execute("SELECT COALESCE(MAX(ts), 0) FROM turns WHERE session=? AND idx<?", (session, idx)).fetchone()[0]
+        rows = db.execute("SELECT e.feature, e.detail, e.raw_tokens, e.kept_tokens, s.output, s.shown FROM events e "
+                          "LEFT JOIN stash s ON s.id = e.stash_id AND e.stash_id > 0 WHERE e.session=? AND e.ts>? "
+                          "AND e.ts<=? AND e.raw_tokens > e.kept_tokens ORDER BY e.raw_tokens - e.kept_tokens DESC",
+                          (session, prev, row[0])).fetchall()
+    return [{"feature": f, "what": _label(f, d), "raw": r, "kept": k,
+             "before": (out or "")[:PREVIEW_CHARS], "after": (shown or "")[:PREVIEW_CHARS]}
+            for f, d, r, k, out, shown in rows]
+
+
+def project_outputs(project: str = "", limit: int = 12) -> list:
+    """The latest stashed command outputs, one per command, from one project or (empty) every project: the real
+    data behind the live preview and each level's savings figure."""
+    where, args = ("WHERE project=?", [project]) if project else ("", [])
+    with connect() as db:
+        return [{"id": f"s{i}", "cmd": c, "text": o[:PREVIEW_CHARS], "code": code, "project": pr}
+                for i, c, o, code, pr in db.execute(
+                    f"SELECT id, cmd, output, code, project FROM stash WHERE id IN (SELECT MAX(id) FROM stash {where} "
+                    f"GROUP BY cmd) ORDER BY id DESC LIMIT ?", args + [limit])]
 
 
 def get_stash(sid: int):

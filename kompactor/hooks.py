@@ -30,49 +30,56 @@ def _fmt(n) -> str:
 
 
 def post_bash(event: dict, cfg: dict) -> None:
-    if not cfg["bash"]:
-        return
     resp = event.get("tool_response")
     cmd = (event.get("tool_input") or {}).get("command", "")
     if not isinstance(resp, dict) or "stdout" not in resp or resp.get("isImage"):
         return
-    if cmd.lstrip().startswith(("kompactor ", "KOMPACTOR_RAW=1", "~/.kompactor/bin/kompactor")) or "_launch.py" in cmd:
-        return
-    words = " ".join(filters.argv0(cmd))
-    if any(words.startswith(c.strip()) for c in cfg.get("never_compact", []) if c.strip()):
-        return
     out, err = resp.get("stdout") or "", resp.get("stderr") or ""
     if "[kompactor: " in out[-400:]:  # already compacted (shell prefix, or hooks registered twice)
         return
+
+    def leave(reason: str) -> None:
+        store.passed("bash", tokens.count(out) + tokens.count(err), cmd, reason, event.get("session_id", ""),
+                     cfg["project"])
+
+    if not cfg["bash"]:
+        return leave("command output compaction is off")
+    if cmd.lstrip().startswith(("kompactor ", "KOMPACTOR_RAW=1", "~/.kompactor/bin/kompactor")) or "_launch.py" in cmd:
+        return leave("Kompactor's own command")
+    words = " ".join(filters.argv0(cmd))
+    if any(words.startswith(c.strip()) for c in cfg.get("never_compact", []) if c.strip()):
+        return leave("on the never-compact list")
     # Claude Code saves outputs over ~30K characters to a file and shows Claude a 2 KB preview of it;
     # hooks get only the head. Compact the whole output instead, and drop the file reference so Claude
     # sees the compacted text rather than the preview.
     full = None
     if resp.get("persistedOutputPath"):
         if filters.classify(cmd) == "view":  # cat/head of a huge file: the preview and saved path serve Claude better
-            return
+            return leave("large file view; Claude Code's preview and saved file kept")
         full = _persisted(resp)
         if full is None:
-            return
+            return leave("Claude Code's saved output couldn't be read")
     shown = None
     if full is not None:
         shown = tokens.count(full[:2048]) + 60
         out = full
     raw_tokens = tokens.count(out) + tokens.count(err)
     if raw_tokens < cfg["bash_min_tokens"]:
-        return
+        return leave(f"under {cfg['bash_min_tokens']} tokens")
     failed = bool(resp.get("interrupted")) or bool(filters.IMPORTANT.search(err[-2000:] + out[-2000:]))
     code = 1 if failed else 0
-    sid = store.stash(cmd, out + ("\n--- stderr ---\n" + err if err else ""))
+    sid = store.stash(cmd, out + ("\n--- stderr ---\n" + err if err else ""), event.get("session_id", ""),
+                      cfg["project"], code)
     new_out = filters.compress(cmd, out, code, stash_id=sid, opts=cfg) if out else ""
     new_err = filters.compress(cmd, err, code, stash_id=sid, opts=cfg) if err else ""
     new_out = _fit(new_out, PERSIST_LIMIT) if full is not None else new_out
     kept = tokens.count(new_out) + tokens.count(new_err)
     if kept > raw_tokens * 0.9 and full is None:  # not worth changing what Claude sees
-        return
+        return leave("barely compressible")
     new_out += f"\n[kompactor: {raw_tokens}›{kept} tokens; full output: {installer.cli_name()} show {sid}]"
+    store.set_shown(sid, new_out + ("\n--- stderr ---\n" + new_err if new_err else ""))
     store.record("bash", raw_tokens if shown is None else shown, kept, cmd, event.get("session_id", ""),
-                 project=cfg["project"])
+                 project=cfg["project"], stash_id=sid)
     resp = {k: v for k, v in resp.items() if k not in ("persistedOutputPath", "persistedOutputSize")}
     _emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                   "updatedToolOutput": {**resp, "stdout": new_out, "stderr": new_err}}})
@@ -240,7 +247,13 @@ def subagent_start(event: dict, cfg: dict) -> None:
 def post_explore(event: dict, cfg: dict) -> None:
     """The first time Claude searches or reads code in a session, add the code map.
 
-    Sessions that only run commands never pay for it."""
+    Sessions that only run commands never pay for it. Every Read, Grep and Glob that reaches here went to
+    Claude as it was (outlined and unchanged re-reads are stopped before the tool runs), so it is logged."""
+    tool, inp = event.get("tool_name", ""), event.get("tool_input") or {}
+    store.passed(tool.lower(), tokens.count(_text(event.get("tool_response"))),
+                 inp.get("file_path") or inp.get("pattern") or "",
+                 "read in full" if tool == "Read" else "search results are never shortened",
+                 event.get("session_id", ""), cfg["project"])
     budget = cfg.get("session_map_tokens", 0)
     root = cfg.get("project")
     if budget <= 0 or not cfg.get("graph") or not root or not graph.exists(root):
@@ -251,6 +264,17 @@ def post_explore(event: dict, cfg: dict) -> None:
     if text:
         store.record("code_map", 0, 0, root, event.get("session_id", ""), force=True, project=root)
         _emit({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}})
+
+
+def _text(value) -> str:
+    """All the text in a tool response, however Claude Code shaped it."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(_text(v) for v in value.values())
+    if isinstance(value, list):
+        return "\n".join(_text(v) for v in value)
+    return ""
 
 
 def post_edit(event: dict, cfg: dict) -> None:

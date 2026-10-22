@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 TMP = tempfile.mkdtemp()
 os.environ["KOMPACTOR_HOME"] = os.path.join(TMP, "home")
 
-from kompactor import config, estimate, filters, hooks, installer, langs, outline, server, store, tokens  # noqa: E402
+from kompactor import config, estimate, filters, hooks, installer, langs, outline, samples, server, store, tokens  # noqa: E402
 installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
 installer.EDITORS = ()  # never install or remove the real VS Code / Cursor extension from tests
 
@@ -432,12 +433,13 @@ class PresetAndLanguageTests(unittest.TestCase):
         self.assertIn(" l7\n-old\n+new\n l9", out)
 
     def test_presets_monotonic_on_samples(self):
-        sav = server.preset_savings()
+        sav = server.preset_savings(samples.SAMPLES)
         self.assertTrue(sav[1] <= sav[2] <= sav[3] <= sav[4] <= sav[5])
         self.assertLess(sav[1], sav[3])
         self.assertGreater(sav[3], 60)
         # Max quality never hides test results
-        rows = {r["id"]: r for r in server.preview({k: config.PRESETS[1][k] for k in config.KNOBS}, [])}
+        rows = {r["id"]: r for r in server.preview({k: config.PRESETS[1][k] for k in config.KNOBS}, [],
+                                                   rows=samples.SAMPLES)}
         self.assertIn("test_endpoint_1 PASSED", rows["pytest"]["after"])
 
 
@@ -584,6 +586,88 @@ class TurnAndSetupTests(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
             config.path().unlink()
+
+
+class HistoryTests(unittest.TestCase):
+    """What Kompactor left as it was, every project it saw, and deleting history."""
+
+    def setUp(self):
+        with store.connect() as db:
+            for table in ("events", "turns", "passes", "sessions", "calls"):
+                db.execute(f"DELETE FROM {table}")
+        self.proj = os.path.realpath(tempfile.mkdtemp())
+        Path(self.proj, ".git").mkdir()
+
+    def passes(self):
+        with store.connect() as db:
+            return db.execute("SELECT project, tool, detail, reason FROM passes").fetchall()
+
+    def test_unshortened_outputs_are_logged_with_why(self):
+        run_hook("post-bash", {"session_id": "p1", "cwd": self.proj, "tool_input": {"command": "ls"},
+                               "tool_response": {"stdout": "a\nb", "stderr": ""}})
+        run_hook("post-explore", {"session_id": "p1", "cwd": self.proj, "tool_name": "Grep",
+                                  "tool_input": {"pattern": "handler"}, "tool_response": {"content": "a.py:1: handler"}})
+        (bash, grep) = sorted(self.passes(), key=lambda r: r[1])
+        self.assertEqual(bash[:3], (self.proj, "bash", "ls"))
+        self.assertTrue(bash[3].startswith("under "))
+        self.assertEqual(grep, (self.proj, "grep", "handler", "search results are never shortened"))
+
+    def test_shortened_output_is_not_logged_as_left(self):
+        run_hook("post-bash", {"session_id": "p2", "cwd": self.proj, "tool_input": {"command": "git log"},
+                               "tool_response": {"stdout": GIT_LOG, "stderr": ""}})
+        self.assertEqual(self.passes(), [])
+
+    def test_projects_include_sessions_with_no_savings(self):
+        store.close_turn("quiet", "/repo/quiet")
+        self.assertIn("/repo/quiet", store.projects())
+        self.assertIn("/repo/quiet", [p["path"] for p in server.state()["projects"]])
+
+    def test_delete_by_project_and_from_a_time(self):
+        for proj in ("/repo/a", "/repo/b"):
+            store.record("bash", 100, 10, "x", proj[-1], project=proj)
+            store.passed("bash", 5, "ls", "small", proj[-1], proj)
+            store.close_turn(proj[-1], proj)
+        mid = time.time()
+        store.record("bash", 100, 10, "y", "a", project="/repo/a")
+        self.assertEqual(store.delete("/repo/a", since=mid), 1)  # only the later saving
+        with store.connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM events WHERE project='/repo/a'").fetchone()[0], 1)
+        self.assertGreater(store.delete("/repo/a"), 0)
+        self.assertEqual(store.projects(), ["/repo/b"])
+        store.delete()
+        self.assertEqual(store.projects(), [])
+        self.assertEqual(self.passes(), [])
+
+    def test_delete_a_time_range_and_page_unchanged_outputs(self):
+        for i in range(12):
+            store.passed("bash", i, f"cmd{i}", "small", "pg", "/repo/p")
+        page = store.passes_page(1, "/repo/p", page=1, size=5)
+        self.assertEqual((page["total"], [r["detail"] for r in page["items"]]),
+                         (12, ["cmd6", "cmd5", "cmd4", "cmd3", "cmd2"]))
+        with store.connect() as db:
+            ts = [r[0] for r in db.execute("SELECT ts FROM passes ORDER BY ts")]
+        self.assertEqual(store.delete("/repo/p", since=ts[3], until=ts[5]), 3)
+        self.assertEqual(store.passes_page(1, "/repo/p")["total"], 9)
+
+    def test_turn_preview_shows_raw_and_what_claude_saw(self):
+        run_hook("post-bash", {"session_id": "tp", "cwd": self.proj, "tool_input": {"command": "git log"},
+                               "tool_response": {"stdout": GIT_LOG, "stderr": ""}})
+        store.close_turn("tp", self.proj)
+        (item,) = store.turn_outputs("tp", 1)
+        self.assertEqual((item["what"], item["before"]), ("git log", GIT_LOG))
+        self.assertIn("[kompactor: ", item["after"])
+        self.assertLess(len(item["after"]), len(GIT_LOG))
+
+    def test_live_preview_uses_the_projects_own_outputs(self):
+        run_hook("post-bash", {"session_id": "lp", "cwd": self.proj, "tool_input": {"command": "git log"},
+                               "tool_response": {"stdout": GIT_LOG, "stderr": ""}})
+        (sample,) = server.preview({k: v for k, v in config.PRESETS[3].items() if k in config.KNOBS}, [], self.proj)
+        self.assertEqual(sample["cmd"], "git log")
+        self.assertLess(sample["kept"], sample["raw"])
+        self.assertEqual(server.preview({}, [], "/repo/none"), [])
+        self.assertEqual(server.preset_savings([])[3], None)  # nothing recorded: no made-up figure
+        store.delete(self.proj)
+        self.assertEqual(store.project_outputs(self.proj), [])
 
 
 class SourceTests(unittest.TestCase):

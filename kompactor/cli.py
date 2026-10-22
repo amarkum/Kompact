@@ -165,6 +165,7 @@ def cmd_gain(a):
     if not rows:
         print("No savings recorded yet. Install the hooks (`kompactor install`) and use Claude Code, "
               "or run `kompactor estimate` to see what Kompactor would have saved on your past sessions.")
+        _print_left()
         return 0
     tr = sum(r[2] for r in rows)
     tk = sum(r[3] for r in rows)
@@ -182,7 +183,19 @@ def cmd_gain(a):
         print("\n  biggest wins:")
         for d, r, k in top:
             print(f"    {_fmt(r):>6} › {_fmt(k):<6} {d[:70]}")
+    _print_left()
     return 0
+
+
+def _print_left():
+    """The tool outputs Kompactor saw and left as they were, grouped by why."""
+    with store.connect() as db:
+        left = db.execute("SELECT COUNT(*), COALESCE(SUM(tokens),0) FROM passes").fetchone()
+        why = db.execute("SELECT reason, COUNT(*), SUM(tokens) FROM passes GROUP BY reason ORDER BY SUM(tokens) DESC").fetchall()
+    if left[0]:
+        print(f"\n  left as is: {left[0]} tool outputs, {_fmt(left[1])} tokens")
+        for reason, n, t in why:
+            print(f"    {n:>5} × {_fmt(t):>6}  {reason}")
 
 
 EVIDENCE_URL = "https://github.com/amarkum/kompactor#evidence"
@@ -460,7 +473,8 @@ def cmd_presets(a):
         return 0
     for p, v in presets.items():
         mark = "●" if p == data["preset"] else " "
-        print(f" {mark} {p} {v['name']:<12} ≈{savings[p]:>2}% on samples  {v['blurb']}")
+        cut = f"≈{savings[p]:>2}% on your outputs" if savings[p] is not None else "no outputs recorded yet"
+        print(f" {mark} {p} {v['name']:<12} {cut}  {v['blurb']}")
     print("Change with `kompactor config preset N` or in the dashboard (`kompactor ui`).")
     return 0
 

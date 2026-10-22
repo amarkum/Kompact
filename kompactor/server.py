@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urlparse
 import difflib
 import mimetypes
 
-from . import __version__, config, estimate, filters, graph, installer, langs, samples, store, tokens
+from . import __version__, config, estimate, filters, graph, installer, langs, store, tokens
 
 TOKEN = secrets.token_urlsafe(24)
 UI_FILE = Path(__file__).with_name("ui.html")
@@ -29,18 +29,21 @@ STATIC = Path(__file__).with_name("static")
 # API
 
 
-def preview(knobs: dict, languages) -> list:
+def preview(knobs: dict, languages, project: str = "", rows=None) -> list:
+    """Your latest real command outputs (one project's, or every project's), or `rows`, as Claude would
+    receive them under `knobs`."""
     out = []
-    for s in samples.SAMPLES:
+    for s in (store.project_outputs(project) if rows is None else rows):
         cfg = dict(knobs, languages=languages)
         raw = tokens.count(s["text"])
         if not cfg.get("bash", True) or raw < cfg.get("bash_min_tokens", 0):
             text = s["text"]
         else:
-            text = filters.compress(s["cmd"], s["text"], 0, stash_id=42, opts=cfg)
+            text = filters.compress(s["cmd"], s["text"], s.get("code", 0), stash_id=42, opts=cfg)
             if tokens.count(text) > raw * 0.9:
                 text = s["text"]
-        out.append({"id": s["id"], "label": s["label"], "short": s.get("short", s["id"]), "lang": s["lang"],
+        out.append({"id": s["id"], "label": s.get("label", s["cmd"]), "short": s.get("short", s["cmd"][:24]),
+                    "lang": s.get("lang", ""), "project": s.get("project", ""),
                     "cmd": s["cmd"], "raw": raw,
                     "kept": tokens.count(text), "before": s["text"], "after": text,
                     "segments": segments(s["text"], text)})
@@ -60,21 +63,20 @@ def segments(before: str, after: str) -> list:
     return out
 
 
-def preset_savings() -> dict:
+def preset_savings(rows=None) -> dict:
+    """% fewer tokens each level gives on your latest real command outputs (or `rows`); None before any are recorded."""
+    rows = store.project_outputs("") if rows is None else rows
     res = {}
     for p, preset in config.PRESETS.items():
-        rows = preview({k: preset[k] for k in config.KNOBS}, [])
-        r, k = sum(x["raw"] for x in rows), sum(x["kept"] for x in rows)
-        res[p] = round(100 * (r - k) / r) if r else 0
+        out = preview({k: preset[k] for k in config.KNOBS}, [], rows=rows)
+        r, k = sum(x["raw"] for x in out), sum(x["kept"] for x in out)
+        res[p] = round(100 * (r - k) / r) if r else None
     return res
 
 
 def state() -> dict:
     data = config.read_file()
-    with store.connect() as db:
-        projects = [r[0] for r in db.execute(
-            "SELECT project FROM events WHERE project != '' GROUP BY project ORDER BY MAX(ts) DESC LIMIT 30")]
-    projects = list(dict.fromkeys(projects + list(data["projects"])))
+    projects = list(dict.fromkeys(store.projects() + list(data["projects"])))
     cwd_project = config.project_root(os.getcwd())
     if cwd_project and (Path(cwd_project) / ".git").exists() and cwd_project not in projects:
         projects.append(cwd_project)
@@ -120,6 +122,8 @@ def stats(params: dict) -> dict:
         "turns": [{"session": t[0], "idx": t[1], "ts": t[2], "project": t[3], "raw": t[4], "kept": t[5],
                    "context": t[6], "features": json.loads(t[7] or "{}")} for t in reversed(turns)],
         "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
+        "left": store.passes_page(days, project, int(params.get("left_page", ["0"])[0]),
+                                  min(50, int(params.get("left_size", ["10"])[0]))),
         "live": store.read_live(),
     }
 
@@ -207,6 +211,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, state())
             if u.path == "/api/stats":
                 return self._send(200, stats(parse_qs(u.query)))
+            if u.path == "/api/turn":
+                q = parse_qs(u.query)
+                items = store.turn_outputs(q.get("session", [""])[0], int(q.get("idx", ["0"])[0]))
+                for it in items:
+                    it["segments"] = segments(it["before"], it["after"]) if it["before"] and it["after"] else []
+                return self._send(200, {"items": items})
             if u.path == "/api/graph":
                 return self._send(200, graph_state(parse_qs(u.query).get("project", [""])[0]))
             if u.path in ("/usage", "/usage.html", "/guide"):
@@ -237,12 +247,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, save_config(body))
             if u == "/api/preview":
                 knobs = {k: config.coerce(k, v) for k, v in body.get("knobs", {}).items() if k in config.KNOBS}
-                return self._send(200, {"samples": preview(knobs, body.get("languages") or [])})
+                return self._send(200, {"outputs": preview(knobs, body.get("languages") or [],
+                                                           str(body.get("project") or ""))})
             if u == "/api/setup":
                 action = body.get("action")
                 target = installer.install(statusline=bool(body.get("statusline", True)),
                                            uninstall=action == "uninstall")
                 return self._send(200, {"ok": True, "file": str(target), "setup": installer.status()})
+            if u == "/api/delete":
+                since, until = float(body.get("since") or 0), float(body.get("until") or 0)
+                if since < 0 or until < 0 or (until and until < since):
+                    raise ValueError("pick a 'to' time after the 'from' time")
+                return self._send(200, {"deleted": store.delete(str(body.get("project") or ""), since, until)})
             if u == "/api/selftest":
                 return self._send(200, {"results": installer.selftest()})
             if u.startswith("/api/graph/"):

@@ -76,15 +76,16 @@ def compact(cmd: str, raw: str, code: int, cfg: dict, stopped: bool = False) -> 
     raw_tokens = tokens.count(raw)
     if raw_tokens < cfg["bash_min_tokens"]:
         return raw
-    sid = store.stash(cmd, raw)
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+    sid = store.stash(cmd, raw, session, cfg["project"], code)
     new = filters.compress(cmd, raw, code, stash_id=sid, opts=cfg)
     kept = tokens.count(new)
     if kept > raw_tokens * 0.9 and len(raw) <= (ERROR_LIMIT if code else SHOWN_LIMIT):
         return raw  # barely compressible, and Claude Code would show all of it anyway
     note = "; the command was stopped before it finished" if stopped else ""
     new = new.rstrip("\n") + f"\n[kompactor: {raw_tokens}›{kept} tokens{note}; full output: {installer.cli_name()} show {sid}]\n"
-    store.record("bash", shown_tokens(raw, code), kept, cmd, os.environ.get("CLAUDE_CODE_SESSION_ID", ""),
-                 project=cfg["project"])
+    store.set_shown(sid, new)
+    store.record("bash", shown_tokens(raw, code), kept, cmd, session, project=cfg["project"], stash_id=sid)
     return new
 
 
