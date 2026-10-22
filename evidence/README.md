@@ -15,6 +15,11 @@ tools, turn limit and budget cap. The two arms run interleaved, so model drift a
 - [`levels/level-1`](levels/level-1/REPORT.md) and [`levels/level-5`](levels/level-5/REPORT.md) re-run the same
   27 Kompactor sessions at Max quality and Max savings against the same baselines: +3% and −12% tokens,
   −1% and −10% cost, 27/27 correct at both ends (Balanced: −16% tokens, −10% cost).
+- [`techniques`](techniques) runs each technique on its own (trim, graph, lean, terse), everything else off and no
+  early compaction, on 6 of the 9 tasks with Claude Sonnet 5.5 (3 runs each way, 144 sessions). Each is compared
+  with all 72 baseline sessions; `bench/techniques.py` computes the figures and 95% bootstrap ranges (in
+  shows. Only short replies clearly lowered cost (−8.5%, −21% reply tokens); the others are within noise. Run with
+  `--setting-sources project,local`, so hooks installed on the machine didn't reach the baseline arm.
 - [`experiments/plain-without-prefix`](experiments/plain-without-prefix/REPORT.md) and
   [`experiments/plain-with-prefix`](experiments/plain-with-prefix/REPORT.md) compare two ways of running the
   three failing-test tasks with "run commands plainly" (no `| tail`). **Without the shell prefix:** +33% tokens.

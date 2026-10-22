@@ -7,11 +7,11 @@
   "repos": "cobra, flask, click and zustand",
   "lengths": {
     "short": {
-      "turns": 2.4,
-      "tokens": 84567,
-      "cost": 0.04,
-      "sessions": 5,
-      "correct": 5,
+      "turns": 2.3,
+      "tokens": 82029,
+      "cost": 0.038,
+      "sessions": 6,
+      "correct": 6,
       "tasks": [
         "short-go",
         "short-py",
@@ -20,93 +20,143 @@
       ],
       "arms": {
         "level-1": {
-          "cost": -2.6,
+          "cost": -1.9,
+          "cost_range": [
+            -3.5,
+            -0.3
+          ],
+          "clear": false,
           "tokens": 0.2,
           "output": -0.9,
-          "turns": 2.4,
-          "sessions": 5,
-          "correct": 5
+          "turns": 2.3,
+          "sessions": 6,
+          "correct": 6
         },
         "level-2": {
-          "cost": -13.2,
+          "cost": -12.2,
+          "cost_range": [
+            -13.6,
+            -10.7
+          ],
+          "clear": false,
           "tokens": -10.4,
-          "output": -19.3,
+          "output": -16.4,
           "turns": 2.2,
-          "sessions": 5,
-          "correct": 5
+          "sessions": 6,
+          "correct": 6
         },
         "level-3": {
-          "cost": -10.3,
+          "cost": -9.6,
+          "cost_range": [
+            -11.0,
+            -8.1
+          ],
+          "clear": false,
           "tokens": -10.1,
-          "output": -9.4,
+          "output": -8.3,
           "turns": 2.2,
-          "sessions": 5,
-          "correct": 5
+          "sessions": 6,
+          "correct": 6
         },
         "level-4": {
-          "cost": -10.5,
+          "cost": -9.5,
+          "cost_range": [
+            -10.9,
+            -8.0
+          ],
+          "clear": false,
           "tokens": -9.9,
-          "output": -18.0,
+          "output": -15.7,
           "turns": 2.2,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 6,
+          "correct": 6
         },
         "level-5": {
-          "cost": -13.1,
+          "cost": -12.2,
+          "cost_range": [
+            -13.6,
+            -10.7
+          ],
+          "clear": false,
           "tokens": -10.3,
-          "output": -22.3,
+          "output": -19.6,
           "turns": 2.2,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 6,
+          "correct": 6
         },
         "trim": {
-          "cost": -13.2,
+          "cost": -12.5,
+          "cost_range": [
+            -13.8,
+            -11.1
+          ],
+          "clear": false,
           "tokens": -10.5,
-          "output": -14.0,
+          "output": -13.4,
           "turns": 2.2,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 6,
+          "correct": 6
         },
         "reads": {
           "cost": 3.1,
+          "cost_range": [
+            1.3,
+            4.9
+          ],
+          "clear": false,
           "tokens": 10.9,
-          "output": 10.4,
-          "turns": 2.8,
-          "sessions": 4,
-          "correct": 4
+          "output": 9.6,
+          "turns": 2.5,
+          "sessions": 6,
+          "correct": 6
         },
         "graph": {
-          "cost": -8.3,
+          "cost": -7.5,
+          "cost_range": [
+            -9.0,
+            -6.1
+          ],
+          "clear": false,
           "tokens": -10.3,
-          "output": -2.5,
+          "output": -1.8,
           "turns": 2.2,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 6,
+          "correct": 6
         },
         "lean": {
-          "cost": 6.7,
-          "tokens": -8.3,
-          "output": -0.1,
+          "cost": 0.8,
+          "cost_range": [
+            -6.7,
+            8.4
+          ],
+          "clear": false,
+          "tokens": -9.1,
+          "output": 1.2,
           "turns": 2.2,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 6,
+          "correct": 6
         },
         "terse": {
-          "cost": 9.5,
-          "tokens": 2.0,
-          "output": 0.2,
-          "turns": 2.5,
-          "sessions": 4,
-          "correct": 4
+          "cost": 3.5,
+          "cost_range": [
+            -4.4,
+            11.5
+          ],
+          "clear": false,
+          "tokens": 1.2,
+          "output": 2.1,
+          "turns": 2.3,
+          "sessions": 6,
+          "correct": 6
         }
       }
     },
     "medium": {
-      "turns": 7.8,
-      "tokens": 220857,
-      "cost": 0.087,
-      "sessions": 4,
-      "correct": 4,
+      "turns": 7.4,
+      "tokens": 214879,
+      "cost": 0.085,
+      "sessions": 5,
+      "correct": 5,
       "tasks": [
         "medium-go",
         "medium-py",
@@ -115,84 +165,134 @@
       ],
       "arms": {
         "level-1": {
-          "cost": 4.7,
-          "tokens": 5.6,
-          "output": 1.0,
-          "turns": 8,
-          "sessions": 4,
-          "correct": 4
+          "cost": -1.4,
+          "cost_range": [
+            -7.1,
+            4.7
+          ],
+          "clear": false,
+          "tokens": -0.3,
+          "output": -2.0,
+          "turns": 7.8,
+          "sessions": 5,
+          "correct": 5
         },
         "level-2": {
-          "cost": -2.7,
-          "tokens": 12.6,
-          "output": -1.1,
-          "turns": 7.8,
-          "sessions": 4,
-          "correct": 4
+          "cost": -6.4,
+          "cost_range": [
+            -9.8,
+            -2.7
+          ],
+          "clear": false,
+          "tokens": 9.5,
+          "output": -3.6,
+          "turns": 7.6,
+          "sessions": 5,
+          "correct": 5
         },
         "level-3": {
-          "cost": 4.9,
-          "tokens": 19.3,
-          "output": 12.2,
-          "turns": 8.2,
-          "sessions": 4,
-          "correct": 4
+          "cost": 1.0,
+          "cost_range": [
+            -2.7,
+            5.0
+          ],
+          "clear": false,
+          "tokens": 16.1,
+          "output": 9.6,
+          "turns": 8,
+          "sessions": 5,
+          "correct": 5
         },
         "level-4": {
-          "cost": -4.0,
-          "tokens": 13.7,
-          "output": -7.6,
-          "turns": 7.5,
-          "sessions": 4,
-          "correct": 4
+          "cost": -7.5,
+          "cost_range": [
+            -11.0,
+            -3.8
+          ],
+          "clear": false,
+          "tokens": 10.6,
+          "output": -9.7,
+          "turns": 7.4,
+          "sessions": 5,
+          "correct": 5
         },
         "level-5": {
-          "cost": 32.6,
-          "tokens": 49.8,
-          "output": 17.4,
-          "turns": 10.2,
-          "sessions": 4,
-          "correct": 4
+          "cost": 26.4,
+          "cost_range": [
+            20.6,
+            32.6
+          ],
+          "clear": false,
+          "tokens": 43.1,
+          "output": 14.0,
+          "turns": 9.6,
+          "sessions": 5,
+          "correct": 5
         },
         "trim": {
-          "cost": -0.0,
-          "tokens": 21.5,
-          "output": 7.5,
-          "turns": 8.2,
-          "sessions": 4,
-          "correct": 4
+          "cost": -5.1,
+          "cost_range": [
+            -9.8,
+            -0.0
+          ],
+          "clear": false,
+          "tokens": 17.9,
+          "output": 1.1,
+          "turns": 8,
+          "sessions": 5,
+          "correct": 5
         },
         "reads": {
-          "cost": -10.2,
-          "tokens": -6.3,
-          "output": -2.3,
+          "cost": -10.9,
+          "cost_range": [
+            -16.7,
+            -4.6
+          ],
+          "clear": false,
+          "tokens": -3.9,
+          "output": -5.0,
           "turns": 7.8,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 5,
+          "correct": 5
         },
         "graph": {
-          "cost": 4.1,
-          "tokens": 6.1,
-          "output": 6.5,
-          "turns": 8.5,
-          "sessions": 4,
-          "correct": 4
+          "cost": 3.7,
+          "cost_range": [
+            -3.4,
+            11.4
+          ],
+          "clear": false,
+          "tokens": 6.2,
+          "output": 3.6,
+          "turns": 8.2,
+          "sessions": 5,
+          "correct": 5
         },
         "lean": {
-          "cost": 12.9,
-          "tokens": 16.5,
-          "output": 8.4,
+          "cost": 4.9,
+          "cost_range": [
+            -2.5,
+            12.9
+          ],
+          "clear": false,
+          "tokens": 8.6,
+          "output": 4.2,
           "turns": 7.8,
-          "sessions": 4,
-          "correct": 4
+          "sessions": 5,
+          "correct": 5
         },
         "terse": {
-          "cost": 4.8,
-          "tokens": 4.3,
-          "output": 7.0,
-          "turns": 8,
-          "sessions": 4,
-          "correct": 4
+          "cost": 0.5,
+          "cost_range": [
+            -3.5,
+            4.8
+          ],
+          "clear": false,
+          "tokens": 1.6,
+          "output": 2.2,
+          "turns": 7.6,
+          "sessions": 5,
+          "correct": 5
         }
       }
     },
@@ -211,6 +311,11 @@
       "arms": {
         "level-1": {
           "cost": -6.4,
+          "cost_range": [
+            -6.4,
+            -6.4
+          ],
+          "clear": false,
           "tokens": -10.8,
           "output": -6.5,
           "turns": 14,
@@ -219,6 +324,11 @@
         },
         "level-2": {
           "cost": -8.6,
+          "cost_range": [
+            -8.6,
+            -8.6
+          ],
+          "clear": false,
           "tokens": -2.5,
           "output": 0.0,
           "turns": 13.5,
@@ -227,6 +337,11 @@
         },
         "level-3": {
           "cost": -7.2,
+          "cost_range": [
+            -7.2,
+            -7.2
+          ],
+          "clear": false,
           "tokens": -5.7,
           "output": -1.7,
           "turns": 13.8,
@@ -235,6 +350,11 @@
         },
         "level-4": {
           "cost": -15.1,
+          "cost_range": [
+            -15.1,
+            -15.1
+          ],
+          "clear": false,
           "tokens": -19.6,
           "output": -5.5,
           "turns": 14,
@@ -242,145 +362,226 @@
           "correct": 4
         },
         "level-5": {
-          "cost": -11.3,
-          "tokens": 0.2,
-          "output": -12.7,
-          "turns": 14.7,
-          "sessions": 3,
-          "correct": 3
+          "cost": -13.2,
+          "cost_range": [
+            -13.2,
+            -13.2
+          ],
+          "clear": false,
+          "tokens": -9.0,
+          "output": -12.8,
+          "turns": 14.2,
+          "sessions": 4,
+          "correct": 4
         },
         "trim": {
-          "cost": -4.8,
-          "tokens": 9.3,
-          "output": 9.4,
-          "turns": 14.3,
-          "sessions": 3,
-          "correct": 3
+          "cost": -3.0,
+          "cost_range": [
+            -3.0,
+            -3.0
+          ],
+          "clear": false,
+          "tokens": 10.2,
+          "output": 7.2,
+          "turns": 13.8,
+          "sessions": 4,
+          "correct": 4
         },
         "reads": {
-          "cost": 0.5,
-          "tokens": 0.5,
-          "output": 2.6,
-          "turns": 13.7,
-          "sessions": 3,
-          "correct": 2
+          "cost": -6.9,
+          "cost_range": [
+            -6.9,
+            -6.9
+          ],
+          "clear": false,
+          "tokens": -7.9,
+          "output": -0.6,
+          "turns": 13.5,
+          "sessions": 4,
+          "correct": 3
         },
         "graph": {
-          "cost": 9.6,
-          "tokens": 13.0,
-          "output": -0.8,
-          "turns": 14.3,
-          "sessions": 3,
-          "correct": 2
+          "cost": 7.0,
+          "cost_range": [
+            7.0,
+            7.0
+          ],
+          "clear": false,
+          "tokens": 10.5,
+          "output": -0.9,
+          "turns": 13.5,
+          "sessions": 4,
+          "correct": 3
         },
         "lean": {
-          "cost": -5.6,
-          "tokens": -10.9,
-          "output": -7.4,
-          "turns": 13.7,
-          "sessions": 3,
-          "correct": 2
+          "cost": -2.4,
+          "cost_range": [
+            -2.4,
+            -2.4
+          ],
+          "clear": false,
+          "tokens": -2.9,
+          "output": -3.7,
+          "turns": 14.2,
+          "sessions": 4,
+          "correct": 3
         },
         "terse": {
-          "cost": -2.0,
-          "tokens": -4.3,
-          "output": -5.2,
-          "turns": 14,
-          "sessions": 3,
-          "correct": 2
+          "cost": -4.4,
+          "cost_range": [
+            -4.4,
+            -4.4
+          ],
+          "clear": false,
+          "tokens": -10.8,
+          "output": -3.7,
+          "turns": 13.8,
+          "sessions": 4,
+          "correct": 3
         }
       }
     },
     "xlong": {
-      "turns": 26.5,
-      "tokens": 757209,
-      "cost": 0.246,
-      "sessions": 2,
-      "correct": 1,
+      "turns": 25.3,
+      "tokens": 631522,
+      "cost": 0.221,
+      "sessions": 3,
+      "correct": 2,
       "tasks": [
+        "xlong-go",
         "xlong-py",
         "xlong-ts"
       ],
       "arms": {
         "level-1": {
-          "cost": -0.6,
-          "tokens": 7.5,
-          "output": -1.3,
-          "turns": 25,
-          "sessions": 2,
-          "correct": 2
+          "cost": -1.8,
+          "cost_range": [
+            -1.8,
+            -1.8
+          ],
+          "clear": false,
+          "tokens": 8.3,
+          "output": -2.7,
+          "turns": 26,
+          "sessions": 3,
+          "correct": 3
         },
         "level-2": {
-          "cost": -9.0,
-          "tokens": -2.1,
-          "output": -17.1,
+          "cost": 1.8,
+          "cost_range": [
+            1.8,
+            1.8
+          ],
+          "clear": false,
+          "tokens": 21.1,
+          "output": -12.1,
           "turns": 25,
-          "sessions": 2,
+          "sessions": 3,
           "correct": 1
         },
         "level-3": {
-          "cost": -14.9,
-          "tokens": -2.6,
-          "output": -23.8,
-          "turns": 23.5,
-          "sessions": 2,
-          "correct": 1
+          "cost": 0.2,
+          "cost_range": [
+            0.2,
+            0.2
+          ],
+          "clear": false,
+          "tokens": 23.7,
+          "output": -7.2,
+          "turns": 25.3,
+          "sessions": 3,
+          "correct": 2
         },
         "level-4": {
-          "cost": -12.3,
-          "tokens": 0.4,
-          "output": -29.1,
-          "turns": 24,
-          "sessions": 2,
-          "correct": 2
+          "cost": 16.0,
+          "cost_range": [
+            16.0,
+            16.0
+          ],
+          "clear": false,
+          "tokens": 23.9,
+          "output": 5.7,
+          "turns": 27.7,
+          "sessions": 3,
+          "correct": 3
         },
         "level-5": {
-          "cost": -13.2,
-          "tokens": 5.7,
-          "output": -12.8,
-          "turns": 25.5,
-          "sessions": 2,
-          "correct": 2
+          "cost": 5.6,
+          "cost_range": [
+            5.6,
+            5.6
+          ],
+          "clear": false,
+          "tokens": 34.0,
+          "output": 5.0,
+          "turns": 28.3,
+          "sessions": 3,
+          "correct": 3
         },
         "trim": {
-          "cost": -8.9,
-          "tokens": 5.6,
-          "output": -9.4,
-          "turns": 23.5,
-          "sessions": 2,
-          "correct": 2
+          "cost": 23.6,
+          "cost_range": [
+            23.6,
+            23.6
+          ],
+          "clear": false,
+          "tokens": 29.8,
+          "output": 11.9,
+          "turns": 25,
+          "sessions": 3,
+          "correct": 3
         },
         "reads": {
-          "cost": -14.0,
-          "tokens": -21.9,
-          "output": -13.7,
+          "cost": -11.6,
+          "cost_range": [
+            -11.6,
+            -11.6
+          ],
+          "clear": false,
+          "tokens": -15.3,
+          "output": -13.1,
           "turns": 26,
-          "sessions": 2,
-          "correct": 2
+          "sessions": 3,
+          "correct": 3
         },
         "graph": {
-          "cost": -20.4,
-          "tokens": -9.6,
-          "output": -11.1,
-          "turns": 27,
-          "sessions": 1,
-          "correct": 0
+          "cost": -2.8,
+          "cost_range": [
+            -2.8,
+            -2.8
+          ],
+          "clear": false,
+          "tokens": 21.6,
+          "output": -1.6,
+          "turns": 25.3,
+          "sessions": 3,
+          "correct": 2
         },
         "lean": {
-          "cost": 31.8,
-          "tokens": 102.8,
-          "output": 3.1,
-          "turns": 28,
-          "sessions": 1,
-          "correct": 1
+          "cost": 5.3,
+          "cost_range": [
+            5.3,
+            5.3
+          ],
+          "clear": false,
+          "tokens": 34.0,
+          "output": -8.0,
+          "turns": 26.3,
+          "sessions": 3,
+          "correct": 2
         },
         "terse": {
-          "cost": 0.5,
-          "tokens": 7.7,
-          "output": -14.3,
-          "turns": 28,
-          "sessions": 1,
-          "correct": 0
+          "cost": -6.2,
+          "cost_range": [
+            -6.2,
+            -6.2
+          ],
+          "clear": false,
+          "tokens": 6.5,
+          "output": -17.7,
+          "turns": 25.3,
+          "sessions": 3,
+          "correct": 1
         }
       }
     }

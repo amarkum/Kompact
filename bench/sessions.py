@@ -12,6 +12,7 @@ benchmark picks up where it stopped. The summary is what the Configuration page 
 """
 import argparse
 import json
+import random
 import statistics
 import subprocess
 import sys
@@ -55,8 +56,22 @@ def change(base: float, with_: float) -> float:
     return round(100 * (with_ - base) / base, 1) if base else 0.0
 
 
+def boot_range(base: list, arm: list, tasks: list, rng, resamples: int = 2000) -> list:
+    """95% bootstrap range of the change in cost, resampling each task's runs in both arms."""
+    by = lambda rs: {t: [r["cost"] for r in rs if r["task"] == t] for t in tasks}  # noqa: E731
+    b, k, out = by(base), by(arm), []
+    for _ in range(resamples):
+        bb = sum(statistics.mean(rng.choices(b[t], k=len(b[t]))) for t in tasks)
+        kk = sum(statistics.mean(rng.choices(k[t], k=len(k[t]))) for t in tasks)
+        out.append(100 * (kk - bb) / bb if bb else 0.0)
+    out.sort()
+    return [round(out[int(0.025 * resamples)], 1), round(out[int(0.975 * resamples)], 1)]
+
+
 def summary(results: list, meta: dict, repos=()) -> dict:
-    """Per session length: each arm's change in cost and tokens against the baseline, over the tasks both ran."""
+    """Per session length: each arm's change in cost and tokens against the baseline, over the tasks both ran, with
+    a 95% range for cost. A range that includes 0 means the change isn't clearly different from run-to-run noise."""
+    rng = random.Random(7)
     lengths = {}
     for length in LENGTHS:
         rs = [r for r in results if r["length"] == length]
@@ -76,8 +91,12 @@ def summary(results: list, meta: dict, repos=()) -> dict:
             tot = lambda xs, f: sum(mean([r for r in xs if r["task"] == t], f) for t in tasks)  # noqa: E731
             b = [r for r in base if r["task"] in tasks]
             kk = [r for r in k if r["task"] in tasks]
+            lo, hi = boot_range(b, kk, tasks, rng)
             arms[arm] = {
                 "cost": change(tot(b, lambda r: r["cost"]), tot(kk, lambda r: r["cost"])),
+                # one run per task gives no spread to measure noise with, so it can't count as clear
+                "cost_range": [lo, hi], "clear": (lo > 0 or hi < 0) and all(
+                    sum(r["task"] == t for r in xs) > 1 for xs in (b, kk) for t in tasks),
                 "tokens": change(tot(b, lambda r: r["tokens"]["total"]), tot(kk, lambda r: r["tokens"]["total"])),
                 "output": change(tot(b, lambda r: r["tokens"]["output"]), tot(kk, lambda r: r["tokens"]["output"])),
                 "turns": round(mean(kk, lambda r: r["turns"]), 1),
@@ -105,14 +124,17 @@ def report(doc: dict) -> str:
              f"Real headless Claude Code sessions ({doc['claude_version']}, {doc['model']}), Kompactor "
              f"{doc['kompactor_version']}, {doc['date']}. Every arm ran the same tasks on {doc['repos']}, "
              f"{doc['reps']} run(s) each; Δ is against the same tasks without Kompactor. Technique rows have one "
-             "technique on (at Balanced strength) and everything else off. Made with `bench/sessions.py`.", ""]
+             "technique on (at Balanced strength) and everything else off. The range is a 95% bootstrap interval over the "
+             "runs; bold rows are clearly different from run-to-run noise (the range excludes 0). Made with "
+             "`bench/sessions.py`.", ""]
     for length, L in doc["lengths"].items():
         lines += [f"## {LABELS[length]} sessions ({L['turns']:g} turns on average without Kompactor)", "",
                   f"Without Kompactor: {L['tokens']:,} tokens and ${L['cost']:.3f} per session, "
                   f"{L['correct']}/{L['sessions']} correct. Tasks: {', '.join(L['tasks'])}.", "",
-                  "| Arm | Δ cost | Δ tokens | Δ output tokens | Turns | Correct |", "|---|---:|---:|---:|---:|---:|"]
+                  "| Arm | Δ cost (95% range) | Δ tokens | Δ output tokens | Turns | Correct |", "|---|---:|---:|---:|---:|---:|"]
         for arm, v in L["arms"].items():
-            lines.append(f"| {names[arm]} | {v['cost']:+.1f}% | {v['tokens']:+.1f}% | {v['output']:+.1f}% | "
+            rng_ = f"{v['cost_range'][0]:+.1f} to {v['cost_range'][1]:+.1f}" + ("" if v["clear"] else ", no clear change")
+            lines.append(f"| {'**' * v['clear']}{names[arm]}{'**' * v['clear']} | {v['cost']:+.1f}% ({rng_}) | {v['tokens']:+.1f}% | {v['output']:+.1f}% | "
                          f"{v['turns']:g} | {v['correct']}/{v['sessions']} |")
         lines.append("")
     return "\n".join(lines)

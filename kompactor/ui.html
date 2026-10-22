@@ -182,6 +182,7 @@ td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: 
 .lv-save { margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-2); display: grid; gap: 2px; }
 .lv-save b { font: 600 17px var(--mono); color: var(--good); letter-spacing: -0.02em; }
 .lv-why { font-size: 11.5px; color: var(--ink-3); }
+.lv-save b.noise { color: var(--ink-3); font-size: 14px; }
 @media (max-width: 900px) { .lv-steps { grid-template-columns: repeat(5, minmax(170px, 1fr)); overflow-x: auto; padding: 2px 2px 6px; margin: -2px; } }  /* room for the selected card's ring */
 .level-detail { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: baseline; margin-top: 4px; }
 .level-detail .name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
@@ -285,7 +286,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
 .part-est.worse { color: var(--bad); }
 .part-est .muted { color: var(--ink-3); font-family: var(--sans); }
 .part.off .label, .part.off .help { opacity: .6; }
-.parts-total { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line-2); }
+.parts-total { display: grid; grid-template-columns: 1fr; border-bottom: 1px solid var(--line-2); }
 .parts-total:empty { display: none; }
 .parts-total > div { padding: 14px 16px; }
 .parts-total > div + div { border-left: 1px solid var(--line-2); }
@@ -449,7 +450,7 @@ td .usd { color: var(--good); }
           <div><button class="btn sm" id="toAdvanced">Fine-tune each setting</button></div>
         </div></div>
         <div class="panel">
-          <div class="panel-h"><div><h2>What Kompactor does</h2><div class="sub">Each technique saves tokens in a different place. Switch any of them off; for the ones that are on, the level sets how strong they are.</div></div><div class="seg" id="benchLen" role="group" aria-label="Session length in the benchmark"></div></div>
+          <div class="panel-h"><div><h2>What Kompactor does</h2><div class="sub">Each technique saves tokens in a different place. Switch any of them off; for the ones that are on, the level sets how strong they are.</div></div></div>
           <div class="parts-total" id="partsTotal"></div>
           <div id="parts"></div>
           <div class="parts-note" id="partsNote"></div>
@@ -567,7 +568,6 @@ async function api(path, body) {
   return j;
 }
 
-let LV = null, PARTS_EST = null;  /* PARTS_EST: what each technique saves on your past sessions, from /api/parts */  /* each level's estimated cost saving on this machine's past sessions, from /api/levels */
 let S, cfg, saveTimer, lastTurns = [], graphData = null, turnPage = 0, leftPage = 0, selTurn = "", baId = 0, baItems = [];
 const PAGE = 10;
 
@@ -589,7 +589,7 @@ const presetKnobs = (p) => Object.fromEntries(S.knob_order.map((k) => [k, S.pres
 const effective = () => Object.assign(presetKnobs(cfg.preset), cfg.overrides || {});
 function save(body, msg = "Saved") {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => { try { cfg = (await api("/api/config", body)).config; renderSide(); toast(msg); PARTS_EST = null; renderParts(); loadParts(); } catch (e) { toast("Couldn't save: " + e.message); } }, 220);
+  saveTimer = setTimeout(async () => { try { cfg = (await api("/api/config", body)).config; renderSide(); toast(msg); renderParts(); } catch (e) { toast("Couldn't save: " + e.message); } }, 220);
 }
 function renderSide() {
   const st = S.setup, on = st.hooks_installed || st.plugin_enabled;
@@ -621,23 +621,46 @@ const GROUPS = [
 ];
 /* typical cost saved per level in long sessions on a 1M-context model (65 real sessions replayed), shown when
    this machine has no sessions to replay */
-const TYPICAL = { 1: "0–5%", 2: "10%", 3: "20%", 4: "35%", 5: "50%" };
-function levelSaving(i) {
-  const B = benchLength(), b = B && B.arms[`level-${i}`];
-  const head = b ? `<b>${saving(b.cost)}</b> cost<span class="lv-why">benchmark, ${lenName(B).toLowerCase()} sessions (${B.turns} turns)</span>` : "";
-  if (!LV || LV.pending) return `<span class="lv-save">${head}<span class="lv-why">Estimating on your past sessions…</span></span>`;
-  const L = LV.sessions && LV.levels[i];
-  if (!L) return `<span class="lv-save">${head || `<b>≈${TYPICAL[i]}</b> lower cost<span class="lv-why">typical in long sessions</span>`}</span>`;
-  const win = S.presets[i].compact_window, parts = [];
-  if (L.compact >= 0.5) parts.push(`compacting at ${Math.round(win / 1000)}K: ${Math.round(L.compact)}%`);
-  if (L.trim + L.reads >= 0.05) parts.push(`trimming: ${L.trim + L.reads >= 1 ? Math.round(L.trim + L.reads) : (L.trim + L.reads).toFixed(1)}%`);
-  const mine = `≈${Math.round(L.total)}% on your sessions${parts.length ? ` (${parts.join(" · ")})` : ""}`;
-  return head ? `<span class="lv-save">${head}<span class="lv-why">${mine}</span></span>`
-    : `<span class="lv-save"><b>≈${Math.round(L.total)}%</b> lower cost<span class="lv-why">${parts.join(" · ") || "almost nothing to trim in your sessions"}</span></span>`;
+/* typical share of cost that compacting earlier saves in long sessions, by compaction window (65 real Opus 5.5
+   sessions replayed with `kompactor estimate`); straight lines between the points */
+const COMPACT_TYPICAL = [[240000, 50], [430000, 35], [650000, 19], [780000, 10], [967000, 0]];
+function compactSaving(w) {
+  if (!w) return 0;
+  const C = COMPACT_TYPICAL;
+  if (w <= C[0][0]) return C[0][1];
+  for (let j = 1; j < C.length; j++) if (w <= C[j][0]) { const [a, x] = C[j - 1], [b, y] = C[j]; return x + (y - x) * (w - a) / (b - a); }
+  return 0;
 }
-function loadLevels() {
-  api("/api/levels").then((r) => { LV = r; renderLevels(); if (r.pending) setTimeout(loadLevels, 3000); })
-    .catch(() => { LV = { levels: {}, sessions: 0 }; renderLevels(); });
+/* what each level's trimming and reply rules saved in the benchmark's longest sessions, made non-decreasing from
+   level 1 to 5 (neighbouring levels that came out in the wrong order are averaged: the runs are noisy) */
+function levelTech(B) {
+  const v = [1, 2, 3, 4, 5].map((i) => { const a = B && B.arms[`level-${i}`]; return a ? Math.max(0, -a.cost) : 0; });
+  const blocks = v.map((x) => [x, 1]);
+  for (let i = 0; i < blocks.length - 1;) {
+    if (blocks[i][0] > blocks[i + 1][0]) { const [a, n] = blocks[i], [b, m] = blocks[i + 1]; blocks.splice(i, 2, [(a * n + b * m) / (n + m), n + m]); i = Math.max(0, i - 1); }
+    else i++;
+  }
+  return blocks.flatMap(([x, n]) => Array(n).fill(x));
+}
+/* approximate % of cost saved in long sessions with level p's settings changed to e: the level's measured
+   trimming and rules, each switch you flipped against the level adjusted by that technique's own measured saving,
+   then compacting earlier on what's left */
+function estimate(p, e) {
+  const B = benchLong(), lvl = presetKnobs(p);
+  let t = 1 - levelTech(B)[p - 1] / 100;
+  if (B) PARTS.filter((P) => P.bench && B.arms[P.bench]).forEach((P) => {
+    const on = P.isOn(e);
+    if (on === P.isOn(lvl)) return;
+    const f = 1 + Math.min(0, B.arms[P.bench].cost) / 100;
+    t = on ? t * f : Math.min(1, t / f);
+  });
+  const c = compactSaving(e.compact_window);
+  return { tech: Math.round(100 * (1 - t)), compact: Math.round(c), total: Math.round(100 * (1 - t * (1 - c / 100))) };
+}
+function levelSaving(i) {
+  const e = i === cfg.preset ? effective() : presetKnobs(i), E = estimate(i, e);
+  const why = [`trimming & rules ≈${E.tech}%`, e.compact_window ? `compacting at ${Math.round(e.compact_window / 1000)}K ≈${E.compact}%` : "no early compacting"];
+  return `<span class="lv-save"><b>≈${E.total}%</b> lower cost (approx.)<span class="lv-why">${why.join(" · ")}</span></span>`;
 }
 function renderLevels() {
   $("endL").innerHTML = `${chev("left")} More detail for Claude`;
@@ -651,14 +674,10 @@ function renderLevels() {
   }).join("");
   const P = S.presets[cfg.preset];
   $("lvName").textContent = `You're on ${P.name}`;
-  const est = LV && !LV.pending && LV.sessions ? LV.levels[cfg.preset] : null;
-  $("lvSave").hidden = !est;
-  $("lvSave").textContent = est ? `≈${Math.round(est.total)}% lower cost on your last ${LV.sessions} Claude Code sessions` : "";
-  const B = benchLength();
-  $("lvDesc").textContent = (B ? `Each card first shows what the level saved in real Claude Code sessions of the length chosen under "What Kompactor does", against the same sessions without Kompactor. ` : "")
-    + (!LV || LV.pending ? "Replaying your past sessions at each level…"
-    : est ? "Below that, your own past sessions replayed at the level: tool output trimmed, and the conversation compacted at the level's size. Compacting earlier is where most of the saving comes from in very long sessions; Claude then keeps a summary of the early part, not every detail."
-    : B ? "" : "No past sessions to replay yet, so the cards show what each level typically saves in long sessions.");
+  const E = estimate(cfg.preset, effective()), changed = Object.keys(cfg.overrides || {}).length;
+  $("lvSave").hidden = false;
+  $("lvSave").textContent = `≈${E.total}% lower cost${changed ? " with your changes" : ""}`;
+  $("lvDesc").textContent = "An approximation from Kompactor's benchmark, not a promise for your own sessions: about how much lower the cost of a long Claude Code session is with these settings. Trimming and reply rules are measured in real benchmark sessions; compacting earlier adds to that once a conversation grows past the level's size. Change the level, a switch or any setting below and the figures update.";
 }
 $("toAdvanced").onclick = () => $("advanced").scrollIntoView({ behavior: "smooth" });
 $("levels").onclick = (e) => { const b = e.target.closest("button"); if (b) setPreset(+b.dataset.p); };
@@ -680,13 +699,13 @@ const PARTS = [
     off: { read_outline: false, read_dedupe: false } },
   { id: "graph", name: "Code graph", tag: "graphify-style", bench: "graph", isOn: (e) => e.graph,
     desc: () => "Functions, imports and calls are indexed, so Claude finds code by topic and sees what a change affects without opening whole files.",
-    note: "Saves tokens when Claude looks code up; past sessions can't show how much.", off: { graph: false, session_map_tokens: 0, read_graph_context: false } },
+    note: "Not measured in the benchmark yet.", off: { graph: false, session_map_tokens: 0, read_graph_context: false } },
   { id: "lean", name: "Lean-code rules", tag: "ponytail-style", bench: "lean", isOn: (e) => e.code_style !== "normal",
     desc: () => "Claude reuses what exists and makes the smallest change, after checking callers and tests.",
-    note: "Changes what Claude writes, so past sessions can't show how much it saves.", off: { code_style: "normal" } },
+    note: "Not measured in the benchmark yet.", off: { code_style: "normal" } },
   { id: "terse", name: "Short replies", tag: "caveman-style", bench: "terse", isOn: (e) => e.style !== "off",
     desc: () => "Claude answers first and skips recaps. Code, commands and errors are never shortened.",
-    note: "Changes what Claude writes, so past sessions can't show how much it saves.", off: { style: "off" } },
+    note: "Not measured in the benchmark yet.", off: { style: "off" } },
 ];
 /* "−4.2%" for a saving, "+1.3%" for an increase */
 const signed = (v) => (v <= 0 ? "−" : "+") + Math.abs(v) + "%";
@@ -694,9 +713,17 @@ const signed = (v) => (v <= 0 ? "−" : "+") + Math.abs(v) + "%";
 const saving = (v) => (v <= 0 ? `≈${Math.round(-v)}% lower` : `+${Math.round(v)}% higher`);
 /* the benchmark (bench/sessions.py): per session length, each level's and each technique's measured change */
 const LENS = [["short", "Short"], ["medium", "Medium"], ["long", "Long"], ["xlong", "Very long"]];
-let benchLen = local.get("kompactor-bench-len") || "long";
+const benchLen = "xlong";
 const benchLengths = () => (S.techniques && S.techniques.lengths) || {};
-const benchLength = (len = benchLen) => { const L = benchLengths(); return L[len] ? { ...L[len], key: len } : null; };
+const benchLength = (len = benchLen) => { const L = benchLengths(), k = L[len] ? len : Object.keys(L).pop(); return k ? { ...L[k], key: k } : null; };
+/* long and very long sessions together, each arm's change averaged over the two: steadier than either alone */
+function benchLong() {
+  const Ls = ["long", "xlong"].map((k) => benchLengths()[k]).filter(Boolean);
+  if (!Ls.length) return benchLength();
+  const arms = {};
+  Object.keys(Ls[0].arms).forEach((a) => { const xs = Ls.map((L) => L.arms[a]).filter(Boolean); arms[a] = { cost: xs.reduce((s, x) => s + x.cost, 0) / xs.length }; });
+  return { arms, key: "long" };
+}
 const lenName = (B) => (LENS.find(([k]) => k === B.key) || [, B.key])[1];
 /* the benchmark's change in cost for the current settings in sessions of length B: the level as measured, adjusted
    by each technique switched off (or on) against it, as measured by itself. Exact when nothing is overridden. */
@@ -707,34 +734,30 @@ function configBench(B, eff) {
   let x;
   if (lv) x = bench.reduce((a, P) => (P.isOn(eff) === P.isOn(lvl) ? a : P.isOn(eff) ? a * f(P) : a / f(P)), 1 + lv.cost / 100);
   else x = bench.filter((P) => P.isOn(eff)).reduce((a, P) => a * f(P), 1);
-  return { cost: Math.round(1000 * (x - 1)) / 10, exact: !!lv && !Object.keys(cfg.overrides || {}).length };
+  const exact = !!lv && !Object.keys(cfg.overrides || {}).length;
+  return { cost: Math.round(1000 * (x - 1)) / 10, exact, noise: exact && lv.clear === false, range: exact ? lv.cost_range : null };
 }
 function renderParts() {
   const eff = effective(), B = benchLength(), T = B ? B.arms : {};
-  $("benchLen").innerHTML = Object.keys(benchLengths()).length ? LENS.filter(([k]) => benchLengths()[k]).map(([k, n]) =>
-    `<button data-len="${k}" aria-pressed="${k === benchLen}" title="${benchLengths()[k].turns} turns on average">${n} · ${Math.round(benchLengths()[k].turns)} turns</button>`).join("") : "";
+  /* each switch: about how much that technique saves by itself, from the benchmark's long and very long sessions */
+  const L = benchLong() || { arms: {} };
   const bench = (P) => {
-    const b = P.bench && T[P.bench];
-    if (!b) return P.est ? "" : `<div class="part-est muted">${P.note}</div>`;
-    return `<div class="part-est${b.cost > 0 ? " worse" : ""}">${signed(b.cost)} cost by itself in ${lenName(B).toLowerCase()} sessions <span class="muted">· ${signed(b.tokens)} tokens · ${b.sessions} session${b.sessions === 1 ? "" : "s"} each way</span></div>`;
+    if (P.id === "compact") return eff.compact_window
+      ? `<div class="part-est">≈${Math.round(compactSaving(eff.compact_window))}% lower cost in long sessions (approx.)</div>` : "";
+    const b = P.bench && L.arms[P.bench];
+    if (!b) return P.note ? `<div class="part-est muted">${P.note}</div>` : "";
+    return b.cost < -0.5 ? `<div class="part-est">≈${Math.round(-b.cost)}% lower cost by itself in the benchmark (approx.)</div>`
+      : `<div class="part-est muted">No measurable saving by itself in the benchmark</div>`;
   };
-  const mine = (P) => {
-    if (!P.est || !P.isOn(eff)) return "";
-    if (!PARTS_EST) return `<div class="part-est muted">Estimating on your past sessions…</div>`;
-    const v = PARTS_EST[P.est];
-    return v == null || !PARTS_EST.sessions ? "" : `<div class="part-est muted">${v >= 0.1 ? `≈${v}%` : "under 0.1%"} lower cost on your last ${PARTS_EST.sessions} sessions</div>`;
-  };
-  $("parts").innerHTML = PARTS.map((P) => `<div class="knob part${P.isOn(eff) ? "" : " off"}"><div><div class="label">${esc(P.name)}${P.tag ? ` <span class="tag">${P.tag}</span>` : ""}</div><div class="help">${esc(P.desc(eff))}</div>${bench(P)}${mine(P)}</div>
+  $("parts").innerHTML = PARTS.map((P) => `<div class="knob part${P.isOn(eff) ? "" : " off"}"><div><div class="label">${esc(P.name)}${P.tag ? ` <span class="tag">${P.tag}</span>` : ""}</div><div class="help">${esc(P.desc(eff))}</div>${bench(P)}</div>
     <div class="ctl"><label class="switch"><input type="checkbox" data-part="${P.id}" ${P.isOn(eff) ? "checked" : ""} aria-label="${esc(P.name)}"><span></span></label></div></div>`).join("");
   $("parts").querySelectorAll("input[data-part]").forEach((el) => (el.onchange = () => setPart(PARTS.find((P) => P.id === el.dataset.part), el.checked)));
-  const compactOn = eff.compact_window > 0, compact = PARTS_EST && PARTS_EST.sessions ? PARTS_EST.compact : null;
-  const C = configBench(B, eff), v = (c) => (c <= 0 ? `≈${Math.round(-c * 10) / 10}%<span> lower cost</span>` : `+${c}%<span> higher cost</span>`);
-  const byLen = LENS.filter(([k]) => benchLengths()[k]).map(([k, n]) => { const c = configBench(benchLength(k), eff); return `${n.toLowerCase()} ${signed(c.cost)}`; }).join(" · ");
-  $("partsTotal").innerHTML = B ? `
-    <div><div class="k">Your settings, in the benchmark</div><div class="v">${v(C.cost)}</div><div class="f">${esc(S.presets[cfg.preset].name)}${C.exact ? "" : " with your changes (approximate)"}; ${lenName(B).toLowerCase()} sessions, ${B.turns} turns. By length: ${byLen}</div></div>
-    <div><div class="k">Compacting earlier, on your sessions</div><div class="v">${!compactOn ? "off" : compact == null ? "…" : `≈${compact}%`}<span>${compactOn ? " lower cost" : ""}</span></div><div class="f">${compactOn ? `at ${Math.round(eff.compact_window / 1000)}K tokens; only sessions that grow that big` : "Claude Code compacts only when the window is full"}</div></div>` : "";
+  const E = estimate(cfg.preset, eff);
+  $("partsTotal").innerHTML = `
+    <div><div class="k">Your settings, approximately (from the benchmark)</div><div class="v">≈${E.total}%<span> lower cost in long sessions</span></div><div class="f">trimming &amp; rules ≈${E.tech}% · ${eff.compact_window ? `compacting at ${Math.round(eff.compact_window / 1000)}K ≈${E.compact}%` : "compacting earlier is off"}</div></div>`;
   const D = S.techniques || {};
-  $("partsNote").innerHTML = B ? `Benchmark: ${Object.values(benchLengths()).reduce((a, L) => a + L.sessions, 0)} real Claude Code sessions without Kompactor, and as many at each level and with each technique switched on by itself (everything else off), on ${esc(D.repos || "")}, ${D.reps || 2} runs each, ${esc(D.model || "")}, ${esc(D.date || "")}. Tasks run tests, read git history and diffs, and look code up; short sessions are one command and an answer, very long ones twenty steps. A token trimmed early is re-sent on every later turn, so savings grow with the length of the session. None of the sessions grew big enough to compact, so compacting earlier is estimated on your own sessions.` : "";
+  $("partsNote").innerHTML = B ? `All figures are approximate, from Kompactor's benchmark: ${Object.values(benchLengths()).reduce((a, L) => a + L.sessions, 0)} real Claude Code sessions without Kompactor on ${esc(D.repos || "")} (running tests, reading git history and diffs, looking code up), and the same sessions at each level and with each technique switched on by itself; ${esc(D.model || "")}, ${esc(D.date || "")}. Techniques use the long and very long sessions (14 to 27 turns). Compacting earlier uses what it saved in 65 long real sessions at each size. Your own sessions may save more or less. Full results: evidence/sessions in the Kompactor repository.` : "";
+  renderLevels();
 }
 function setPart(P, on) {
   const lvl = presetKnobs(cfg.preset), base = P.isOn(lvl) ? lvl : presetKnobs(3);
@@ -742,12 +765,11 @@ function setPart(P, on) {
     const v = on ? base[k] : P.off[k];
     if (JSON.stringify(v) === JSON.stringify(lvl[k])) delete cfg.overrides[k]; else cfg.overrides[k] = v;
   });
-  PARTS_EST = null; renderKnobs(); save({ overrides: cfg.overrides }, `${P.name}: ${on ? "on" : "off"}`);
+  renderKnobs(); renderParts(); save({ overrides: cfg.overrides }, `${P.name}: ${on ? "on" : "off"}`);
 }
-const loadParts = () => api("/api/parts").then((r) => { PARTS_EST = r; renderParts(); }).catch(() => {});
 
 function setPreset(p) { cfg.preset = p; renderLevels(); renderKnobs(); renderParts(); renderSide(); save({ preset: p }, `${S.presets[p].name} saved`); }
-$("benchLen").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; benchLen = b.dataset.len; local.set("kompactor-bench-len", benchLen); renderParts(); renderLevels(); };
+
 
 function control(k, v) {
   const [label, , type, a, b, step] = S.knobs[k];
@@ -1270,8 +1292,6 @@ async function boot() {
   fillProjectSelects();
   renderSide(); renderThemeBtn(); renderLevels(); renderKnobs(); renderProjects(); renderSetup();
   loadStats(); loadOutputs();
-  loadParts();
-  loadLevels();
   const start = location.hash.slice(1) || local.get("kompactor-page") || (S.setup.hooks_installed || S.setup.plugin_enabled ? "overview" : "setup");
   go(PAGES.some(([p]) => p === start) ? start : "overview");
   setInterval(loadStats, 5000);
