@@ -4,6 +4,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- Docs in the code graph: Markdown and reStructuredText headings become searchable sections, and backticked names, paths and local links tie them to the code. `graph impact` lists "docs that mention it" and `graph explain` adds "documented in". Docs never count as modules, areas or callers.
 - `kompactor graph export json|graphml|mermaid|obsidian`: the graph as data, for Gephi or yEd, as a Mermaid diagram grouped by area, or as an Obsidian vault. `kompactor graph hook install` adds a background graph refresh to the repo's post-commit, post-merge and post-checkout hooks, beside any hooks already there (`uninstall` removes only its own line).
 - Callers and `explain` label each link: exact (same module, or it imports the definition), likely (the only definition of that name), ambiguous (several definitions, none imported) or external (not defined in the repo), with a count per label.
 - Code graph communities: modules that import each other are grouped into areas (label propagation over the import graph, folder-mates weighted a little higher). `graph report` lists them with their hub; the dashboard's module map colours nodes by area with a named legend.

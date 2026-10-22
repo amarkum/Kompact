@@ -703,3 +703,34 @@ class ExportAndHookTests(unittest.TestCase):
         self.assertFalse(Path(root, ".git", "hooks", "post-merge").exists())
         with self.assertRaises(FileNotFoundError):
             graph.git_hook(tempfile.mkdtemp())
+
+
+class DocsInGraphTests(unittest.TestCase):
+    def test_docs_sections_link_to_the_code_they_mention(self):
+        root = make_repo({**PY, "docs/checkout.md": '''
+            # Checkout
+
+            How a cart is priced at checkout.
+
+            ## Totals
+
+            `Cart.total` adds tax after the discount; see [the cart](../shop/cart.py).
+
+            ```python
+            Cart().total()  # code blocks are not links
+            ```
+            ''', "notes.rst": "Pricing\n=======\n\nUses ``price_for``.\n"})
+        graph.build(root)
+        g = graph.Graph(root)
+        sections = {(s["file"], s["name"]): s for s in g.symbols if s["kind"] == "section"}
+        self.assertIn(("docs/checkout.md", "Totals"), sections)
+        self.assertEqual(sections[("docs/checkout.md", "Checkout")]["doc"], "How a cart is priced at checkout.")
+        self.assertIn(("notes.rst", "Pricing"), sections)
+        self.assertIn(("docs/checkout.md", 8, "Totals"), g.docs_for(["total"]))
+        self.assertIn(("docs/checkout.md", 8, "Totals"), g.docs_for(files=["shop/cart.py"]))
+        self.assertNotIn(11, [ln for _, ln, _ in g.docs_for(["total"])])  # inside a fenced block
+        self.assertIn("docs that mention it: docs/checkout.md:8 (Totals)", graph.impact_text(root, "shop/cart.py"))
+        self.assertIn("documented in: docs/checkout.md:8 (Totals)", graph.explain_text(root, "Cart.total"))
+        self.assertIn("docs/checkout.md", graph.query(root, "priced checkout"))
+        self.assertTrue(g.is_aux_unit("docs/checkout.md"))  # docs never count as core modules
+        self.assertNotIn("docs/checkout.md", {u for c in graph.communities(g) for u in c["units"]})

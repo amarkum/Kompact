@@ -40,6 +40,8 @@ CREATE INDEX IF NOT EXISTS refs_name ON refs(name);
 CREATE INDEX IF NOT EXISTS refs_file ON refs(file);
 CREATE TABLE IF NOT EXISTS imports (file TEXT, target TEXT, resolved TEXT, names TEXT, type_only INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS idents (file TEXT, name TEXT, count INTEGER);
+CREATE TABLE IF NOT EXISTS doclinks (doc TEXT, line INTEGER, section TEXT, name TEXT, target TEXT);
+CREATE INDEX IF NOT EXISTS doclinks_name ON doclinks(name);
 CREATE INDEX IF NOT EXISTS idents_name ON idents(name);
 CREATE INDEX IF NOT EXISTS imports_file ON imports(file);
 CREATE INDEX IF NOT EXISTS imports_resolved ON imports(resolved);
@@ -51,6 +53,7 @@ LANG_OF = {".py": "python", ".pyi": "python", ".go": "go", ".ts": "ts", ".tsx": 
            ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hh": "cpp", ".rb": "ruby", ".php": "php"}
 
 MAX_FILE_BYTES = 600_000
+DOC_EXT = {".md", ".mdx", ".rst"}
 TEST_FILE = re.compile(r"(^|/)(tests?|__tests__|test-d|spec|specs|e2e|testdata|Tests|androidTest)(/|$)|"
                        r"[._-](test|spec)\.\w+$|(^|/)test_[^/]+\.py$|_test\.go$|(^|/)conftest\.py$|"
                        r"[a-z0-9](Tests?|Spec|IT)\.(java|kt|kts|scala|cs|swift|php)$")
@@ -76,7 +79,7 @@ class _Conn(sqlite3.Connection):
             self.close()
 
 
-SCHEMA_VERSION = "4"
+SCHEMA_VERSION = "5"
 
 
 def connect(root: str) -> _Conn:
@@ -699,6 +702,75 @@ def parse_lang(lang: str, path: str, src: str):
 
 
 # ---------------------------------------------------------------------------
+# Markdown / reStructuredText docs: sections, and the code they mention
+
+MD_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+RST_UNDERLINE = re.compile(r"^([=\-~^\"'`#*+])\1{2,}\s*$")
+_CODE_SPAN = re.compile(r"`([^`\n]{1,160})`")
+_MD_LINK = re.compile(r"\]\(([^)\s]+)\)")
+_PATHISH = re.compile(r"^[\w.@/-]+\.[A-Za-z]{1,6}(?::\d+(?:-\d+)?)?$")
+
+
+def parse_doc(path: str, src: str):
+    """Sections (headings, with their first line of text) and links: (line, section, name, target). A name is a
+    backticked identifier (`Cart.total` -> total); a target is a backticked path or a local Markdown link."""
+    lines = src.splitlines()
+    heads, fence = [], False
+    for i, ln in enumerate(lines, 1):
+        if ln.lstrip().startswith(("```", "~~~")):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        m = MD_HEADING.match(ln)
+        if m and not path.endswith(".rst"):
+            heads.append((i, len(m.group(1)), m.group(2)))
+        elif path.endswith(".rst") and i > 1 and RST_UNDERLINE.match(ln) and lines[i - 2].strip() \
+                and len(ln.rstrip()) >= len(lines[i - 2].rstrip()):
+            heads.append((i - 1, "=-~^\"'`#*+".index(ln.strip()[0]) + 1, lines[i - 2].strip()))
+    syms = []
+    for k, (line, level, title) in enumerate(heads):
+        end = next((ln - 1 for ln, lv, _ in heads[k + 1:] if lv <= level), len(lines))
+        title = re.sub(r"\]\([^)]*\)", "]", title)
+        title = re.sub(r"[`*_\[\]<>]", "", title).strip()[:100] or "section"
+        first = next((x.strip() for x in lines[line:end] if x.strip() and not x.lstrip().startswith(
+            ("#", "```", "~~~", "|", "<", "![", "-", "=", "*")) and not RST_UNDERLINE.match(x)), "")
+        syms.append((title, "section", "", line, end, lines[line - 1].strip()[:200], _first_doc_line(first), 1))
+    spans = [(s[3], s[4], s[0]) for s in syms]
+    links, fence = [], False
+    for i, ln in enumerate(lines, 1):
+        if ln.lstrip().startswith(("```", "~~~")):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        sec = _scope_at(spans, i)
+        for m in _CODE_SPAN.finditer(ln):
+            span = m.group(1).strip()
+            if _PATHISH.match(span) and ("/" in span or Path(span.split(":")[0]).suffix in outline.SOURCE_EXT):
+                links.append((i, sec, "", span.split(":")[0]))
+                continue
+            for ident in re.findall(r"[A-Za-z_][\w]*(?:(?:\.|::|#)[A-Za-z_]\w*)*", span)[:3]:
+                leaf = re.split(r"\.|::|#", ident)[-1]
+                if len(leaf) > 2 and not leaf.isdigit():
+                    links.append((i, sec, leaf, ""))
+        for m in _MD_LINK.finditer(ln):
+            target = m.group(1).split("#")[0]
+            if target and not re.match(r"^[a-z]+:", target):
+                links.append((i, sec, "", target))
+    return syms, links
+
+
+def _doc_target(doc: str, target: str, files) -> str:
+    """A doc's path mention as a repo file ("" if it isn't one): relative to the doc, then to the repo root."""
+    for c in (os.path.join(os.path.dirname(doc), target), target.lstrip("/")):
+        c = os.path.normpath(c)
+        if c in files:
+            return c
+    return ""
+
+
+# ---------------------------------------------------------------------------
 # resolution of imports to units
 
 
@@ -910,13 +982,14 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
     root = str(Path(root).resolve())
     t0 = time.time()
     listed = outline.list_files(root)
-    all_files = [f for f in listed if Path(f).suffix in outline.SOURCE_EXT]
+    all_files = [f for f in listed if Path(f).suffix in outline.SOURCE_EXT or Path(f).suffix in DOC_EXT]
+    listed_set = set(listed)
     gen_re = langs.generated_re(list(langs.PROFILES))
     resolver = Resolver(root, all_files, listed)
     parsed = skipped = errors = 0
     with connect(root) as db:
         if full:
-            for t in ("files", "symbols", "refs", "imports", "idents"):
+            for t in ("files", "symbols", "refs", "imports", "idents", "doclinks"):
                 db.execute(f"DELETE FROM {t}")
         known = {r[0]: (r[1], r[2]) for r in db.execute("SELECT path, mtime_ns, size FROM files")}
         current = set(all_files)
@@ -932,15 +1005,17 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
                 skipped += 1
                 continue
             _forget(db, f)
-            lang = LANG_OF.get(Path(f).suffix, "other")
+            lang = "doc" if Path(f).suffix in DOC_EXT else LANG_OF.get(Path(f).suffix, "other")
             try:
                 src = Path(p).read_text(errors="replace") if st.st_size <= MAX_FILE_BYTES else ""
             except OSError:
                 continue
-            syms, refs, imps = [], [], []
+            syms, refs, imps, links = [], [], [], []
             if src:
                 try:
-                    if lang == "python":
+                    if lang == "doc":
+                        syms, links = parse_doc(f, src)
+                    elif lang == "python":
                         syms, refs, imps = parse_python(f, src)
                     elif lang == "go":
                         syms, refs, imps = parse_go(f, src)
@@ -964,6 +1039,9 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
             db.executemany("INSERT INTO imports VALUES (?,?,?,?,?)",
                            [(f, t, resolver.resolve(f, t, lvl, names), names, tonly) for t, lvl, names, tonly in imps])
             db.executemany("INSERT INTO idents VALUES (?,?,?)", [(f, n, c) for n, c in IDENTS.pop(f, {}).items()])
+            db.executemany("INSERT INTO doclinks VALUES (?,?,?,?,?)",
+                           [(f, ln, sec, name, _doc_target(f, t, listed_set) if t else "") for ln, sec, name, t in links
+                            if name or _doc_target(f, t, listed_set)])
             parsed += 1
         stats = {"files": len(all_files), "parsed": parsed, "unchanged": skipped, "errors": errors,
                  "seconds": round(time.time() - t0, 2), "built": time.time()}
@@ -976,7 +1054,8 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
 
 
 def _forget(db, f):
-    for t, col in (("files", "path"), ("symbols", "file"), ("refs", "file"), ("imports", "file"), ("idents", "file")):
+    for t, col in (("files", "path"), ("symbols", "file"), ("refs", "file"), ("imports", "file"), ("idents", "file"),
+                   ("doclinks", "doc")):
         db.execute(f"DELETE FROM {t} WHERE {col}=?", (f,))
 
 
@@ -990,7 +1069,7 @@ def _sym_name(sig: str):
 
 CALLABLE = {"function", "method", "component", "hook", "class", "struct"}
 KIND_WEIGHT = {"function": 1.0, "method": 1.0, "component": 1.0, "hook": 1.0, "class": 1.0, "struct": 1.0,
-               "interface": 0.8, "type": 0.7, "enum": 0.7, "constant": 0.5, "symbol": 0.6}
+               "interface": 0.8, "type": 0.7, "enum": 0.7, "constant": 0.5, "symbol": 0.6, "section": 0.55}
 
 
 class Graph:
@@ -1008,6 +1087,7 @@ class Graph:
                                                 "exported FROM symbols")]
             self.refs = db.execute("SELECT file, scope, name, kind, line FROM refs").fetchall()
             self.imports = db.execute("SELECT file, target, resolved, names, type_only FROM imports").fetchall()
+            self.doclinks = db.execute("SELECT doc, line, section, name, target FROM doclinks").fetchall()
         self.by_name = defaultdict(list)
         self.by_file = defaultdict(list)
         for s in self.symbols:
@@ -1066,7 +1146,12 @@ class Graph:
 
     def is_aux_unit(self, u: str) -> bool:
         """Examples, docs, benchmarks, scripts: real code, but not what a task is usually about."""
-        return bool(AUX_FILE.search(u))
+        return bool(AUX_FILE.search(u)) or Path(u).suffix in DOC_EXT
+
+    def docs_for(self, names=(), files=()):
+        """Doc sections that mention one of `names` in backticks or link to one of `files`: (doc, line, section)."""
+        names, files = set(names), set(files)
+        return sorted({(d, ln, sec) for d, ln, sec, n, t in self.doclinks if (n and n in names) or (t and t in files)})
 
     def core_units(self):
         pr = self.rank()
@@ -1342,8 +1427,9 @@ def impact(root: str, target: str, depth: int = 3):
     if kind == "symbol":  # callers of callers aren't affected by a change to this symbol; their tests still run
         levels = levels[:1]
     affected = sorted({f for lvl in levels for f in lvl})
+    docs = g.docs_for(names if kind == "symbol" else names | {Path(f).stem for f in files}, files)
     return {"target": target, "kind": kind, "files": sorted(files), "levels": levels, "affected": affected,
-            "tests": sorted(set(tests)),
+            "tests": sorted(set(tests)), "docs": docs,
             "importers_only": sorted(f for f in others if not g.files[f]["test"] and f not in affected)}, g
 
 
@@ -1368,6 +1454,10 @@ def impact_text(root: str, target: str, budget: int = 1200) -> str:
         out.append(f"  import its module but not {target}: " + ", ".join(others[:15]) + (" …" if len(others) > 15 else ""))
     if res["tests"]:
         out.append("  tests to run: " + ", ".join(res["tests"][:20]) + (" …" if len(res["tests"]) > 20 else ""))
+    if res["docs"]:
+        out.append("  docs that mention it: " + ", ".join(f"{d}:{ln} ({sec})" if sec else f"{d}:{ln}"
+                                                          for d, ln, sec in res["docs"][:12])
+                   + (" …" if len(res["docs"]) > 12 else ""))
     return _fit(out, budget)
 
 
@@ -1406,6 +1496,8 @@ def areas(g: Graph, max_areas: int = 12):
     """Group units into areas by directory, then merge tiny areas into their parent."""
     by_dir = defaultdict(list)
     for u in g.unit_files:
+        if Path(u).suffix in DOC_EXT:
+            continue  # docs are sections, not modules
         d = u.rstrip("/") if u.endswith("/") else os.path.dirname(u)
         by_dir[d or "."].append(u)
     return sorted(by_dir.items(), key=lambda kv: -sum(g.rank().get(u, 0) for u in kv[1]))[:max_areas]
@@ -1619,6 +1711,9 @@ def explain_text(root: str, name: str, budget: int = 1200) -> str:
         tests = sorted({r[0] for r in g.callers(s["name"], limit=500)[0] if g.files.get(r[0], {}).get("test")})
         if tests:
             out.append("  tested in: " + ", ".join(tests[:6]))
+        docs = g.docs_for([s["name"], _qual(s)])
+        if docs:
+            out.append("  documented in: " + ", ".join(f"{d}:{ln} ({sec})" if sec else f"{d}:{ln}" for d, ln, sec in docs[:6]))
     return _fit(out, budget)
 
 
