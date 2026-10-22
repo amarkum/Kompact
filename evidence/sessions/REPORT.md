@@ -36,36 +36,36 @@ Without Kompactor: 216,224 tokens and $0.085 per session, 8/8 correct. Tasks: me
 | **Lean-code rules only** | +19.5% (+3.1 to +37.7) | +17.7% | +6.5% | 8.1 | 8/8 |
 | Short replies only | +2.0% (-6.8 to +12.3, no clear change) | +8.3% | -3.2% | 7.8 | 8/8 |
 
-## Long sessions (14.3 turns on average without Kompactor)
+## Long sessions (14.8 turns on average without Kompactor)
 
-Without Kompactor: 412,466 tokens and $0.151 per session, 4/7 correct. Tasks: long-go, long-py, long-py2, long-ts.
-
-| Arm | Δ cost (95% range) | Δ tokens | Δ output tokens | Turns | Correct |
-|---|---:|---:|---:|---:|---:|
-| Level 1 | -5.3% (-12.2 to +2.3, no clear change) | -1.5% | -3.2% | 14.1 | 6/7 |
-| Level 2 | -7.3% (-12.9 to -1.1, no clear change) | +0.4% | +2.2% | 13.3 | 6/7 |
-| Level 3 | -7.1% (-12.3 to -0.7, no clear change) | -2.2% | -1.2% | 13.4 | 6/7 |
-| Level 4 | -8.8% (-15.8 to -1.5, no clear change) | -8.5% | +0.7% | 14.1 | 6/7 |
-| Level 5 | -12.9% (-18.2 to -6.9, no clear change) | -6.3% | -6.0% | 14.7 | 7/7 |
-| Trim command output only | -3.1% (-8.6 to +3.3, no clear change) | +11.1% | +8.0% | 14 | 7/7 |
-| Outline-first reads only | -8.8% (-14.4 to -3.1, no clear change) | -3.8% | -4.4% | 13.3 | 5/7 |
-| Code graph only | +5.2% (-2.4 to +13.6, no clear change) | +13.9% | +11.5% | 15.7 | 4/7 |
-| Lean-code rules only | +0.1% (-5.8 to +7.1, no clear change) | +9.7% | +0.8% | 14.3 | 5/7 |
-| Short replies only | -5.3% (-12.0 to +2.2, no clear change) | -13.7% | -5.4% | 13.7 | 6/7 |
-
-## Very long sessions (25 turns on average without Kompactor)
-
-Without Kompactor: 692,640 tokens and $0.226 per session, 5/6 correct. Tasks: xlong-go, xlong-py, xlong-py2, xlong-ts.
+Without Kompactor: 411,417 tokens and $0.151 per session, 5/8 correct. Tasks: long-go, long-py, long-py2, long-ts.
 
 | Arm | Δ cost (95% range) | Δ tokens | Δ output tokens | Turns | Correct |
 |---|---:|---:|---:|---:|---:|
-| Level 1 | -1.6% (-5.6 to +2.7, no clear change) | +2.5% | -1.0% | 25.7 | 6/6 |
-| Level 2 | +3.8% (+1.7 to +6.1, no clear change) | +10.1% | -7.6% | 25.3 | 4/6 |
-| Level 3 | +10.5% (+3.4 to +17.9, no clear change) | +31.3% | +1.4% | 26 | 4/6 |
-| Level 4 | +11.1% (+8.5 to +13.8, no clear change) | +7.1% | +7.8% | 25.7 | 5/6 |
-| Level 5 | +10.7% (+8.3 to +13.2, no clear change) | +35.8% | +3.2% | 27.4 | 5/5 |
-| Trim command output only | +24.8% (+20.8 to +29.0, no clear change) | +29.6% | +13.3% | 26.2 | 5/5 |
-| Outline-first reads only | -6.9% (-11.4 to -2.3, no clear change) | -11.8% | -6.3% | 26.2 | 5/5 |
-| Code graph only | +0.5% (-4.2 to +5.3, no clear change) | +11.6% | +3.3% | 25.8 | 4/5 |
-| Lean-code rules only | -4.8% (-12.1 to +2.9, no clear change) | +3.2% | -10.3% | 26.4 | 4/5 |
-| Short replies only | -3.1% (-5.2 to -0.9, no clear change) | +7.6% | -13.2% | 25.4 | 3/5 |
+| Level 1 | -4.9% (-11.9 to +3.1, no clear change) | +1.5% | -5.8% | 14.1 | 7/8 |
+| **Level 2** | -8.6% (-14.0 to -2.3) | -0.8% | -1.5% | 13.4 | 7/8 |
+| **Level 3** | -7.2% (-12.9 to -0.7) | -0.9% | -2.8% | 13.5 | 7/8 |
+| Level 4 | -7.8% (-15.0 to +0.7, no clear change) | -0.6% | -5.0% | 14 | 7/8 |
+| **Level 5** | -12.5% (-18.2 to -6.1) | -4.9% | -10.8% | 14.4 | 8/8 |
+| Trim command output only | -5.3% (-11.0 to +1.0, no clear change) | +9.5% | +3.2% | 14 | 8/8 |
+| **Outline-first reads only** | -7.7% (-14.1 to -0.6) | -4.4% | -6.4% | 13.5 | 6/8 |
+| Code graph only | +4.3% (-3.3 to +12.7, no clear change) | +13.8% | +7.9% | 15.5 | 5/8 |
+| Lean-code rules only | -1.5% (-7.5 to +5.3, no clear change) | +8.4% | -4.5% | 14.2 | 5/8 |
+| Short replies only | -6.1% (-13.0 to +1.7, no clear change) | -11.0% | -9.7% | 13.8 | 7/8 |
+
+## Very long sessions (25.1 turns on average without Kompactor)
+
+Without Kompactor: 636,950 tokens and $0.213 per session, 7/8 correct. Tasks: xlong-go, xlong-py, xlong-py2, xlong-ts.
+
+| Arm | Δ cost (95% range) | Δ tokens | Δ output tokens | Turns | Correct |
+|---|---:|---:|---:|---:|---:|
+| Level 1 | +0.3% (-5.3 to +6.3, no clear change) | +2.0% | +2.2% | 26.1 | 8/8 |
+| Level 2 | +4.7% (+0.0 to +9.3, no clear change) | +6.3% | -5.7% | 25.5 | 6/8 |
+| Level 3 | +7.3% (-1.4 to +16.6, no clear change) | +18.7% | -1.7% | 26.4 | 6/8 |
+| **Level 4** | +18.9% (+7.5 to +30.8) | +20.0% | +5.3% | 26.5 | 7/8 |
+| Level 5 | +4.9% (-0.9 to +11.3, no clear change) | +18.5% | +1.4% | 27.9 | 8/8 |
+| **Trim command output only** | +13.3% (+1.2 to +25.7) | +18.1% | +4.3% | 25.8 | 8/8 |
+| **Outline-first reads only** | -7.3% (-13.6 to -0.4) | -9.5% | -9.6% | 25.9 | 8/8 |
+| Code graph only | +9.1% (-0.2 to +18.9, no clear change) | +22.6% | -0.6% | 25.6 | 7/8 |
+| Lean-code rules only | -4.4% (-13.3 to +4.7, no clear change) | -1.3% | -8.9% | 26.1 | 6/8 |
+| Short replies only | -6.9% (-13.3 to +0.1, no clear change) | -1.5% | -13.8% | 24.9 | 6/8 |
