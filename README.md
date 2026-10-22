@@ -90,7 +90,7 @@ kompactor start
 ```
 If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.6.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
+**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.7.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
 
 **From source:**
 ```bash
@@ -262,7 +262,7 @@ The numbers are conservative: they count only what Claude would really have read
 
 ## Code graph
 
-![Code graph of Flask: a 395-token map instead of 165.8k tokens of source, and a search for "session cookie"](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-graph.png)
+![Code graph of Flask: a 395-token map instead of 299.8k tokens of source, and a search for "session cookie"](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-graph.png)
 
 A local index of your repository: functions, classes, imports and calls, plus the sections of your Markdown and reStructuredText docs and the code they mention, so `impact` and `explain` also name the docs to update. It builds in about a second (Flask: 84 files in 0.35 s), refreshes in the background after edits, and is never sent anywhere or written into your repo. Claude uses it on its own; you can query it too:
 

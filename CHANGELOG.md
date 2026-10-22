@@ -2,7 +2,7 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.8.7
 
 - Configuration shows approximate savings from Kompactor's benchmark, not from your own sessions. `bench/sessions.py` runs real headless Claude Code sessions on cobra (Go), Flask and click (Python) and zustand (TypeScript) in four lengths, from one command (about 2 turns) to twenty steps (about 27 turns): without Kompactor, at each level, and with each technique switched on by itself. Each level card shows one approximate cost saving, rising from Max quality to Max savings: the level's measured trimming and reply rules, plus compacting earlier at the level's size. Each switch shows what its technique saved by itself, and the cards and "Your settings" update as you pick a level, flip a switch or change a setting. Results are in `evidence/sessions`.
 - Each technique measured on its own (`evidence/techniques`, 144 Claude Code sessions): short replies −8.5% cost and −21% reply tokens; lean-code rules, the code graph and trimming made no clear difference to cost by themselves in these short sessions. The Configuration page shows each figure with its 95% range on the technique's switch, and the techniques switched on combined, updating as you flip them.

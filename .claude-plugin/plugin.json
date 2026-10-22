@@ -1,7 +1,7 @@
 {
   "name": "kompactor",
   "displayName": "Kompactor",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first file reads, a local code graph, terse reply and lean-code rules, and per-turn savings.",
   "author": {
     "name": "Amar Kumar",
