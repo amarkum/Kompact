@@ -2,6 +2,7 @@
 
 import argparse
 import json
+from pathlib import Path
 import os
 import subprocess
 import sys
@@ -136,11 +137,31 @@ def cmd_graph(a):
             print(graph.unused_text(root, a.budget or 1500))
         elif a.action == "explain":
             print(graph.explain_text(root, a.args[0] if a.args else "", a.budget or 1200))
+        elif a.action == "export":
+            fmt = (a.args or ["json"])[0]
+            if fmt == "obsidian":
+                if not a.out:
+                    print("usage: kompactor graph export obsidian --out <folder>", file=sys.stderr)
+                    return 2
+                print(f"wrote {graph.export_obsidian(root, a.out)} notes to {a.out}")
+            elif a.out:
+                Path(a.out).write_text(graph.export_text(root, fmt))
+                print(f"wrote {a.out}")
+            else:
+                print(graph.export_text(root, fmt))
+        elif a.action == "hook":
+            what = (a.args or ["install"])[0]
+            if what not in ("install", "uninstall"):
+                print("usage: kompactor graph hook install|uninstall", file=sys.stderr)
+                return 2
+            changed = graph.git_hook(root, install=what == "install")
+            print("\n".join(changed) if changed else f"nothing to {what}: the hooks are already "
+                  + ("there" if what == "install" else "gone"))
         elif a.action == "stats":
             v = graph.viz(root)
             print(json.dumps({k: v[k] for k in ("files", "symbols", "refs", "units", "approx_source_tokens",
                                                 "map_tokens", "meta")}, indent=2))
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
         print(e, file=sys.stderr)
         return 1
     return 0
@@ -638,13 +659,14 @@ def main(argv=None):
     p.add_argument("value", nargs="?")
     p.set_defaults(fn=cmd_config)
 
-    p = sp.add_parser("graph", help="code graph: build, report, query, callers, deps, impact, path, map")
+    p = sp.add_parser("graph", help="code graph: build, report, query, callers, deps, impact, path, map, export, hook")
     p.add_argument("action", choices=["build", "report", "query", "callers", "deps", "impact", "path", "explain",
-                                      "unused", "map", "stats"])
+                                      "unused", "map", "stats", "export", "hook"])
     p.add_argument("args", nargs="*")
     p.add_argument("--root", help="project directory (default: current project)")
     p.add_argument("--budget", type=int, help="max tokens of output")
     p.add_argument("--full", action="store_true", help="rebuild from scratch")
+    p.add_argument("--out", help="export: write here (a folder for obsidian) instead of printing")
     p.set_defaults(fn=cmd_graph)
 
     p = sp.add_parser("mcp", help="MCP server for the code graph (stdio): claude mcp add kompactor -- kompactor mcp")

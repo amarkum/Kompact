@@ -1766,6 +1766,127 @@ def viz(root: str, limit: int = 60) -> dict:
             "map_tokens": tokens.count(session_map(root, 800)) if g.unit_files else 0}
 
 
+# ---------------------------------------------------------------------------
+# export and git hooks
+
+
+def export_data(root: str) -> dict:
+    """The graph as plain data: modules (with area, rank and key symbols), import edges, symbols and areas."""
+    g = load(root)
+    pr = g.rank()
+    groups = communities(g)
+    area = {u: c["name"] for c in groups for u in c["units"]}
+    units = sorted(g.unit_files, key=lambda u: -pr.get(u, 0))
+    return {
+        "root": g.root, "areas": [{"name": c["name"], "hub": c["hub"], "modules": c["units"]} for c in groups],
+        "modules": [{"id": u, "lang": g.files[g.unit_files[u][0]]["lang"], "files": g.unit_files[u],
+                     "lines": sum(g.files[f]["lines"] for f in g.unit_files[u]), "rank": round(pr.get(u, 0), 6),
+                     "area": area.get(u, ""), "test": g.is_test_unit(u),
+                     "symbols": [_qual(s) for f in g.unit_files[u] for s in g.by_file[f] if s["exported"]][:40]}
+                    for u in units],
+        "imports": [{"source": u, "target": v} for u in units for v in sorted(g.out_units.get(u, ())) if v in g.unit_files],
+        "symbols": [{"name": s["name"], "kind": s["kind"], "parent": s["parent"], "file": s["file"], "start": s["start"],
+                     "end": s["end"], "exported": bool(s["exported"]), "doc": s["doc"]} for s in g.symbols],
+    }
+
+
+def _xml(v) -> str:
+    return str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def export_text(root: str, fmt: str, limit: int = 60) -> str:
+    """json (everything), graphml (Gephi, yEd), or mermaid (a diagram of the most central modules by area)."""
+    d = export_data(root)
+    if fmt == "json":
+        return json.dumps(d, indent=1)
+    if fmt == "graphml":
+        keys = [("lang", "string"), ("lines", "int"), ("rank", "double"), ("area", "string"), ("test", "boolean")]
+        out = ['<?xml version="1.0" encoding="UTF-8"?>', '<graphml xmlns="http://graphml.graphdrawing.org/xmlns">']
+        out += [f'  <key id="{k}" for="node" attr.name="{k}" attr.type="{t}"/>' for k, t in keys]
+        out.append('  <graph id="imports" edgedefault="directed">')
+        for m in d["modules"]:
+            out.append(f'    <node id="{_xml(m["id"])}">' + "".join(
+                f'<data key="{k}">{_xml(str(m[k]).lower() if t == "boolean" else m[k])}</data>' for k, t in keys) + "</node>")
+        out += [f'    <edge source="{_xml(e["source"])}" target="{_xml(e["target"])}"/>' for e in d["imports"]]
+        return "\n".join(out + ["  </graph>", "</graphml>"])
+    if fmt == "mermaid":
+        top = [m for m in d["modules"] if not m["test"]][:limit]
+        ids = {m["id"]: f"m{i}" for i, m in enumerate(top)}
+        out = ["flowchart LR"]
+        for area in [a["name"] for a in d["areas"]] + [""]:
+            members = [m for m in top if m["area"] == area]
+            if not members:
+                continue
+            if area:
+                out.append(f'  subgraph a{len(out)}["{area}"]')
+            out += [f'    {ids[m["id"]]}["{Path(m["id"].rstrip("/")).name or m["id"]}"]' for m in members]
+            if area:
+                out.append("  end")
+        out += [f"  {ids[e['source']]} --> {ids[e['target']]}" for e in d["imports"] if e["source"] in ids and e["target"] in ids]
+        return "\n".join(out)
+    raise ValueError("format must be json, graphml, mermaid or obsidian")
+
+
+def export_obsidian(root: str, out_dir: str) -> int:
+    """An Obsidian vault: one note per module with its area, symbols, imports and users as [[links]]."""
+    d = export_data(root)
+    slug = lambda text: re.sub(r"[^\w.-]+", "-", text.strip("/")) or "root"  # noqa: E731
+    note = {m["id"]: slug(m["id"]) for m in d["modules"]}
+    users = defaultdict(list)
+    for e in d["imports"]:
+        users[e["target"]].append(e["source"])
+    os.makedirs(out_dir, exist_ok=True)
+    for m in d["modules"]:
+        imports = [e["target"] for e in d["imports"] if e["source"] == m["id"]]
+        body = [f"# {m['id']}", "", f"- Language: {m['lang']}", f"- Lines: {m['lines']}"]
+        if m["area"]:
+            body.append(f"- Area: [[area-{slug(m['area'])}]]")
+        if m["symbols"]:
+            body += ["", "## Symbols", *[f"- `{s}`" for s in m["symbols"]]]
+        if imports:
+            body += ["", "## Imports", *[f"- [[{note[t]}]]" for t in imports]]
+        if users[m["id"]]:
+            body += ["", "## Used by", *[f"- [[{note[u]}]]" for u in users[m["id"]]]]
+        Path(out_dir, note[m["id"]] + ".md").write_text("\n".join(body) + "\n")
+    for a in d["areas"]:
+        name = "area-" + slug(a["name"])
+        Path(out_dir, name + ".md").write_text(f"# {a['name']}\n\nHub: [[{note[a['hub']]}]]\n\n" +
+                                               "".join(f"- [[{note[u]}]]\n" for u in a["modules"]))
+    return len(d["modules"]) + len(d["areas"])
+
+
+HOOK_MARK = "# kompactor: refresh the code graph"
+GIT_HOOKS = ("post-commit", "post-merge", "post-checkout")
+
+
+def git_hook(root: str, install: bool = True) -> list:
+    """Add (or remove) a line to the repo's post-commit, post-merge and post-checkout hooks that refreshes the
+    graph in the background. Existing hooks are kept. Returns the hook files changed."""
+    git_dir = Path(root, ".git")
+    if not git_dir.is_dir():
+        raise FileNotFoundError(f"{root} is not a git repository")
+    line = (f'{HOOK_MARK}\n(K="$HOME/.kompactor/bin/kompactor"; [ -x "$K" ] || K=kompactor; '
+            f'"$K" graph build --root "$(git rev-parse --show-toplevel)" >/dev/null 2>&1 &)\n')
+    changed = []
+    for name in GIT_HOOKS:
+        p = git_dir / "hooks" / name
+        text = p.read_text() if p.exists() else ""
+        has = HOOK_MARK in text
+        if install and not has:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text((text if text else "#!/bin/sh\n") + ("\n" if text and not text.endswith("\n") else "") + line)
+            p.chmod(p.stat().st_mode | 0o755)
+            changed.append(str(p))
+        elif not install and has:
+            kept = re.sub(re.escape(HOOK_MARK) + r"\n[^\n]*\n?", "", text)
+            if kept.strip() in ("", "#!/bin/sh"):
+                p.unlink()
+            else:
+                p.write_text(kept)
+            changed.append(str(p))
+    return changed
+
+
 def build_in_background(root: str) -> None:
     """Refresh the graph without blocking the hook that asked for it."""
     import subprocess

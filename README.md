@@ -266,6 +266,9 @@ kompactor graph explain Name               one symbol: signature, callers, calle
 kompactor graph callers / deps / path      who calls it, what it imports, how two modules connect
 kompactor graph report                     core modules, entry points, communities, import cycles
 kompactor graph unused                     dead-code candidates
+kompactor graph export json|graphml|mermaid  the graph as data, for Gephi/yEd, or as a diagram (--out FILE)
+kompactor graph export obsidian --out DIR  an Obsidian vault: a note per module, linked by imports
+kompactor graph hook install               refresh the graph after each commit, merge and checkout
 ```
 
 ### Use the graph from any MCP client

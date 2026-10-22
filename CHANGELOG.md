@@ -4,6 +4,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- `kompactor graph export json|graphml|mermaid|obsidian`: the graph as data, for Gephi or yEd, as a Mermaid diagram grouped by area, or as an Obsidian vault. `kompactor graph hook install` adds a background graph refresh to the repo's post-commit, post-merge and post-checkout hooks, beside any hooks already there (`uninstall` removes only its own line).
 - Callers and `explain` label each link: exact (same module, or it imports the definition), likely (the only definition of that name), ambiguous (several definitions, none imported) or external (not defined in the repo), with a count per label.
 - Code graph communities: modules that import each other are grouped into areas (label propagation over the import graph, folder-mates weighted a little higher). `graph report` lists them with their hub; the dashboard's module map colours nodes by area with a named legend.
 - `kompactor mcp`: an MCP server (stdio) with read-only tools for graph query, callers, impact, deps, explain, path, report, unused, outline and symbol, so any MCP client can use the code graph. `claude mcp add kompactor -- kompactor mcp`.

@@ -667,3 +667,39 @@ class LinkConfidenceTests(unittest.TestCase):
         text = graph.callers_text(root, "run")
         self.assertIn("1 exact, 1 ambiguous", text)
         self.assertIn("app/loose.py:2  go  (ambiguous)", text)
+
+
+class ExportAndHookTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo(PY)
+        graph.build(cls.root)
+
+    def test_exports(self):
+        d = json.loads(graph.export_text(self.root, "json"))
+        self.assertIn({"source": "shop/cart.py", "target": "shop/pricing.py"}, d["imports"])
+        self.assertIn("Cart.total", next(m for m in d["modules"] if m["id"] == "shop/cart.py")["symbols"])
+        gml = graph.export_text(self.root, "graphml")
+        self.assertIn('<edge source="shop/cart.py" target="shop/pricing.py"/>', gml)
+        self.assertIn("-->", graph.export_text(self.root, "mermaid"))
+        with self.assertRaises(ValueError):
+            graph.export_text(self.root, "pdf")
+        out = tempfile.mkdtemp()
+        self.assertGreater(graph.export_obsidian(self.root, out), 0)
+        self.assertIn("[[shop-pricing.py]]", Path(out, "shop-cart.py.md").read_text())
+
+    def test_git_hook_installs_beside_existing_hooks_and_uninstalls(self):
+        root = make_repo({"a.py": "x = 1\n"})
+        Path(root, ".git", "hooks").mkdir(parents=True)
+        mine = Path(root, ".git", "hooks", "post-commit")
+        mine.write_text("#!/bin/sh\necho mine\n")
+        self.assertEqual(len(graph.git_hook(root)), 3)
+        self.assertEqual(graph.git_hook(root), [])  # already there
+        self.assertIn("echo mine", mine.read_text())
+        self.assertIn(graph.HOOK_MARK, mine.read_text())
+        self.assertTrue(os.access(Path(root, ".git", "hooks", "post-merge"), os.X_OK))
+        graph.git_hook(root, install=False)
+        self.assertEqual(mine.read_text(), "#!/bin/sh\necho mine\n")
+        self.assertFalse(Path(root, ".git", "hooks", "post-merge").exists())
+        with self.assertRaises(FileNotFoundError):
+            graph.git_hook(tempfile.mkdtemp())
