@@ -344,6 +344,8 @@ Single commands, measured directly (`bench/bench.py`):
 
 **Reproduce it:** `python -m kompactor prove --tasks bench/tasks.json --repos <folder with the bench repos> --reps 3`
 
+**Compaction on real repositories.** [`evidence/real-repos`](https://github.com/amarkum/kompactor/blob/main/evidence/real-repos/REPORT.md) runs real test suites, builds, `git log`/`git diff` and `grep` in 6 repositories (Python, TypeScript, C, Swift, Java) and plants one failure in each failing run: a median −61% per output at Balanced, and every planted failure line reached Claude at levels 1, 3 and 5. Outputs Claude Code would otherwise save to a file and preview in 2 KB are given in full, compacted, so on those Kompactor can cost more than the preview while handing over the actual results; the report shows both baselines.
+
 ## Supported languages
 
 Command output from any language is compacted. These languages also get language-aware trimming, outlines and the code graph; Kompactor detects them per repo (`pyproject.toml`, `go.mod`, `tsconfig.json`/`package.json`, a `react` or `next` dependency).

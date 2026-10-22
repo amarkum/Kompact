@@ -1,6 +1,6 @@
 # Evidence
 
-Every number here comes from real headless Claude Code sessions (`claude -p`) on public repos, run with
+The A/B numbers here come from real headless Claude Code sessions (`claude -p`) on public repos, run with
 `kompactor prove`. Each task runs three times without Kompactor and three times with it, using the same prompt,
 tools, turn limit and budget cap. The two arms run interleaved, so model drift affects both equally.
 
@@ -8,6 +8,7 @@ tools, turn limit and budget cap. The two arms run interleaved, so model drift a
   installed as a plugin (hooks and the `/kompactor` skill) with the shell prefix on, as `kompactor setup` leaves it.
   [`results.json`](results.json) has every session: tokens by type, cost, turns, the answer, each tool
   call with its result size, and Kompactor's own ledger.
+- [`real-repos`](real-repos/REPORT.md) measures compaction itself, without Claude sessions: real test suites, builds, `git log`/`git diff` and `grep` in 6 repositories (Python, TypeScript, C, Swift, Java), 22 outputs, with one planted failure per failing run. Median −61% per output at Balanced; every planted failure line reached Claude at levels 1, 3 and 5. Two of the repositories are private and reported by numbers only. Made with `bench/real_repos.py`.
 - [`EXAMPLE.md`](EXAMPLE.md) shows, side by side, what Claude received for the same failing vitest run
   without Kompactor (15,617 characters, mostly passing tests) and with it (1,039 characters, exit code kept).
 - [`levels/level-1`](levels/level-1/REPORT.md) and [`levels/level-5`](levels/level-5/REPORT.md) re-run the same

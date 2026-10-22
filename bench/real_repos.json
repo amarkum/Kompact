@@ -1,10 +1,10 @@
 {
-  "about": "Cases for bench/real_repos.py. Planted files make one test or build fail with a known message; expect lists the lines that must reach Claude.",
+  "about": "Cases for bench/real_repos.py. Private cases read their repository from an environment variable (KOMPACTOR_BENCH_PYTHON_API, KOMPACTOR_BENCH_TS_REPO); without it they are skipped. Planted files make one test or build fail with a known message; expect lists the lines that must reach Claude.",
   "cases": [
     {
       "name": "private-python-api", "lang": "python", "private": true, "languages": ["python"],
       "about": "A private FastAPI service: about 100 source files, 327 pytest tests (some against the Firestore emulator).",
-      "local": "~/ai-service", "link": [".venv"],
+      "local": "$KOMPACTOR_BENCH_PYTHON_API", "link": [".venv"],
       "commands": [
         {"label": "pytest -v (all pass)", "cmd": ".venv/bin/python -m pytest tests -v -p no:cacheprovider", "timeout": 900},
         {"label": "pytest -v (1 planted failure)", "cmd": ".venv/bin/python -m pytest tests -v -p no:cacheprovider", "timeout": 900,
@@ -31,7 +31,7 @@
     {
       "name": "private-ts-server", "lang": "typescript", "private": true, "languages": ["typescript"],
       "about": "A private TypeScript (Node) API server, tested with node --test.",
-      "local": "~/astroagni", "subdir": "server", "link": ["node_modules"],
+      "local": "$KOMPACTOR_BENCH_TS_REPO", "subdir": "server", "link": ["node_modules"],
       "commands": [
         {"label": "npm test (all pass)", "cmd": "npm test"},
         {"label": "npm test (1 planted failure)", "cmd": "npm test",

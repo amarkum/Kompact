@@ -49,6 +49,13 @@ def kompactor_view(cmd: str, raw: str, code: int, level: int, langs) -> str:
     return out
 
 
+def _scrub(text: str, work: str) -> str:
+    """Example text without this machine's paths."""
+    for path, name in ((os.path.realpath(work), "<work>"), (work, "<work>"), (os.path.expanduser("~"), "~")):
+        text = text.replace(path, name)
+    return text
+
+
 def prepare(case: dict, work: str) -> str:
     dest = os.path.join(work, case["name"])
     shutil.rmtree(dest, ignore_errors=True)
@@ -57,7 +64,9 @@ def prepare(case: dict, work: str) -> str:
         subprocess.run(["git", "-C", dest, "fetch", "-q", "--depth", "1", case["url"], case["commit"]], check=True)
         subprocess.run(["git", "-C", dest, "checkout", "-q", "FETCH_HEAD"], check=True)
     else:
-        src = os.path.expanduser(case["local"])
+        src = os.path.expanduser(os.path.expandvars(case["local"]))
+        if "$" in src:
+            raise FileNotFoundError(f"set {src} to the repository to use for {case['name']}")
         os.makedirs(dest)
         sub = case.get("subdir", "")
         archive = subprocess.run(["git", "-C", src, "archive", "HEAD", *( [sub] if sub else [])], capture_output=True, check=True)
@@ -93,7 +102,7 @@ def main():
         print(f"== {case['name']}", flush=True)
         try:
             cwd = prepare(case, work)
-        except subprocess.CalledProcessError as e:
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"   skipped: could not prepare ({e})", flush=True)
             continue
         for step in case["commands"]:
@@ -104,7 +113,7 @@ def main():
                 mode = "a" if step["plant"].get("append") else "w"
                 with open(planted, mode) as f:
                     f.write(step["plant"]["text"])
-            run_cwd = os.path.expanduser(case["local"]) if step.get("in_original") else cwd
+            run_cwd = os.path.expanduser(os.path.expandvars(case["local"])) if step.get("in_original") else cwd
             raw, code, secs = run(step["cmd"], run_cwd, step.get("timeout", 900))
             if planted and step["plant"].get("remove", True) and not step["plant"].get("append"):
                 os.remove(planted)
@@ -121,7 +130,7 @@ def main():
                 row[f"l{lvl}_tokens"] = tokens.count(view)
                 row[f"l{lvl}_keeps"] = sum(e in view for e in step.get("expect", []))
                 if lvl == 3 and not case.get("private") and step.get("example"):
-                    row["example"] = {"baseline": base[-6000:], "kompactor": view}
+                    row["example"] = {"baseline": _scrub(base[-6000:], work), "kompactor": _scrub(view, work)}
             results.append(row)
             print(f"   {step['label']:<34} exit {code:<3} {row['baseline_tokens']:>7} › {row['l3_tokens']:>6} tokens"
                   + (f"  failure lines {row['baseline_keeps']}/{row['expect']} › {row['l3_keeps']}/{row['expect']}"
@@ -139,6 +148,20 @@ def _pct(a: int, b: int) -> str:
     return f"{100 * (b - a) / a:+.0f}%" if a else "—"
 
 
+def _ref(r: dict) -> int:
+    """What Claude reads without Kompactor, counting a saved output as read in full."""
+    return r["raw_tokens"] if r.get("preview") else r["baseline_tokens"]
+
+
+def _median_pct(rows) -> str:
+    changes = sorted((r["l3_tokens"] - _ref(r)) / _ref(r) for r in rows if _ref(r))
+    if not changes:
+        return "—"
+    mid = len(changes) // 2
+    m = changes[mid] if len(changes) % 2 else (changes[mid - 1] + changes[mid]) / 2
+    return f"{100 * m:+.0f}%"
+
+
 def report(spec_path: str, out_dir: str) -> str:
     """REPORT.md from results.json: totals, every command, failure survival, and public before/after examples."""
     spec = {c["name"]: c for c in json.load(open(spec_path))["cases"]}
@@ -147,6 +170,7 @@ def report(spec_path: str, out_dir: str) -> str:
     read = sum(r["raw_tokens"] if r.get("preview") else r["baseline_tokens"] for r in rows)
     previews = [r for r in rows if r.get("preview")]
     lv = {lvl: sum(r[f"l{lvl}_tokens"] for r in rows) for lvl in LEVELS}
+    big = max(rows, key=lambda r: r["raw_tokens"])
     fails = [r for r in rows if r["expect"]]
     need = sum(r["expect"] for r in fails)
     kept_base = sum(r["baseline_keeps"] for r in fails)
@@ -157,6 +181,11 @@ def report(spec_path: str, out_dir: str) -> str:
         f"{len(rows)} outputs in all, measured with `bench/real_repos.py` on {time.strftime('%Y-%m-%d')}. "
         "No Claude session is involved: this measures what Kompactor's shell prefix and hooks would hand Claude "
         "for each output, against what Claude Code itself would show without Kompactor.", "",
+        f"**Median change per output at level 3 (Balanced): {_median_pct(rows)}** "
+        f"({sum(1 for r in rows if r['l3_tokens'] < _ref(r))} of {len(rows)} outputs smaller, "
+        f"{sum(1 for r in rows if r['l3_tokens'] == _ref(r))} unchanged, {sum(1 for r in rows if r['l3_tokens'] > _ref(r))} larger).", "",
+        f"Totals are dominated by the largest output ({_k(big['raw_tokens'])} tokens: `{big['label']}` in {big['case']}); "
+        f"without it, {_k(read - _ref(big))} › {_k(lv[3] - big['l3_tokens'])} tokens, {_pct(read - _ref(big), lv[3] - big['l3_tokens'])}.", "",
         f"**Across all {len(rows)} outputs, if Claude reads the {len(previews)} outputs Claude Code saves to a file: "
         f"{_k(read)} › {_k(lv[3])} tokens at level 3 (Balanced), {_pct(read, lv[3])}; level 1 {_pct(read, lv[1])}, "
         f"level 5 {_pct(read, lv[5])}.**", "",
@@ -191,6 +220,13 @@ def report(spec_path: str, out_dir: str) -> str:
     for r in fails:
         lines.append(f"| {r['case']} | `{r['label']}` | {_k(r['raw_tokens'])} | {r['baseline_keeps']}/{r['expect']} | "
                      f"{r['l1_keeps']}/{r['expect']} | {r['l3_keeps']}/{r['expect']} | {r['l5_keeps']}/{r['expect']} |")
+    worse = [r for r in fails if r["l3_tokens"] > r["baseline_tokens"]]
+    if worse:
+        lines += ["", "Where a failing run costs more with Kompactor: Claude Code keeps only the first and last ~5,000 "
+                  "characters of a failure, and in " + ", ".join(f"`{r['label']}` ({r['case']}, {_k(r['baseline_tokens'])} › "
+                  f"{_k(r['l3_tokens'])})" for r in worse) + " that cut happened to keep the failure. Kompactor keeps every "
+                  "failure from the whole run plus the summary, which costs more here; the gain is that a failure in the "
+                  "middle of a long run can't be cut away."]
     examples = [r for r in rows if r.get("example")]
     if examples:
         lines += ["", "## Examples (public repositories, level 3)", ""]
