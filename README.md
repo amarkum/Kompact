@@ -264,7 +264,7 @@ kompactor graph query "session cookie"     find code by topic, with line ranges 
 kompactor graph impact createStore         what uses it, and which tests to run
 kompactor graph explain Name               one symbol: signature, callers, callees, tests
 kompactor graph callers / deps / path      who calls it, what it imports, how two modules connect
-kompactor graph report                     core modules, entry points, import cycles
+kompactor graph report                     core modules, entry points, communities, import cycles
 kompactor graph unused                     dead-code candidates
 ```
 

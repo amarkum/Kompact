@@ -624,3 +624,25 @@ class McpServerTests(unittest.TestCase):
         self.assertFalse(res[3]["result"]["isError"])
         self.assertTrue(res[4]["result"]["isError"])  # outside the project
         self.assertTrue(res[5]["result"]["isError"])  # missing argument
+
+
+class CommunityTests(unittest.TestCase):
+    def test_modules_that_import_each_other_form_areas(self):
+        root = make_repo({
+            "pyproject.toml": "[project]\nname='app'\n",
+            "app/billing/invoice.py": "from app.billing.tax import rate\nfrom app.billing.money import cents\n",
+            "app/billing/tax.py": "from app.billing.money import cents\ndef rate(): return cents(1)\n",
+            "app/billing/money.py": "def cents(x): return x\n",
+            "app/auth/login.py": "from app.auth.session import start\nfrom app.billing.invoice import *\n",
+            "app/auth/session.py": "from app.auth.tokens import sign\ndef start(): return sign()\n",
+            "app/auth/tokens.py": "def sign(): return 1\n",
+        })
+        graph.build(root)
+        g = graph.Graph(root)
+        areas = {c["name"]: set(c["units"]) for c in graph.communities(g)}
+        self.assertEqual(areas["app/billing/"], {"app/billing/invoice.py", "app/billing/tax.py", "app/billing/money.py"})
+        self.assertEqual(areas["app/auth/"], {"app/auth/login.py", "app/auth/session.py", "app/auth/tokens.py"})
+        self.assertIn("## Communities", graph.report(root))
+        v = graph.viz(root)
+        self.assertEqual({a["name"] for a in v["areas"]}, {"app/billing/", "app/auth/"})
+        self.assertTrue(all(n["area"] >= 0 for n in v["nodes"]))

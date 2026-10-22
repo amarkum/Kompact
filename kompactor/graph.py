@@ -1395,6 +1395,59 @@ def areas(g: Graph, max_areas: int = 12):
     return sorted(by_dir.items(), key=lambda kv: -sum(g.rank().get(u, 0) for u in kv[1]))[:max_areas]
 
 
+def communities(g: Graph, min_size: int = 2):
+    """Groups of code modules that work together, found from the import graph rather than the folder tree
+    (label propagation: each module joins the group most of its import neighbours are in, folder-mates
+    counting a little extra). Returns [{"name", "hub", "units"}], biggest first; tests and examples left out."""
+    units = [u for u in g.unit_files if not g.is_test_unit(u) and not g.is_aux_unit(u)]
+    keep = set(units)
+    nbrs = {u: defaultdict(float) for u in units}
+    for u in units:
+        for v in g.out_units.get(u, ()):
+            if v in keep and v != u:
+                w = 1.5 if os.path.dirname(u.rstrip("/")) == os.path.dirname(v.rstrip("/")) else 1.0
+                nbrs[u][v] += w
+                nbrs[v][u] += w
+    pr = g.rank()
+    order = sorted(units, key=lambda u: (-pr.get(u, 0), u))
+    label = {u: u for u in units}
+    for _ in range(30):
+        changed = False
+        for u in order:
+            if not nbrs[u]:
+                continue
+            votes = defaultdict(float)
+            for v, w in nbrs[u].items():
+                votes[label[v]] += w
+            best = max(votes.values())
+            winners = [l for l, w in votes.items() if w == best]
+            new = label[u] if label[u] in winners else max(winners, key=lambda l: (pr.get(l, 0), l))
+            if new != label[u]:
+                label[u], changed = new, True
+        if not changed:
+            break
+    groups = defaultdict(list)
+    for u in units:
+        groups[label[u]].append(u)
+    out = []
+    for members in groups.values():
+        if len(members) < min_size:
+            continue
+        hub = max(members, key=lambda u: (pr.get(u, 0), u))
+        dirs = [os.path.dirname(u.rstrip("/")) for u in members]
+        common = os.path.commonpath(dirs) if all(dirs) else ""
+        top_dir, n = Counter(dirs).most_common(1)[0]
+        name = common or (top_dir if top_dir and n * 2 > len(members) else "") or Path(hub.rstrip("/")).stem
+        out.append({"name": name.rstrip("/") + ("/" if name and name == common or name == top_dir else ""),
+                    "hub": hub, "units": sorted(members, key=lambda u: -pr.get(u, 0))})
+    out.sort(key=lambda c: (-len(c["units"]), c["name"]))
+    seen = Counter(c["name"] for c in out)
+    for c in out:  # two groups in one folder: tell them apart by their hub
+        if seen[c["name"]] > 1:
+            c["name"] = f"{c['name']} ({Path(c['hub'].rstrip('/')).stem})"
+    return out
+
+
 def _key_symbols(g: Graph, u: str):
     seen, out = set(), []
     syms = [s for f in g.unit_files[u] for s in g.by_file[f] if s["exported"]
@@ -1604,6 +1657,12 @@ def report(root: str, budget: int = 1800) -> str:
         tests = sum(1 for u in units if g.is_test_unit(u))
         label = "tests" if tests == len(units) else "examples/docs/tooling" if g.is_aux_unit(d + "/") else ""
         out.append(f"- {d}/ — {len(units)} modules" + (f" ({label})" if label else f" ({tests} test)" if tests else ""))
+    groups = communities(g)
+    if groups:
+        out.append("\n## Communities (modules that import each other)")
+        for c in groups[:10]:
+            keys = ", ".join(_key_symbols(g, c["hub"])[:4])
+            out.append(f"- {c['name']} — {len(c['units'])} modules, hub {c['hub']}" + (f"; key: {keys}" if keys else ""))
     cycles = import_cycles(g)
     if cycles:
         out.append("\n## Import cycles (runtime imports only)")
@@ -1672,7 +1731,9 @@ def viz(root: str, limit: int = 60) -> dict:
     aux = [u for u in ranked if g.is_test_unit(u) or g.is_aux_unit(u)][:max(10, limit // 2)]
     top = code + aux
     keep = set(top)
-    nodes = [{"id": u, "rank": round(pr[u], 5), "test": g.is_test_unit(u), "aux": g.is_test_unit(u) or g.is_aux_unit(u),
+    groups = communities(g)[:8]  # 8 named areas at most; the rest read as "other"
+    area = {u: i for i, c in enumerate(groups) for u in c["units"]}
+    nodes = [{"id": u, "rank": round(pr[u], 5), "area": area.get(u, -1), "test": g.is_test_unit(u), "aux": g.is_test_unit(u) or g.is_aux_unit(u),
               "in": len(g.in_units.get(u, ())),
               "out": len(g.out_units.get(u, ())), "lang": g.files[g.unit_files[u][0]]["lang"] if g.unit_files[u] else "",
               "lines": sum(g.files[f]["lines"] for f in g.unit_files[u]),
@@ -1680,7 +1741,9 @@ def viz(root: str, limit: int = 60) -> dict:
                           and s["kind"] not in ("constant",)][:12]} for u in top]
     edges = [{"source": u, "target": v} for u in top for v in g.out_units.get(u, ()) if v in keep]
     total_tokens = sum(g.files[f]["lines"] for f in g.files) * 9  # ~9 tokens per source line
-    return {"nodes": nodes, "edges": edges, "meta": g.meta, "files": len(g.files), "symbols": len(g.symbols),
+    return {"nodes": nodes, "edges": edges, "areas": [{"name": c["name"], "hub": c["hub"], "size": len(c["units"])}
+                                                       for c in groups],
+            "meta": g.meta, "files": len(g.files), "symbols": len(g.symbols),
             "refs": len(g.refs), "units": len(g.unit_files), "approx_source_tokens": total_tokens,
             "map_tokens": tokens.count(session_map(root, 800)) if g.unit_files else 0}
 

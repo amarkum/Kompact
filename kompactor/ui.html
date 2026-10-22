@@ -19,6 +19,7 @@
   --brand: #f5a524; --brand-ink: #925400; --brand-soft: #fdf1dc;
   --bar: #3d4452; --good: #12713a; --good-soft: #e3f3e8; --bad: #b3232c; --bad-soft: #fbe9ea;
   --code: #f4f5f7; --shadow: 0 1px 2px rgba(17, 19, 24, .04); --logo-tile: #111318;
+  --area-1: #2a78d6; --area-2: #eb6834; --area-3: #1baf7a; --area-4: #eda100; --area-5: #e87ba4; --area-6: #008300; --area-7: #6250d6; --area-8: #e34948;
   --select-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23868c98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --sans: "Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -31,6 +32,7 @@
     --brand-ink: #f6b64a; --brand-soft: #2b2112;
     --bar: #b0b6c2; --good: #45c07f; --good-soft: #13261b; --bad: #f07070; --bad-soft: #2c1517;
     --code: #0f1114; --shadow: none; --logo-tile: #262a33;
+    --area-1: #3987e5; --area-2: #d95926; --area-3: #199e70; --area-4: #c98500; --area-5: #d55181; --area-6: #008300; --area-7: #9085e9; --area-8: #e66767;
     --select-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   }
 }
@@ -41,6 +43,7 @@
   --brand-ink: #f6b64a; --brand-soft: #2b2112;
   --bar: #b0b6c2; --good: #45c07f; --good-soft: #13261b; --bad: #f07070; --bad-soft: #2c1517;
   --code: #0f1114; --shadow: none; --logo-tile: #262a33;
+  --area-1: #3987e5; --area-2: #d95926; --area-3: #199e70; --area-4: #c98500; --area-5: #d55181; --area-6: #008300; --area-7: #9085e9; --area-8: #e66767;
   --select-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 * { box-sizing: border-box; }
@@ -790,8 +793,8 @@ function renderGraph() {
       <div class="metric"><div class="k">Likely dead code</div><div class="v">${g.unused.dead}</div><div class="f">${g.unused.public} exported but unused · ${g.cycles} import cycle${g.cycles === 1 ? "" : "s"}</div></div>
     </div>
     <div class="panel">
-      <div class="panel-h"><div><h2>Module map</h2><div class="sub">The ${g.nodes.length} most depended-on modules. Larger means more central. Select one for details.</div></div>
-        <div class="legend"><span><i style="background:var(--ink)"></i>code</span><span><i style="background:var(--brand)"></i>selected</span>
+      <div class="panel-h"><div><h2>Module map</h2><div class="sub">The ${g.nodes.length} most depended-on modules, coloured by area: modules that import each other. Larger means more central. Select one for details.</div></div>
+        <div class="legend">${(g.areas || []).map((a, i) => `<span title="${esc(a.size)} modules, hub ${esc(a.hub)}"><i style="background:var(--area-${i + 1})"></i>${esc(a.name)}</span>`).join("")}<span><i style="background:var(--ink-3)"></i>other</span>
           <label style="display:inline-flex;gap:7px;align-items:center;cursor:pointer"><span class="switch"><input type="checkbox" id="gAux"><span></span></span>Tests &amp; examples</label></div></div>
       <div class="graph-wrap"><svg id="gsvg" role="img" aria-label="Module dependency graph"></svg><div class="graph-side" id="gside"></div></div>
     </div>
@@ -815,6 +818,7 @@ async function askGraph(action) {
   $("gout").textContent = "…";
   try { $("gout").textContent = (await api(`/api/graph/${action}`, { project: $("gProject").value, q })).text; } catch (e) { $("gout").textContent = e.message; }
 }
+const areaFill = (d) => d.aux ? "var(--panel)" : d.area >= 0 ? `var(--area-${d.area + 1})` : "var(--ink-3)";
 function drawGraph(g) {
   const svg = $("gsvg"); if (!svg) return;
   const W = svg.clientWidth || 800, H = svg.clientHeight || 480;
@@ -859,15 +863,17 @@ function drawGraph(g) {
   }
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.innerHTML = E.map(([a, b]) => `<line x1="${nodes[a].x}" y1="${nodes[a].y}" x2="${nodes[b].x}" y2="${nodes[b].y}" stroke="var(--line)" data-e="${a}-${b}"/>`).join("") +
-    nodes.map((d, i) => `<g data-n="${i}" style="cursor:pointer" tabindex="0" role="button" aria-label="${esc(d.id)}"><circle cx="${d.x}" cy="${d.y}" r="${d.r}" fill="${d.aux ? "var(--panel)" : "var(--ink)"}" stroke="${d.aux ? "var(--ink-3)" : "var(--panel)"}" stroke-width="1.5"/>` +
+    nodes.map((d, i) => `<g data-n="${i}" style="cursor:pointer" tabindex="0" role="button" aria-label="${esc(d.id)}"><circle cx="${d.x}" cy="${d.y}" r="${d.r}" fill="${areaFill(d)}" stroke="${d.aux ? "var(--ink-3)" : "var(--panel)"}" stroke-width="1.5"/>` +
       (labels.has(d.id) ? `<text x="${labels.get(d.id).x}" y="${d.y + 4}" text-anchor="${labels.get(d.id).anchor}" font-size="11" font-family="var(--mono)" fill="var(--ink-2)" paint-order="stroke" stroke="var(--panel)" stroke-width="3">${esc(labels.get(d.id).text)}</text>` : "") + `</g>`).join("");
   const select = (i) => {
     const d = nodes[i];
-    svg.querySelectorAll("g[data-n] circle").forEach((c, j) => c.setAttribute("fill", j === i ? "var(--brand)" : nodes[j].aux ? "var(--panel)" : "var(--ink)"));
-    svg.querySelectorAll("line[data-e]").forEach((l) => { const [a, b] = l.dataset.e.split("-").map(Number), on = a === i || b === i; l.setAttribute("stroke", on ? "var(--brand)" : "var(--line)"); l.setAttribute("stroke-width", on ? 1.6 : 1); });
+    svg.querySelectorAll("g[data-n] circle").forEach((c, j) => { c.setAttribute("stroke", j === i ? "var(--ink)" : nodes[j].aux ? "var(--ink-3)" : "var(--panel)"); c.setAttribute("stroke-width", j === i ? 3 : 1.5); });
+    svg.querySelectorAll("line[data-e]").forEach((l) => { const [a, b] = l.dataset.e.split("-").map(Number), on = a === i || b === i; l.setAttribute("stroke", on ? "var(--ink-2)" : "var(--line)"); l.setAttribute("stroke-width", on ? 1.6 : 1); });
     const imports = E.filter(([a]) => a === i).map(([, b]) => nodes[b].id), users = E.filter(([, b]) => b === i).map(([a]) => nodes[a].id);
     const list = (xs) => `<ul>${xs.slice(0, 8).map((u) => `<li class="mono" style="font-size:12px">${esc(u)}</li>`).join("")}</ul>${xs.length > 8 ? `<div class="lbl">+${xs.length - 8} more</div>` : ""}`;
+    const area = d.area >= 0 && g.areas ? g.areas[d.area] : null;
     $("gside").innerHTML = `<h4>${esc(d.id)}</h4><div style="color:var(--ink-2)">${d.lines} lines · imported by ${d.in} · imports ${d.out}${d.test ? " · tests" : ""}</div>` +
+      (area ? `<div><div class="lbl">Area</div><span class="legend"><span><i style="background:var(--area-${d.area + 1})"></i>${esc(area.name)} · ${area.size} modules</span></span></div>` : "") +
       (d.symbols.length ? `<div><div class="lbl">Key symbols</div><div class="mono" style="font-size:12px;line-height:1.7">${d.symbols.slice(0, 8).map(esc).join("<br>")}</div></div>` : "") +
       (users.length ? `<div><div class="lbl">Used by</div>${list(users)}</div>` : "") + (imports.length ? `<div><div class="lbl">Imports</div>${list(imports)}</div>` : "") +
       `<div><button class="btn sm" id="gImpact">What does changing this affect ${chev()}</button></div>`;
