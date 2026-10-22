@@ -46,10 +46,14 @@ CREATE INDEX IF NOT EXISTS imports_resolved ON imports(resolved);
 """
 
 LANG_OF = {".py": "python", ".pyi": "python", ".go": "go", ".ts": "ts", ".tsx": "ts", ".js": "ts", ".jsx": "ts",
-           ".mjs": "ts", ".cjs": "ts", ".mts": "ts", ".cts": "ts"}
+           ".mjs": "ts", ".cjs": "ts", ".mts": "ts", ".cts": "ts", ".rs": "rust", ".java": "java", ".kt": "kotlin",
+           ".kts": "kotlin", ".scala": "scala", ".cs": "csharp", ".swift": "swift", ".c": "cpp", ".h": "cpp",
+           ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hh": "cpp", ".rb": "ruby", ".php": "php"}
+
 MAX_FILE_BYTES = 600_000
-TEST_FILE = re.compile(r"(^|/)(tests?|__tests__|test-d|spec|specs|e2e|testdata)(/|$)|[._-](test|spec)\.\w+$|"
-                       r"(^|/)test_[^/]+\.py$|_test\.go$|(^|/)conftest\.py$")
+TEST_FILE = re.compile(r"(^|/)(tests?|__tests__|test-d|spec|specs|e2e|testdata|Tests|androidTest)(/|$)|"
+                       r"[._-](test|spec)\.\w+$|(^|/)test_[^/]+\.py$|_test\.go$|(^|/)conftest\.py$|"
+                       r"[a-z0-9](Tests?|Spec|IT)\.(java|kt|kts|scala|cs|swift|php)$")
 AUX_FILE = re.compile(r"(^|/)(examples?|docs?|benchmarks?|bench|scripts?|fixtures?|demo|samples?)(/|$)")
 
 # ---------------------------------------------------------------------------
@@ -72,7 +76,7 @@ class _Conn(sqlite3.Connection):
             self.close()
 
 
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
 
 
 def connect(root: str) -> _Conn:
@@ -453,6 +457,248 @@ def _ts_doc(lines, line):
 
 
 # ---------------------------------------------------------------------------
+# Rust, Java, Kotlin, Scala, C#, Swift, C / C++, Ruby, PHP
+#
+# One pattern-driven parser: per language, the declarations it has, how it imports, what inheritance looks like
+# and what counts as public. Imports resolve by matching module paths against the repo's own file paths.
+
+_MODS = r"(?:(?:public|private|protected|internal|static|final|abstract|sealed|open|override|virtual|async|const|" \
+        r"unsafe|extern|inline|data|enum|value|inner|annotation|companion|lateinit|suspend|tailrec|operator|infix|" \
+        r"partial|readonly|new|implicit|lazy|case|fileprivate|mutating|nonmutating|convenience|required|dynamic|" \
+        r"weak|unowned|indirect|final|default|transient|volatile|synchronized|native|strictfp|export|constexpr|" \
+        r"explicit|friend|noexcept|pub(?:\([^)]*\))?|@\w+(?:\([^)]*\))?)\s+)*"
+_C_KEYWORDS = {"if", "for", "while", "switch", "catch", "return", "new", "else", "do", "try", "throw", "case", "sizeof",
+               "typeof", "match", "when", "loop", "fn", "func", "fun", "def", "function", "super", "this", "self",
+               "using", "lock", "foreach", "elif", "unless", "until", "yield", "await", "assert", "print", "println",
+               "printf", "require", "include", "defined", "isset", "empty", "unset", "echo", "list", "array",
+               "decltype", "static_cast", "dynamic_cast", "reinterpret_cast", "const_cast", "alignof", "where",
+               "guard", "repeat", "in", "is", "as", "and", "or", "not", "lambda", "proc", "puts", "raise", "nameof",
+               "Some", "Ok", "Err", "None", "vec", "format", "panic", "String", "Vec", "Box", "Option", "Result"}
+
+# Words that look like a call or a declaration but are control flow.
+_DECL_SKIP = {"if", "for", "while", "switch", "catch", "return", "else", "do", "try", "sizeof", "foreach", "using",
+              "lock", "synchronized", "when", "match", "elif", "unless", "until", "fixed", "checked", "unchecked"}
+
+LANG_SPECS = {
+    "rust": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"fn\s+(?P<name>\w+)", "function"),
+                  (r"^[ \t]*" + _MODS + r"struct\s+(?P<name>\w+)", "struct"),
+                  (r"^[ \t]*" + _MODS + r"enum\s+(?P<name>\w+)", "enum"),
+                  (r"^[ \t]*" + _MODS + r"union\s+(?P<name>\w+)", "struct"),
+                  (r"^[ \t]*" + _MODS + r"trait\s+(?P<name>\w+)", "trait"),
+                  (r"^[ \t]*" + _MODS + r"type\s+(?P<name>\w+)\s*(?:<[^>]*>)?\s*=", "type"),
+                  (r"^[ \t]*" + _MODS + r"(?:const|static)\s+(?:mut\s+)?(?P<name>[A-Z_][A-Z0-9_]*)\s*:", "constant"),
+                  (r"^[ \t]*" + _MODS + r"mod\s+(?P<name>\w+)\s*\{", "module"),
+                  (r"^[ \t]*(?:unsafe\s+)?impl(?:\s*<[^>]*>)?\s+(?:[\w:<>, &']+?\s+for\s+)?(?P<name>\w+)", "impl")],
+        "containers": {"struct", "enum", "trait", "impl", "module"},
+        "hidden": {"impl"},  # containers that aren't symbols of their own
+        "public": lambda line: bool(re.search(r"\bpub\b", line)),
+        "imports": [r"^[ \t]*(?:pub(?:\([^)]*\))?\s+)?use\s+([\w:]+)", r"^[ \t]*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;"],
+        "inherit": r"^[ \t]*(?:unsafe\s+)?impl(?:\s*<[^>]*>)?\s+(?P<parents>[\w:]+)(?:<[^>]*>)?\s+for\s+(?P<child>\w+)",
+        "doc": ("///", "//!"),
+    },
+    "java": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"(?:class|interface|enum|record|@interface)\s+(?P<name>\w+)", "class"),
+                  (r"^[ \t]*" + _MODS + r"(?:<[^>]*>\s*)?[\w<>\[\],.? ]+?\s+(?P<name>\w+)\s*\([^;{]*\)\s*"
+                   r"(?:throws\s+[\w., ]+)?\s*\{", "function")],
+        "containers": {"class"},
+        "public": lambda line: not re.search(r"\bprivate\b", line),
+        "imports": [r"^[ \t]*import\s+(?:static\s+)?([\w.]+)"],
+        "inherit": r"\b(?:class|interface|record|enum)\s+(?P<child>\w+)[^{]*?\b(?:extends|implements)\s+(?P<parents>[\w.<>, ]+?)\s*\{",
+        "doc": ("*", "/**", "//"),
+    },
+    "kotlin": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"(?:class|interface|object)\s+(?P<name>\w+)", "class"),
+                  (r"^[ \t]*" + _MODS + r"fun\s+(?:<[^>]*>\s*)?(?:[\w.<>?]+\.)?(?P<name>\w+)\s*\(", "function"),
+                  (r"^[ \t]*" + _MODS + r"typealias\s+(?P<name>\w+)", "type"),
+                  (r"^[ \t]*" + _MODS + r"const\s+val\s+(?P<name>\w+)", "constant")],
+        "containers": {"class"},
+        "public": lambda line: not re.search(r"\b(private|internal)\b", line),
+        "imports": [r"^[ \t]*import\s+([\w.]+)"],
+        "inherit": r"\b(?:class|interface|object)\s+(?P<child>\w+)[^{:\n]*?(?:\([^)]*\))?\s*:\s*(?P<parents>[\w.<>(), ]+?)\s*(?:\{|$)",
+        "doc": ("*", "/**", "//"),
+    },
+    "scala": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"(?:class|trait|object)\s+(?P<name>\w+)", "class"),
+                  (r"^[ \t]*" + _MODS + r"def\s+(?P<name>\w+)", "function"),
+                  (r"^[ \t]*" + _MODS + r"type\s+(?P<name>\w+)", "type")],
+        "containers": {"class"},
+        "public": lambda line: not re.search(r"\b(private|protected)\b", line),
+        "imports": [r"^[ \t]*import\s+([\w.]+)"],
+        "inherit": r"\b(?:class|trait|object)\s+(?P<child>\w+)[^{\n]*?\bextends\s+(?P<parents>[\w.]+(?:\s+with\s+[\w.]+)*)",
+        "doc": ("*", "/**", "//"),
+    },
+    "csharp": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"(?:class|interface|struct|enum|record(?:\s+struct|\s+class)?)\s+(?P<name>\w+)", "class"),
+                  (r"^[ \t]*namespace\s+(?P<name>[\w.]+)\s*\{", "namespace"),
+                  (r"^[ \t]*" + _MODS + r"(?:<[^>]*>\s*)?[\w<>\[\],.?() ]+?\s+(?P<name>\w+)\s*(?:<[^>]*>)?\s*\([^;{]*\)\s*"
+                   r"(?:where\s+[^{]+)?(?:\{|=>)", "function")],
+        "containers": {"class", "namespace"},
+        "hidden": {"namespace"},
+        "public": lambda line: bool(re.search(r"\b(public|internal|protected)\b", line)),
+        "imports": [r"^[ \t]*(?:global\s+)?using\s+(?:static\s+)?([\w.]+)\s*;"],
+        "inherit": r"\b(?:class|interface|struct|record)\s+(?P<child>\w+)(?:<[^>]*>)?\s*:\s*(?P<parents>[\w.<>, ]+?)\s*(?:\{|where|$)",
+        "doc": ("///", "//"),
+    },
+    "swift": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"(?:class|struct|enum|protocol|actor)\s+(?P<name>\w+)", "class"),
+                  (r"^[ \t]*" + _MODS + r"extension\s+(?P<name>\w+)", "extension"),
+                  (r"^[ \t]*" + _MODS + r"func\s+(?P<name>\w+)", "function"),
+                  (r"^[ \t]*" + _MODS + r"typealias\s+(?P<name>\w+)", "type")],
+        "containers": {"class", "extension"},
+        "hidden": {"extension"},
+        "public": lambda line: not re.search(r"\b(private|fileprivate)\b", line),
+        "imports": [r"^[ \t]*import\s+(?:class\s+|struct\s+|func\s+)?(\w+)"],
+        "inherit": r"\b(?:class|struct|enum|actor|extension)\s+(?P<child>\w+)(?:<[^>]*>)?\s*:\s*(?P<parents>[\w., ]+?)\s*(?:\{|where|$)",
+        "doc": ("///", "//", "*"),
+    },
+    "cpp": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*(?:template\s*<[^>]*>\s*)?(?:class|struct|union)\s+(?:\w+\s+)*?(?P<name>\w+)\s*(?:final\s*)?(?::[^;{]*)?\{", "class"),
+                  (r"^[ \t]*enum(?:\s+class|\s+struct)?\s+(?P<name>\w+)[^;{]*\{", "enum"),
+                  (r"^[ \t]*namespace\s+(?P<name>\w+)\s*\{", "namespace"),
+                  (r"^[ \t]*(?:template\s*<[^>]*>\s*)?" + _MODS + r"[\w:<>,*&~ \t]*?\b(?P<name>~?[A-Za-z_]\w*(?:::~?\w+)*)\s*"
+                   r"\([^;{}]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?(?:->\s*[\w:<>]+\s*)?\{", "function"),
+                  (r"^[ \t]*#\s*define\s+(?P<name>[A-Z_][A-Z0-9_]+)", "macro")],
+        "containers": {"class", "namespace"},
+        "hidden": {"namespace"},
+        "public": lambda line: not re.match(r"\s*static\b", line),
+        "imports": [r"^[ \t]*#\s*include\s*\"([^\"]+)\""],
+        "inherit": r"\b(?:class|struct)\s+(?P<child>\w+)\s*(?:final\s*)?:\s*(?P<parents>[^{;]+?)\s*\{",
+        "doc": ("///", "//", "*"),
+    },
+    "ruby": {
+        "comments": "hash",
+        "decls": [(r"^[ \t]*(?:class|module)\s+(?:[\w:]+::)?(?P<name>\w+)", "class"),
+                  (r"^[ \t]*def\s+(?:self\.)?(?P<name>\w+[?!=]?)", "function"),
+                  (r"^[ \t]*(?P<name>[A-Z][A-Z0-9_]+)\s*=", "constant")],
+        "containers": {"class"},
+        "public": lambda line: True,
+        "imports": [r"^[ \t]*require_relative\s*\(?\s*['\"]([^'\"]+)", r"^[ \t]*require\s*\(?\s*['\"]([^'\"]+)"],
+        "inherit": r"^[ \t]*class\s+(?P<child>[\w:]+)\s*<\s*(?P<parents>[\w:]+)",
+        "doc": ("#",),
+    },
+    "php": {
+        "comments": "c",
+        "decls": [(r"^[ \t]*" + _MODS + r"(?:class|interface|trait|enum)\s+(?P<name>\w+)", "class"),
+                  (r"^[ \t]*" + _MODS + r"function\s+&?(?P<name>\w+)", "function"),
+                  (r"^[ \t]*const\s+(?P<name>[A-Z_][A-Z0-9_]*)\s*=", "constant")],
+        "containers": {"class"},
+        "public": lambda line: not re.search(r"\b(private|protected)\b", line),
+        "imports": [r"^[ \t]*use\s+([\w\\]+)\s*[;{,]", r"^[ \t]*(?:require|include)(?:_once)?\s*\(?\s*(?:__DIR__\s*\.\s*)?['\"]([^'\"]+)"],
+        "inherit": r"\b(?:class|interface)\s+(?P<child>\w+)[^{]*?\b(?:extends|implements)\s+(?P<parents>[\w\\, ]+?)\s*\{",
+        "doc": ("*", "/**", "//", "#"),
+    },
+}
+for _spec in LANG_SPECS.values():
+    _spec["decl_res"] = [(re.compile(rx, re.M), kind) for rx, kind in _spec["decls"]]
+    _spec["import_res"] = [re.compile(rx, re.M) for rx in _spec["imports"]]
+    _spec["inherit_re"] = re.compile(_spec["inherit"], re.M)
+
+_HASH_COMMENT_STRING = re.compile(r"^=begin.*?^=end|#[^\n{]*$|#(?!\{)[^\n]*|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'",
+                                  re.S | re.M)
+_RUST_LIFETIME = re.compile(r"'(?:static|[a-z_]\w*)\b(?!')")
+
+
+def _blank_hash(src: str) -> str:
+    return _HASH_COMMENT_STRING.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), src)
+
+
+def _doc_above(lines, line, prefixes) -> str:
+    """The first line of the comment block right above a declaration (attributes and annotations skipped)."""
+    i = line - 2
+    while i >= 0 and re.match(r"\s*(@\w|#\[|\[\w)", lines[i]):
+        i -= 1
+    j = i
+    while j >= 0 and lines[j].strip().startswith(prefixes + ("*/",)) and lines[j].strip():
+        j -= 1
+    return _first_doc_line("\n".join(lines[j + 1:i + 1]))
+
+
+def parse_lang(lang: str, path: str, src: str):
+    """Symbols, references and imports for one file of a LANG_SPECS language."""
+    spec = LANG_SPECS[lang]
+    lines = src.splitlines()
+    if lang == "rust":
+        src_for_blank = _RUST_LIFETIME.sub(lambda m: " " * len(m.group(0)), src)
+    else:
+        src_for_blank = src
+    clean = _blank_hash(src_for_blank) if spec["comments"] == "hash" else _blank(src_for_blank)
+    _regex_idents(path, clean, src)
+    clines = clean.splitlines()
+    imps = []
+    for rx in spec["import_res"]:
+        for m in rx.finditer(src):
+            target = m.group(1)
+            if "require_relative" in rx.pattern:
+                target = "./" + target
+            imps.append((target, 0, "", 0))
+    found = []  # (line, end, name, kind, signature)
+    seen = set()
+    for rx, kind in spec["decl_res"]:
+        for m in rx.finditer(clean):
+            name = m.group("name")
+            base = name.split("::")[-1].lstrip("~")
+            if kind == "function" and base in _DECL_SKIP:
+                continue
+            line = clean.count("\n", 0, m.start()) + 1
+            if (line, base) in seen:
+                continue
+            seen.add((line, base))
+            end = outline._block_end(lines, line)
+            found.append((line, end, name, kind, lines[line - 1].strip().rstrip("{").strip()[:200]))
+    found.sort()
+    containers = [(ln, end, name.split("::")[-1]) for ln, end, name, kind, _ in found if kind in spec["containers"]]
+    syms, spans = [], []
+    for ln, end, name, kind, sig in found:
+        if kind in spec.get("hidden", ()):
+            continue
+        parent = ""
+        if "::" in name and lang == "cpp":  # out-of-line definition: void Cart::total() { ... }
+            parent, name = name.rsplit("::", 1)[0].split("::")[-1], name.rsplit("::", 1)[1]
+        elif kind == "function":
+            parent = _scope_at([c for c in containers if c[0] < ln], ln)
+        if kind == "function" and parent:
+            kind = "method"
+        exported = int(spec["public"](lines[ln - 1]) and not name.startswith("_"))
+        syms.append((name, kind, parent, ln, end, sig, _doc_above(lines, ln, spec["doc"]), exported))
+        spans.append((ln, end, f"{parent}.{name}" if parent else name))
+    refs = []
+    for m in spec["inherit_re"].finditer(clean):
+        line = clean.count("\n", 0, m.start()) + 1
+        child = m.group("child").split("::")[-1]
+        for parent in re.split(r",|\b(?:with|extends|implements)\b", re.sub(r"<[^<>]*>|\([^)]*\)", "", m.group("parents"))):
+            parent = re.sub(r"\b(public|private|protected|virtual)\b", "", parent).strip().split("::")[-1]
+            parent = parent.split(".")[-1].split("\\")[-1].strip()
+            if parent and re.match(r"^\w+$", parent):
+                refs.append((child, parent, "inherit", line))
+    for i, ln in enumerate(clines, 1):
+        scope = None
+        for m in re.finditer(r"(?<![\w$])(?:[.:>]+\s*)?([A-Za-z_]\w*[?!]?)\s*(?:<[^<>()]*>|::<[^<>()]*>)?\s*\(", ln):
+            name = m.group(1)
+            if name in _C_KEYWORDS or name.rstrip("?!") in _C_KEYWORDS:
+                continue
+            if any(s[3] == i and s[0] == name for s in syms):
+                continue
+            scope = scope if scope is not None else _scope_at(spans, i)
+            refs.append((scope, name, "call", i))
+        for m in re.finditer(r"\bnew\s+([A-Z]\w*)|(?<![\w$])([A-Z]\w*)\s*(?:::|\.)\s*[A-Za-z_]", ln):
+            scope = scope if scope is not None else _scope_at(spans, i)
+            refs.append((scope, m.group(1) or m.group(2), "use", i))
+        if lang == "ruby":
+            for m in re.finditer(r"\.(\w+[?!]?)(?!\s*\()", ln):
+                scope = scope if scope is not None else _scope_at(spans, i)
+                refs.append((scope, m.group(1), "call", i))
+    return syms, refs, imps
+
+
+# ---------------------------------------------------------------------------
 # resolution of imports to units
 
 
@@ -500,6 +746,17 @@ class Resolver:
             self.go_module = m.group(1) if m else ""
         self.go_dirs = {os.path.dirname(f) or "." for f in files if f.endswith(".go")}
         self.ts_paths = self._tsconfig_paths()
+        # every path suffix of the other languages' files, with and without extension: "com/shop/Cart" -> file
+        self.suffix = {}
+        for f in files:
+            if LANG_OF.get(Path(f).suffix) in LANG_SPECS:
+                parts = f.split("/")
+                bare = parts[:-1] + [Path(parts[-1]).stem]
+                for n in range(1, len(parts) + 1):
+                    self.suffix.setdefault("/".join(parts[-n:]), []).append(f)
+                    self.suffix.setdefault("/".join(bare[-n:]), []).append(f)
+                    if n > 1:  # the folder: Kotlin/Scala top-level functions are imported by package path
+                        self.suffix.setdefault("/".join(parts[-n:-1]) + "/", []).append(f)
 
     def _tsconfig_paths(self):
         for name in ("tsconfig.json", "jsconfig.json", "tsconfig.base.json"):
@@ -531,7 +788,65 @@ class Resolver:
                 d = target[len(self.go_module):].strip("/") or "."
                 return d + "/" if d in self.go_dirs else None
             return None
+        lang = LANG_OF.get(Path(f).suffix)
+        if lang in LANG_SPECS:
+            return self._other(lang, f, target)
         return self._ts(f, target)
+
+    def _pick(self, f: str, key: str):
+        """The file a path suffix names; with several, the one nearest the importing file."""
+        hits = [h for h in self.suffix.get(key, ()) if h != f]
+        if not hits:
+            return None
+        return max(hits, key=lambda h: (len(os.path.commonprefix([h, f])), -len(h)))
+
+    def _other(self, lang: str, f: str, target: str):
+        here = os.path.dirname(f)
+        if lang == "rust":
+            if "::" not in target:  # `mod name;`: a sibling file or folder
+                base = here if Path(f).name in ("lib.rs", "main.rs", "mod.rs") else os.path.join(here, Path(f).stem)
+                for c in (os.path.join(base, target + ".rs"), os.path.join(base, target, "mod.rs")):
+                    if os.path.normpath(c) in self.files:
+                        return os.path.normpath(c)
+                return None
+            parts = target.split("::")
+            if parts[0] not in ("crate", "self", "super"):
+                return None  # another crate
+            if parts[0] == "super":
+                parts = parts[1:]
+            parts = [p for p in parts[1:] if p not in ("self", "super", "{", "*")] if parts[0] in ("crate", "self") else parts
+            while parts:
+                for key in ("/".join(parts), "/".join(parts + ["mod"])):
+                    hit = self._pick(f, key)
+                    if hit:
+                        return hit
+                parts = parts[:-1]
+            return None
+        if lang in ("ruby", "php", "cpp") and (target.startswith(".") or lang == "cpp" or "/" in target and lang == "php"):
+            rel = os.path.normpath(os.path.join(here, target))
+            for c in (rel, rel + ".rb", rel + ".php"):
+                if c in self.files:
+                    return c
+            if target.startswith("."):
+                return None
+        sep = "\\" if lang == "php" else "/" if lang in ("ruby", "cpp") else "."
+        parts = [p for p in target.replace(sep, "/").split("/") if p and p != "*"]
+        if lang in ("swift", "csharp") or not parts:
+            return None  # modules and namespaces aren't files
+        tries = [parts[i:] for i in range(len(parts)) if len(parts) - i >= min(2, len(parts))]
+        tries += [parts[i:-1] for i in range(len(parts) - 1) if len(parts) - 1 - i >= 2]  # static / member imports
+        for t in tries:
+            hit = self._pick(f, "/".join(t))
+            if hit:
+                return hit
+        if lang in ("kotlin", "scala") and len(parts) > 1:  # import pkg.function: the package's file defining it
+            for i in range(len(parts) - 2):
+                cands = [h for h in self.suffix.get("/".join(parts[i:-1]) + "/", ()) if os.path.dirname(h).endswith(
+                    "/".join(parts[i:-1])) and h != f]
+                if cands:
+                    named = [h for h in cands if Path(h).stem.lower() in parts[-1].lower()]
+                    return (named or cands)[0] if len(cands) == 1 or named else None
+        return None
 
     def _py(self, f, target, level, names):
         if level:
@@ -631,6 +946,8 @@ def build(root: str, quiet: bool = True, full: bool = False) -> dict:
                         syms, refs, imps = parse_go(f, src)
                     elif lang == "ts":
                         syms, refs, imps = parse_ts(f, src)
+                    elif lang in LANG_SPECS:
+                        syms, refs, imps = parse_lang(lang, f, src)
                     else:
                         syms = [(_sym_name(sig) or sig[:40], "symbol", "", s, e, sig, "", 1)
                                 for s, e, d, sig in outline.outline(f, src) if d == 0]
@@ -1154,7 +1471,7 @@ def unused(root: str):
     for s in g.symbols:
         f, n = s["file"], s["name"]
         info = g.files.get(f, {})
-        if info.get("lang") not in ("python", "go", "ts") or info.get("test") or info.get("generated") \
+        if (info.get("lang") not in ("python", "go", "ts") and info.get("lang") not in LANG_SPECS) or info.get("test") or info.get("generated") \
                 or AUX_FILE.search(f) or ROUTE_FILE.search(f):
             continue
         if n.startswith("__") or n in IMPLICIT_METHODS or re.match(r"(test|Test|Benchmark|Example|Fuzz)", n):

@@ -42,7 +42,7 @@ Kompactor borrows the best idea from each of these tools: graphify's code graph,
 - **One control covers every layer**, from a dashboard, with a live preview of exactly what Claude would see.
 
 **Where others are stronger**
-- graphify builds a multimodal graph: docs, PDFs and images through an LLM, about 40 languages, Obsidian and Neo4j exports. Kompactor's graph covers Python, Go, TypeScript, JavaScript and React code only.
+- graphify builds a multimodal graph: docs, PDFs and images through an LLM, about 40 languages, Obsidian and Neo4j exports. Kompactor's graph covers code only: Python, Go, TypeScript, JavaScript, React, Rust, Java, Kotlin, Scala, C#, Swift, C, C++, Ruby and PHP.
 - rtk has native filters for 100+ commands at under 10 ms each. Kompactor's filters cover the common dev commands and run in Python (50–100 ms per hook).
 - context-mode runs code in a sandbox and indexes huge outputs such as Playwright snapshots. token-savior keeps memory across sessions. Kompactor does neither.
 

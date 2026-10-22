@@ -63,7 +63,7 @@ Measured in 54 real Claude Code sessions on Flask, Cobra, SWR, ky and zustand at
 - **Compacts command output.** Passing tests, progress bars, download chatter, library stack frames and lock-file diffs are dropped. Errors, failures, your own frames and summary lines are always kept.
 - **Handles failing commands.** Claude Code skips output hooks when a command fails and cuts its output to the first and last ~5K characters. Kompactor's shell prefix runs the command to completion, compacts it and passes the exit code through.
 - **Outline-first file reads.** Big source files arrive as an outline (symbols, line ranges, who imports the file, which tests cover it). Claude reads just the ranges it needs; repeating the read returns the whole file.
-- **Local code graph.** Find code by topic, see callers, the impact of a change and the tests to run, for Python, Go, TypeScript, JavaScript and React.
+- **Local code graph.** Find code by topic, see callers, the impact of a change and the tests to run, for Python, Go, TypeScript, JavaScript, React, Rust, Java, Kotlin, Scala, C#, Swift, C, C++, Ruby and PHP.
 - **Terse replies and lean code.** Short, readable rules for answer-first prose and smallest-diff code, from 0 to 177 tokens depending on the level.
 - **Per-turn savings, in tokens and dollars.** In the reply, the status line, a VS Code / Cursor sidebar (per session, per project and per turn) and a local dashboard. Numbers are conservative and never count output Claude wouldn't have read.
 - **One dial for quality vs tokens.** Five levels, every option adjustable, per project, with a live preview of exactly what Claude would see.
@@ -339,6 +339,20 @@ Command output from any language is compacted. These languages also get language
 | Lock files collapsed in diffs | `poetry.lock`, `uv.lock`, `Pipfile.lock` | `go.sum` | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` |
 | Test runners | pytest, unittest, tox, nox | `go test`, gotestsum | jest, vitest, mocha, playwright |
 | Code graph | classes, functions, decorators, imports, calls | packages, structs, interfaces, methods | components, hooks, JSX renders, `tsconfig` paths, workspaces |
+
+More languages, detected per repo the same way:
+
+| | Detected by | Library stack frames collapsed | Generated / lock files | Code graph |
+|---|---|---|---|---|
+| Rust | `Cargo.toml` | `/rustc/`, `.cargo/registry`, `std::` | `target/`; `Cargo.lock` | functions, structs, enums, traits, `impl` methods, `use crate::…`, `mod x;`, `impl Trait for Type` |
+| Java / Kotlin / Scala | `pom.xml`, `build.gradle(.kts)`, `build.sbt` | `java.`, `kotlin.`, `scala.`, JUnit, Gradle | `build/generated/`, `target/`; `gradle.lockfile` | classes, interfaces, objects, methods, top-level functions, imports by package path, `extends` / `implements` / `:` |
+| C# / .NET | `global.json`, `Directory.Build.props` | `System.`, `Microsoft.`, xUnit, NUnit | `bin/Debug`, `obj/`, `*.g.cs`, `*.Designer.cs`; `packages.lock.json` | classes, records, structs, methods, base types |
+| Swift | `Package.swift` | `/usr/lib/swift`, XCTest | `.build/`, `DerivedData/`; `Package.resolved` | types, protocols, `func`s (in types and extensions), conformances |
+| C / C++ | `CMakeLists.txt`, `meson.build` | `/usr/include`, libc, libstdc++ | `build/`, `*.pb.h`; `conan.lock` | classes, structs, namespaces, functions, `Class::method` definitions, `#include "…"`, base classes |
+| Ruby | `Gemfile` | `/gems/`, the Ruby stdlib | `db/schema.rb`; `Gemfile.lock` | classes, modules, methods (`?`, `!`), `require` / `require_relative`, `<` superclasses |
+| PHP | `composer.json` | `vendor/` | `vendor/`, `bootstrap/cache/`; `composer.lock` | classes, interfaces, traits, functions, `use` by namespace (PSR-4), `require`, `extends` / `implements` |
+
+Test files are recognised for each (`*Test.java`, `*_spec.rb`, `tests/`, `CartTests.swift` and so on), so `impact` names the tests to run.
 
 ## What Kompactor runs and changes
 

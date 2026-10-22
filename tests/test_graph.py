@@ -367,3 +367,219 @@ class HookIntegrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+MULTI = {
+    "rust/Cargo.toml": "[package]\nname = 'ledger'\n",
+    "rust/src/lib.rs": '''
+        pub mod ledger;
+        mod util;
+        use crate::ledger::Ledger;
+
+        /// Opens a ledger.
+        pub fn open() -> Ledger { Ledger::new() }
+        ''',
+    "rust/src/ledger.rs": '''
+        use crate::util::round_cents;
+
+        pub struct Ledger { total: i64 }
+
+        pub trait Balance { fn balance(&self) -> i64; }
+
+        impl Ledger {
+            /// Makes an empty ledger.
+            pub fn new() -> Self { Ledger { total: 0 } }
+            fn add<'a>(&mut self, s: &'a str) { self.total += round_cents(s.len() as i64); }
+        }
+
+        impl Balance for Ledger {
+            fn balance(&self) -> i64 { self.total }
+        }
+        ''',
+    "rust/src/util.rs": "pub fn round_cents(c: i64) -> i64 { c }\n",
+    "java/src/main/java/com/shop/Cart.java": '''
+        package com.shop;
+
+        import com.shop.pricing.Pricing;
+
+        /** A shopping cart. */
+        public class Cart extends BaseCart implements Totals {
+            private int items;
+
+            public int total() {
+                return Pricing.priceFor(items);
+            }
+
+            private void reset() { items = 0; }
+        }
+        ''',
+    "java/src/main/java/com/shop/pricing/Pricing.java": '''
+        package com.shop.pricing;
+
+        public final class Pricing {
+            public static int priceFor(int n) { return n * 100; }
+        }
+        ''',
+    "java/src/test/java/com/shop/CartTest.java": '''
+        package com.shop;
+        import com.shop.Cart;
+        class CartTest { void totals() { new Cart().total(); } }
+        ''',
+    "kotlin/app/src/main/kotlin/shop/Order.kt": '''
+        package shop
+
+        import shop.tax.applyTax
+
+        data class Order(val cents: Int) : Priced {
+            fun total(): Int = applyTax(cents)
+            private fun hidden() = 1
+        }
+        ''',
+    "kotlin/app/src/main/kotlin/shop/tax/Tax.kt": "package shop.tax\n\nfun applyTax(c: Int): Int = c * 2\n",
+    "dotnet/Shop/Cart.cs": '''
+        using Shop.Pricing;
+
+        namespace Shop
+        {
+            /// <summary>A cart.</summary>
+            public class Cart : BaseCart, ITotals
+            {
+                public int Total()
+                {
+                    return PriceList.PriceFor(3);
+                }
+            }
+        }
+        ''',
+    "swift/Sources/Ledger/Ledger.swift": '''
+        import Foundation
+
+        public struct Ledger: Codable {
+            public func balance() -> Int { return compute() }
+            private func compute() -> Int { 0 }
+        }
+        ''',
+    "cpp/src/cart.cpp": '''
+        #include "cart.h"
+        #include <vector>
+
+        double Cart::total() const {
+            return price_for(items_);
+        }
+
+        static int helper() { return 1; }
+        ''',
+    "cpp/src/cart.h": '''
+        #pragma once
+        #include "pricing.h"
+
+        class Cart : public Base {
+          public:
+            double total() const;
+        };
+        ''',
+    "cpp/src/pricing.h": "double price_for(int n);\n",
+    "ruby/lib/shop/cart.rb": '''
+        require_relative "pricing"
+
+        module Shop
+          # A cart full of items.
+          class Cart < BaseCart
+            def total
+              Pricing.price_for(items)
+            end
+
+            def empty?
+              items.zero?
+            end
+          end
+        end
+        ''',
+    "ruby/lib/shop/pricing.rb": '''
+        module Shop
+          class Pricing
+            def self.price_for(items)
+              items.size * 100
+            end
+          end
+        end
+        ''',
+    "php/src/Cart.php": '''
+        <?php
+        namespace App;
+
+        use App\\Pricing\\PriceList;
+
+        /** A cart. */
+        class Cart extends BaseCart implements Totals
+        {
+            public function total(): int
+            {
+                return PriceList::priceFor(3);
+            }
+
+            private function reset(): void {}
+        }
+        ''',
+    "php/src/Pricing/PriceList.php": "<?php\nnamespace App\\Pricing;\n\nclass PriceList { public static function priceFor(int $n): int { return $n; } }\n",
+}
+
+
+class MoreLanguagesGraphTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo(MULTI)
+        graph.build(cls.root)
+        cls.g = graph.Graph(cls.root)
+        cls.syms = {(s["file"].split("/", 1)[0], s["name"]): s for s in cls.g.symbols}
+
+    def sym(self, lang_dir, name):
+        return self.syms[(lang_dir, name)]
+
+    def test_languages_are_detected(self):
+        langs = {info["lang"] for info in self.g.files.values()}
+        self.assertEqual(langs, {"rust", "java", "kotlin", "csharp", "swift", "cpp", "ruby", "php"})
+
+    def test_symbols_methods_and_visibility(self):
+        cases = [("rust", "Ledger", "struct", "", 1), ("rust", "new", "method", "Ledger", 1),
+                 ("rust", "add", "method", "Ledger", 0), ("rust", "Balance", "trait", "", 1),
+                 ("java", "Cart", "class", "", 1), ("java", "reset", "method", "Cart", 0),
+                 ("kotlin", "total", "method", "Order", 1), ("kotlin", "applyTax", "function", "", 1),
+                 ("dotnet", "Total", "method", "Cart", 1), ("swift", "balance", "method", "Ledger", 1),
+                 ("swift", "compute", "method", "Ledger", 0), ("cpp", "total", "method", "Cart", 1),
+                 ("cpp", "helper", "function", "", 0), ("ruby", "empty?", "method", "Cart", 1),
+                 ("php", "total", "method", "Cart", 1), ("php", "reset", "method", "Cart", 0)]
+        for d, name, kind, parent, exported in cases:
+            s = self.sym(d, name)
+            self.assertEqual((s["kind"], s["parent"], s["exported"]), (kind, parent, exported), (d, name))
+        self.assertEqual(self.sym("rust", "new")["doc"], "Makes an empty ledger.")
+        self.assertEqual(self.sym("java", "Cart")["doc"], "A shopping cart.")
+        self.assertEqual(self.sym("ruby", "Cart")["doc"], "A cart full of items.")
+
+    def test_imports_resolve_to_files(self):
+        edges = {(f, r) for f, t, r, n, _ in self.g.imports if r}
+        for edge in [("rust/src/lib.rs", "rust/src/ledger.rs"), ("rust/src/lib.rs", "rust/src/util.rs"),
+                     ("rust/src/ledger.rs", "rust/src/util.rs"),
+                     ("java/src/main/java/com/shop/Cart.java", "java/src/main/java/com/shop/pricing/Pricing.java"),
+                     ("kotlin/app/src/main/kotlin/shop/Order.kt", "kotlin/app/src/main/kotlin/shop/tax/Tax.kt"),
+                     ("cpp/src/cart.cpp", "cpp/src/cart.h"), ("cpp/src/cart.h", "cpp/src/pricing.h"),
+                     ("ruby/lib/shop/cart.rb", "ruby/lib/shop/pricing.rb"),
+                     ("php/src/Cart.php", "php/src/Pricing/PriceList.php")]:
+            self.assertIn(edge, edges)
+
+    def test_callers_and_inheritance(self):
+        for name, caller in [("priceFor", "java/src/main/java/com/shop/Cart.java"),
+                             ("applyTax", "kotlin/app/src/main/kotlin/shop/Order.kt"),
+                             ("round_cents", "rust/src/ledger.rs"), ("price_for", "ruby/lib/shop/cart.rb"),
+                             ("price_for", "cpp/src/cart.cpp")]:
+            rows, _ = self.g.callers(name)
+            self.assertIn(caller, {r[0] for r in rows}, name)
+        inherit = {(r[1], r[2]) for r in self.g.refs if r[3] == "inherit"}
+        for pair in [("Cart", "BaseCart"), ("Cart", "Totals"), ("Ledger", "Balance"), ("Ledger", "Codable"),
+                     ("Order", "Priced"), ("Cart", "ITotals"), ("Cart", "Base")]:
+            self.assertIn(pair, inherit)
+
+    def test_test_files_are_recognised(self):
+        self.assertTrue(self.g.files["java/src/test/java/com/shop/CartTest.java"]["test"])
+        res, _ = graph.impact(self.root, "java/src/main/java/com/shop/pricing/Pricing.java")
+        self.assertIn("java/src/main/java/com/shop/Cart.java", res["affected"])
