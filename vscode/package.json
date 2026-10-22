@@ -1,0 +1,135 @@
+{
+  "name": "kompactor",
+  "displayName": "Kompactor: Claude Code token saver",
+  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. A sidebar and status bar show tokens and estimated dollars saved.",
+  "version": "0.8.4",
+  "publisher": "kompactor",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "ai coding",
+    "anthropic",
+    "claude",
+    "claude code",
+    "context",
+    "context window",
+    "cost",
+    "tokens"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kompactor.openDashboard",
+        "title": "Kompactor: Open Dashboard"
+      },
+      {
+        "command": "kompactor.choosePreset",
+        "title": "Kompactor: Choose Quality vs Tokens Level"
+      },
+      {
+        "command": "kompactor.enable",
+        "title": "Kompactor: Enable for Claude Code"
+      },
+      {
+        "command": "kompactor.disable",
+        "title": "Kompactor: Disable for Claude Code"
+      },
+      {
+        "command": "kompactor.showLastTurn",
+        "title": "Kompactor: Show Last Turn Savings"
+      },
+      {
+        "command": "kompactor.openInBrowser",
+        "title": "Kompactor: Open Dashboard in Browser"
+      },
+      {
+        "command": "kompactor.refresh",
+        "title": "Kompactor: Refresh Savings",
+        "icon": "$(refresh)"
+      }
+    ],
+    "configuration": {
+      "title": "Kompactor",
+      "properties": {
+        "kompactor.turnSummary": {
+          "type": "string",
+          "enum": [
+            "statusBar",
+            "notification",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Briefly show the turn's savings in the status bar",
+            "Show a notification after every Claude Code turn",
+            "Don't announce turns (the status bar item still updates)"
+          ],
+          "default": "statusBar",
+          "description": "How to show the tokens Kompactor saved after each Claude Code turn."
+        },
+        "kompactor.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show running Kompactor savings in the status bar."
+        },
+        "kompactor.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python 3.9+ used to run Kompactor. Leave empty to auto-detect (python3, python, py -3)."
+        },
+        "kompactor.pricePerMillionTokens": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "description": "Input-token price in USD per million tokens, used for the dollar estimate. Use the API list price of the model you mostly use."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kompactor",
+          "title": "Kompactor",
+          "icon": "media/kompactor.svg"
+        }
+      ]
+    },
+    "views": {
+      "kompactor": [
+        {
+          "type": "webview",
+          "id": "kompactor.savings",
+          "name": "Savings"
+        }
+      ]
+    },
+    "icons": {
+      "kompactor-logo": {
+        "description": "Kompactor",
+        "default": {
+          "fontPath": "media/kompactor.woff",
+          "fontCharacter": "\\E900"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "kompactor.refresh",
+          "when": "view == kompactor.savings",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "icon": "icon.png"
+}

@@ -1,0 +1,12 @@
+__pycache__/
+*.egg-info/
+.venv/
+build/
+vscode/python/
+vscode/LICENSE
+kompactor/vsix/
+dist/*
+!dist/*.vsix
+evidence*/runs/
+evidence/**/runs/
+dist/
