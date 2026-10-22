@@ -151,6 +151,12 @@ def cmd_hook(a):
 
 
 def cmd_gain(a):
+    if a.json:
+        project = config.project_root(a.project) if a.project else ""
+        print(json.dumps({**store.savings(a.price, a.session or "", project), "project_path": project,
+                          "paused": store.paused(),
+                          "version": __version__}))
+        return 0
     with store.connect() as db:
         rows = db.execute("SELECT feature, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events GROUP BY feature "
                           "ORDER BY SUM(raw_tokens) - SUM(kept_tokens) DESC").fetchall()
@@ -218,7 +224,7 @@ Use it from Claude Code
 
 Turn it off
   kompactor stop        pause it (settings kept); `kompactor start` resumes
-  kompactor uninstall   remove it from Claude Code (--purge also deletes ~/.kompactor)
+  kompactor uninstall   remove it from Claude Code, VS Code and Cursor, and delete its data
 
 Evidence
   Measured A/B runs of real Claude Code tasks: {EVIDENCE_URL}
@@ -337,6 +343,10 @@ def cmd_start(a):
     print(f"  Connected via {'the Claude Code plugin' if st['plugin_enabled'] else where}")
     _prefix_note(st)
     _path_note(installer.link_on_path())
+    if not a.no_editor:
+        added = installer.install_editor_extension()
+        if added:
+            print(f"  Added the Kompactor extension to {' and '.join(added)}: reload the window to see its sidebar.")
     d = _dashboard()
     if not d:
         from . import server
@@ -375,17 +385,20 @@ def cmd_stop(a):
 
 
 def cmd_uninstall(a):
-    """Stop, remove hooks / status line / shell prefix / skill, and optionally delete data."""
+    """Stop, remove hooks / status line / shell prefix / skill / editor extension, and delete Kompactor's data."""
     _kill_dashboard()
     target = installer.install(uninstall=True)
     print(f"✓ Removed Kompactor from {target}")
-    if a.purge:
+    removed = installer.uninstall_editor_extension()
+    if removed:
+        print(f"  Removed the Kompactor extension from {' and '.join(removed)}.")
+    if a.keep_data:
+        (store.home() / "paused").unlink(missing_ok=True)
+        print("  Kept savings history and settings in ~/.kompactor.")
+    else:
         import shutil
         shutil.rmtree(store.home(), ignore_errors=True)
-        print("  Deleted savings history and config (~/.kompactor).")
-    else:
-        (store.home() / "paused").unlink(missing_ok=True)
-        print("  Kept savings history and config in ~/.kompactor (add --purge to delete).")
+        print("  Deleted Kompactor's data: savings history, settings, code graphs and saved outputs (~/.kompactor).")
     if installer.status()["plugin_enabled"]:
         print("  The Claude Code plugin is still enabled; run: claude plugin uninstall amarkum@kompactor")
     print("  Installed it as a Python package? Remove that too, with the tool you installed it with (pip, pipx or uv).")
@@ -490,13 +503,15 @@ def main(argv=None):
     p = sp.add_parser("start", help="turn Kompactor on: connect it to Claude Code and open the dashboard")
     p.add_argument("--port", type=int, default=0, help="preferred port (default: any free port)")
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--no-editor", action="store_true", help="don't add the extension to VS Code or Cursor")
     p.set_defaults(fn=cmd_start)
 
     p = sp.add_parser("stop", help="pause Kompactor and close the dashboard (settings are kept)")
     p.set_defaults(fn=cmd_stop)
 
     p = sp.add_parser("uninstall", help="stop and remove Kompactor from Claude Code settings")
-    p.add_argument("--purge", action="store_true", help="also delete ~/.kompactor (history and config)")
+    p.add_argument("--keep-data", action="store_true", help="keep ~/.kompactor (history and settings)")
+    p.add_argument("--purge", action="store_true", help=argparse.SUPPRESS)  # the default now; kept for old docs
     p.set_defaults(fn=cmd_uninstall)
 
     p = sp.add_parser("estimate", help="replay past Claude Code sessions and show %% Kompactor would save")
@@ -508,6 +523,10 @@ def main(argv=None):
     p.set_defaults(fn=cmd_estimate)
 
     p = sp.add_parser("gain", help="live savings recorded by the hooks")
+    p.add_argument("--json", action="store_true", help="machine-readable totals with a dollar estimate")
+    p.add_argument("--price", type=float, default=3.0, help="input-token price in USD per million (default 3)")
+    p.add_argument("--session", help="also report this Claude Code session")
+    p.add_argument("--project", help="also report this project folder, with its recent turns")
     p.set_defaults(fn=cmd_gain)
 
     p = sp.add_parser("ui", help="open the settings & savings dashboard (foreground; see `start`)")

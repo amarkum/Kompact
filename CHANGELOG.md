@@ -2,6 +2,14 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.8.2
+
+- VS Code and Cursor: a **Kompactor** icon in the activity bar opens a sidebar with tokens and estimated dollars saved this session, in this project, today and over 30 days, what every recent turn saved (or "nothing to trim"), and the biggest wins.
+- The status bar shows the Kompactor icon with the session's tokens and dollars saved. The price is a setting: `kompactor.pricePerMillionTokens` (default $3 per million input tokens).
+- `kompactor start` adds the extension to VS Code and Cursor when they're installed (`--no-editor` skips it); the extension ships inside the PyPI package, so nothing is downloaded.
+- `kompactor uninstall` also removes the extension and deletes `~/.kompactor`; `--keep-data` keeps it.
+- `kompactor gain --json` reports tokens and dollars per session, project, day and 30 days, with recent turns.
+
 ## 0.8.1
 
 - Dashboard: the Rebuild button's refresh icon is drawn correctly.

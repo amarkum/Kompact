@@ -65,6 +65,68 @@ def write_shim(only_if_changed: bool = False) -> Path:
     return d / "kompactor"
 
 
+# The VS Code extension ships inside the Python package (kompactor/vsix/, built by scripts/build-vsix.sh),
+# so `kompactor start` can add it to VS Code and Cursor without downloading anything.
+EXTENSION_ID = "kompactor.kompactor"
+EDITORS = (("VS Code", "code", "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code", ".vscode"),
+           ("Cursor", "cursor", "/Applications/Cursor.app/Contents/Resources/app/bin/cursor", ".cursor"))
+
+
+def bundled_vsix():
+    from . import __version__
+    p = Path(__file__).with_name("vsix") / f"kompactor-{__version__}.vsix"
+    return p if p.exists() else None
+
+
+def editors() -> list:
+    """(name, command-line tool, extensions folder) for each VS Code-family editor on this machine."""
+    found = []
+    for name, cmd, mac_path, home_dir in EDITORS:
+        cli = shutil.which(cmd) or (mac_path if os.path.exists(mac_path) else "")
+        if cli:
+            found.append((name, cli, Path.home() / home_dir / "extensions"))
+    return found
+
+
+def _has_extension(ext_dir: Path, version: str = "") -> bool:
+    return any(ext_dir.glob(f"{EXTENSION_ID}-{version or '*'}"))
+
+
+def install_editor_extension() -> list:
+    """Add the bundled extension to each editor that doesn't have this version yet; returns the editor names."""
+    import subprocess
+    from . import __version__
+    vsix = bundled_vsix()
+    done = []
+    for name, cli, ext_dir in editors() if vsix else []:
+        if _has_extension(ext_dir, __version__):
+            continue
+        try:
+            r = subprocess.run([cli, "--install-extension", str(vsix), "--force"], capture_output=True, text=True,
+                               timeout=180)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if r.returncode == 0:
+            done.append(name)
+    return done
+
+
+def uninstall_editor_extension() -> list:
+    """Remove the extension from every editor that has it; returns the editor names."""
+    import subprocess
+    done = []
+    for name, cli, ext_dir in editors():
+        if not _has_extension(ext_dir):
+            continue
+        try:
+            r = subprocess.run([cli, "--uninstall-extension", EXTENSION_ID], capture_output=True, text=True, timeout=180)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if r.returncode == 0:
+            done.append(name)
+    return done
+
+
 # Where a `kompactor` command can be linked when pip put it in a folder that isn't on PATH.
 PATH_DIRS = ("~/.local/bin", "~/bin", "/opt/homebrew/bin", "/usr/local/bin")
 

@@ -143,6 +143,49 @@ def session_totals(session: str) -> dict:
             "context": last[2] if last else 0, "last_turn_saved": (last[0] - last[1]) if last else 0}
 
 
+def savings(price_per_mtok: float = 3.0, session: str = "", project: str = "") -> dict:
+    """Tokens kept out of Claude's context, with a dollar estimate at `price_per_mtok` (the input-token
+    price). A kept-out token would have been written to the prompt cache once (1.25x) and re-read on every
+    later turn of its session (0.1x each), the same weights `kompactor estimate` uses."""
+    now = time.time()
+    day = now - 86400
+    with connect() as db:
+        def total(where="1", args=()):
+            r = db.execute(f"SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0) FROM events "
+                           f"WHERE {where}", args).fetchone()
+            return {"events": r[0], "raw": r[1], "kept": r[2], "saved": r[1] - r[2]}
+        periods = {"all": total(), "today": total("ts > ?", (day,))}
+        if session:
+            periods["session"] = total("session = ?", (session,))
+        if project:
+            periods["project"] = total("project = ?", (project,))
+        recent = db.execute("SELECT session, idx, ts, raw_tokens, kept_tokens, features FROM turns "
+                            "WHERE project = ? OR (? = '' AND session = ?) ORDER BY ts DESC LIMIT 12",
+                            (project, project, session)).fetchall()
+        turns = db.execute("SELECT session, ts, raw_tokens - kept_tokens, project FROM turns "
+                           "ORDER BY session, idx").fetchall()
+        top = db.execute("SELECT detail, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE feature='bash' "
+                         "GROUP BY detail ORDER BY SUM(raw_tokens) - SUM(kept_tokens) DESC LIMIT 5").fetchall()
+        sessions = db.execute("SELECT COUNT(DISTINCT session) FROM events").fetchone()[0]
+    rereads = {"all": 0.0, "today": 0.0, "session": 0.0, "project": 0.0}
+    by_session = {}
+    for s, ts, saved, proj in turns:
+        by_session.setdefault(s, []).append((ts, saved, proj))
+    for s, rows in by_session.items():
+        for i, (ts, saved, proj) in enumerate(rows):
+            later = (len(rows) - i - 1) * saved * 0.1
+            rereads["all"] += later
+            rereads["today"] += later if ts > day else 0
+            rereads["session"] += later if s == session else 0
+            rereads["project"] += later if project and proj == project else 0
+    for k, p in periods.items():
+        p["usd"] = round((p["saved"] * 1.25 + rereads[k]) * price_per_mtok / 1e6, 4)
+    return {"price_per_mtok": price_per_mtok, "sessions": sessions, **periods,
+            "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
+            "turns": [{"session": t[0], "idx": t[1], "ts": t[2], "raw": t[3], "kept": t[4], "saved": t[3] - t[4],
+                       "features": json.loads(t[5] or "{}")} for t in recent]}
+
+
 def prune(retention_days: float) -> None:
     """Drop data older than the retention window (called at session start)."""
     cutoff = time.time() - retention_days * 86400

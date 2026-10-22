@@ -4,6 +4,7 @@ __pycache__/
 build/
 vscode/python/
 vscode/LICENSE
+kompactor/vsix/
 dist/*
 !dist/*.vsix
 evidence*/runs/

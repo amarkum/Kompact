@@ -13,6 +13,7 @@ os.environ.setdefault("KOMPACTOR_HOME", tempfile.mkdtemp())
 
 from kompactor import config, graph, hooks, installer  # noqa: E402
 installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
+installer.EDITORS = ()  # never install or remove the real VS Code / Cursor extension from tests
 
 
 def make_repo(files: dict) -> str:

@@ -1,6 +1,7 @@
 // Kompactor for VS Code: wires Kompactor's hooks into Claude Code (the VS Code
-// extension and the CLI share ~/.claude/settings.json), shows per-turn savings
-// in the status bar, and hosts the settings dashboard in a webview.
+// extension and the CLI share ~/.claude/settings.json), shows tokens and estimated
+// dollars saved in the status bar and an activity-bar sidebar, and hosts the
+// settings dashboard in a webview.
 // Plain JavaScript, no dependencies, no build step.
 
 const vscode = require("vscode");
@@ -17,11 +18,23 @@ let dashboardUrl;    // http://127.0.0.1:port/
 let panel;           // webview panel
 let lastTs = 0;
 let pythonCmd;       // [exe, ...args]
+let summary = null;  // latest `kompactor gain --json`: tokens and dollars saved
+let view = null;     // the activity-bar sidebar
+let refreshing = null; // the summary refresh in flight, shared by everyone who asks meanwhile
+let refreshAgain = false;
 
 const kompactorHome = () => process.env.KOMPACTOR_HOME || path.join(os.homedir(), ".kompactor");
 const livePath = () => path.join(kompactorHome(), "live.json");
 const claudeSettings = () => path.join(os.homedir(), ".claude", "settings.json");
 const cfg = () => vscode.workspace.getConfiguration("kompactor");
+
+const price = () => Math.max(0, Number(cfg().get("pricePerMillionTokens")) || 0);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function usd(n) {
+  n = Number(n) || 0;
+  return n >= 100 ? "$" + n.toFixed(0) : n >= 0.01 ? "$" + n.toFixed(2) : n >= 0.001 ? "$" + n.toFixed(3) : n > 0 ? "under $0.001" : "$0";
+}
 
 function fmt(n) {
   n = Number(n) || 0;
@@ -138,22 +151,28 @@ function readLive() {
   try { return JSON.parse(fs.readFileSync(livePath(), "utf8")); } catch (e) { return null; }
 }
 
+function sessionUsd(live) {
+  return summary && summary.session && live && live.session ? summary.session.usd : null;
+}
+
 function renderStatus(live) {
   if (!cfg().get("showStatusBar")) return status.hide();
   const tot = (live && live.session_totals) || {};
   const turn = (live && live.turn) || {};
   if (live && inThisWindow(live.project) && tot.saved > 0) {
     const ctxPct = tot.context && tot.in_context_saved > 0 ? Math.round(100 * tot.in_context_saved / (tot.context + tot.in_context_saved)) : 0;
-    status.text = `$(fold) −${fmt(tot.saved)}` + (ctxPct ? ` · ctx −${ctxPct}%` : "");
+    const dollars = sessionUsd(live);
+    status.text = `$(kompactor-logo) −${fmt(tot.saved)}` + (dollars ? ` · ${usd(dollars)}` : "");
     const md = new vscode.MarkdownString(
       `**Kompactor** · ${live.preset_name || ""}\n\n` +
       (turn.saved > 0 ? `Last turn: **−${fmt(turn.saved)} tokens** (${fmt(turn.raw)} › ${fmt(turn.kept)})\n\n` : "Last turn: nothing to trim\n\n") +
-      `This session: −${fmt(tot.saved)} tokens` + (ctxPct ? `, context ≈${ctxPct}% smaller` : "") +
+      `This session: −${fmt(tot.saved)} tokens` + (dollars ? `, ≈${usd(dollars)} saved` : "") +
+      (ctxPct ? `, context ≈${ctxPct}% smaller` : "") +
       `\n\n[Open dashboard](command:kompactor.openDashboard) · [Change level](command:kompactor.choosePreset)`);
     md.isTrusted = true;
     status.tooltip = md;
   } else {
-    status.text = "$(fold) Kompactor";
+    status.text = "$(kompactor-logo) Kompactor";
     status.tooltip = "Kompactor: click for the dashboard or to change the quality vs tokens level";
   }
   status.show();
@@ -162,6 +181,7 @@ function renderStatus(live) {
 function onLiveChange() {
   const live = readLive();
   renderStatus(live);
+  refreshSummary();
   if (!live || live.ts === lastTs) return;
   const isNew = lastTs !== 0;
   lastTs = live.ts;
@@ -190,6 +210,120 @@ function showLastTurn() {
   const live = readLive();
   vscode.window.showInformationMessage(live && live.message ? live.message : "Kompactor hasn't seen a Claude Code turn yet.");
 }
+
+// ---------------------------------------------------------------------------
+// Savings summary + activity-bar sidebar
+
+function refreshSummary() {
+  if (refreshing) { refreshAgain = true; return refreshing; }
+  refreshing = (async () => {
+    do {
+      refreshAgain = false;
+      try {
+        const live = readLive();
+        const args = ["gain", "--json", "--price", String(price())];
+        if (live && live.session) args.push("--session", live.session);
+        const folder = (vscode.workspace.workspaceFolders || [])[0];
+        if (folder) args.push("--project", folder.uri.fsPath);
+        const r = await runKompactor(args);
+        if (r.code === 0) summary = JSON.parse(r.stdout);
+      } catch (e) { /* keep the last summary */ }
+    } while (refreshAgain);
+    refreshing = null;
+    renderStatus(readLive());
+    renderView();
+  })();
+  return refreshing;
+}
+
+function ago(ts) {
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`;
+}
+
+function viewHtml(webview) {
+  const live = readLive();
+  const { cmds, plugin } = hookCommands();
+  const connected = cmds.length > 0 || plugin;
+  const paused = summary && summary.paused;
+  const state = !connected ? "Not connected" : paused ? "Stopped" : "On";
+  const dot = !connected ? "off" : paused ? "paused" : "on";
+  const tot = (live && live.session_totals) || {};
+  const turn = (live && live.turn) || {};
+  const ctxPct = tot.context && tot.in_context_saved > 0 ? Math.round(100 * tot.in_context_saved / (tot.context + tot.in_context_saved)) : 0;
+  const card = (title, p, extra) => p && p.saved > 0
+    ? `<div class="card"><div class="lbl">${title}</div><div class="big">−${fmt(p.saved)} <span>tokens</span></div>
+       <div class="usd">≈ ${usd(p.usd)} saved</div>${extra || ""}</div>`
+    : `<div class="card"><div class="lbl">${title}</div><div class="none">Nothing saved yet</div></div>`;
+  const sessionExtra = (ctxPct ? `<div class="sub">Context ≈${ctxPct}% smaller</div>` : "") +
+    (turn.saved > 0 ? `<div class="sub">Last turn −${fmt(turn.saved)} (${fmt(turn.raw)} › ${fmt(turn.kept)})</div>` : "");
+  const turns = ((summary && summary.turns) || []).map((t) =>
+    `<li><span class="t">Turn ${t.idx} · ${ago(t.ts)}</span>` + (t.saved > 0
+      ? `<span class="s">−${fmt(t.saved)}</span><span>${fmt(t.raw)} › ${fmt(t.kept)}</span>`
+      : `<span>nothing to trim</span>`) + `</li>`).join("");
+  const projectName = summary && summary.project_path ? summary.project_path.split(/[\\/]/).pop() : "";
+  const top = ((summary && summary.top) || []).filter((t) => t.raw > t.kept).map((t) =>
+    `<li><code>${esc(t.cmd)}</code><span>${fmt(t.raw)} › ${fmt(t.kept)}</span></li>`).join("");
+  const nonce = Math.random().toString(36).slice(2);
+  const action = !connected ? `<button data-cmd="enable">Enable for Claude Code</button>`
+    : paused ? `<button data-cmd="start">Start</button>` : `<button class="secondary" data-cmd="stop">Stop</button>`;
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+<style>
+body{padding:4px 12px 16px;color:var(--vscode-foreground);font-family:var(--vscode-font-family);font-size:var(--vscode-font-size)}
+.state{display:flex;align-items:center;gap:6px;margin:6px 0 12px;font-weight:600}
+.state small{font-weight:400;color:var(--vscode-descriptionForeground)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--vscode-descriptionForeground)}
+.dot.on{background:var(--vscode-testing-iconPassed,#3fb950)}.dot.paused{background:var(--vscode-editorWarning-foreground,#d29922)}
+.card{border:1px solid var(--vscode-widget-border,var(--vscode-panel-border));border-radius:6px;padding:10px 12px;margin-bottom:10px}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--vscode-descriptionForeground);margin-bottom:4px}
+.big{font-size:20px;font-weight:600}.big span{font-size:12px;font-weight:400;color:var(--vscode-descriptionForeground)}
+.usd{font-size:13px;color:var(--vscode-charts-green,#3fb950);margin-top:2px}
+.sub,.none,.note{font-size:12px;color:var(--vscode-descriptionForeground);margin-top:4px}
+h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--vscode-descriptionForeground);margin:14px 0 6px}
+ul{list-style:none;padding:0;margin:0}li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12px}
+li code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}li span{color:var(--vscode-descriptionForeground);white-space:nowrap}
+li .t{color:var(--vscode-foreground);flex:1}li .s{color:var(--vscode-charts-green,#3fb950)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 8px}
+button{border:0;border-radius:2px;padding:5px 10px;cursor:pointer;background:var(--vscode-button-background);color:var(--vscode-button-foreground);font:inherit}
+button:hover{background:var(--vscode-button-hoverBackground)}
+button.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}
+</style></head><body>
+<div class="state"><span class="dot ${dot}"></span>${state}${live && live.preset_name ? ` <small>· ${esc(live.preset_name)}</small>` : ""}</div>
+${card("This session", summary && summary.session, sessionExtra)}
+${projectName ? card(`This project · ${esc(projectName)}`, summary && summary.project) : ""}
+${card("Today", summary && summary.today)}
+${card("Last 30 days", summary && summary.all, summary && summary.sessions ? `<div class="sub">${summary.sessions} session${summary.sessions === 1 ? "" : "s"}</div>` : "")}
+${turns ? `<h3>Recent turns${projectName ? " in this project" : ""}</h3><ul>${turns}</ul>` : ""}
+${top ? `<h3>Biggest wins</h3><ul>${top}</ul>` : ""}
+<div class="btns"><button data-cmd="dashboard">Open dashboard</button><button class="secondary" data-cmd="level">Change level</button>${action}</div>
+<div class="note">Dollars are estimates at ${usd(price())} per million input tokens: each token kept out is counted once as a prompt-cache write and again for every later turn that would have re-read it. Change the price in Settings › Kompactor.</div>
+<script nonce="${nonce}">const vs=acquireVsCodeApi();document.querySelectorAll("[data-cmd]").forEach((b)=>b.addEventListener("click",()=>vs.postMessage({cmd:b.dataset.cmd})));</script>
+</body></html>`;
+}
+
+function renderView() {
+  if (view) view.webview.html = viewHtml(view.webview);
+}
+
+const viewProvider = {
+  resolveWebviewView(v) {
+    view = v;
+    v.webview.options = { enableScripts: true };
+    v.webview.onDidReceiveMessage((m) => {
+      const after = () => refreshSummary();
+      if (m.cmd === "dashboard") openDashboard();
+      else if (m.cmd === "level") choosePreset().then(after);
+      else if (m.cmd === "enable") enable(false).then(after);
+      else if (m.cmd === "start") runKompactor(["start", "--no-browser"]).then(after);
+      else if (m.cmd === "stop") runKompactor(["stop"]).then(after);
+    });
+    v.onDidChangeVisibility(() => v.visible && refreshSummary());
+    v.onDidDispose(() => (view = null));
+    renderView();
+    refreshSummary();
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Quality level
@@ -284,9 +418,11 @@ function activate(context) {
     vscode.commands.registerCommand("kompactor.enable", () => enable(false)),
     vscode.commands.registerCommand("kompactor.disable", disable),
     vscode.commands.registerCommand("kompactor.showLastTurn", showLastTurn),
+    vscode.commands.registerCommand("kompactor.refresh", refreshSummary),
+    vscode.window.registerWebviewViewProvider("kompactor.savings", viewProvider),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("kompactor.pythonPath")) pythonCmd = null;
-      if (e.affectsConfiguration("kompactor")) renderStatus(readLive());
+      if (e.affectsConfiguration("kompactor")) refreshSummary();
     }));
 
   fs.mkdirSync(kompactorHome(), { recursive: true });
@@ -294,7 +430,9 @@ function activate(context) {
   lastTs = (live && live.ts) || 0;
   renderStatus(live);
   fs.watchFile(livePath(), { interval: 1000 }, onLiveChange);
-  context.subscriptions.push({ dispose: () => fs.unwatchFile(livePath(), onLiveChange) });
+  const timer = setInterval(() => view && view.visible && refreshSummary(), 60000);
+  context.subscriptions.push({ dispose: () => { fs.unwatchFile(livePath(), onLiveChange); clearInterval(timer); } });
+  refreshSummary();
   firstRun();
 }
 

@@ -11,3 +11,6 @@ cp LICENSE vscode/LICENSE
 rm -f dist/kompactor-*.vsix   # dist/ holds the current release only; older ones stay in git history
 cd vscode
 npx --yes @vscode/vsce@3 package --no-dependencies --allow-missing-repository --out ../dist/
+cd ..
+# also inside the Python package, so `kompactor start` can add it to VS Code and Cursor offline
+rm -rf kompactor/vsix && mkdir -p kompactor/vsix && cp dist/kompactor-*.vsix kompactor/vsix/

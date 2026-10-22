@@ -65,7 +65,7 @@ Measured in 54 real Claude Code sessions on Flask, Cobra, SWR, ky and zustand at
 - **Outline-first file reads.** Big source files arrive as an outline (symbols, line ranges, who imports the file, which tests cover it). Claude reads just the ranges it needs; repeating the read returns the whole file.
 - **Local code graph.** Find code by topic, see callers, the impact of a change and the tests to run, for Python, Go, TypeScript, JavaScript and React.
 - **Terse replies and lean code.** Short, readable rules for answer-first prose and smallest-diff code, from 0 to 177 tokens depending on the level.
-- **Per-turn savings.** In the reply, the status line, the VS Code status bar and a local dashboard. Numbers are conservative and never count output Claude wouldn't have read.
+- **Per-turn savings, in tokens and dollars.** In the reply, the status line, a VS Code / Cursor sidebar (per session, per project and per turn) and a local dashboard. Numbers are conservative and never count output Claude wouldn't have read.
 - **One dial for quality vs tokens.** Five levels, every option adjustable, per project, with a live preview of exactly what Claude would see.
 - **Nothing is lost.** Every shortened output keeps a raw copy (`kompactor show <id>`), and every hook fails open.
 - **Private and dependency-free.** Python 3.9+ standard library only. Runs locally, sends nothing anywhere, no telemetry.
@@ -90,7 +90,7 @@ kompactor start
 ```
 If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code.** Download `kompactor-0.8.1.vsix` from [Releases](https://github.com/amarkum/kompactor/releases), install it (Extensions › `⋯` › *Install from VSIX…*), and click **Enable** when Kompactor asks.
+**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.2.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
 
 **From source:**
 ```bash
@@ -103,12 +103,13 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line like `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code):
    ```
-   Kompactor 0.8.1: ON
+   Kompactor 0.8.2: ON
      Connected via the Claude Code plugin. New Claude Code sessions are compacted.
      Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
      Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
    ```
-4. **Three commands to remember:** `kompactor start` turns it on and opens the dashboard, `kompactor stop` pauses it, `kompactor uninstall` removes it.
+4. **In VS Code or Cursor:** click the **Kompactor** icon in the activity bar for tokens and estimated dollars saved this session, in this project, today and over 30 days, plus what every recent turn saved.
+5. **Three commands to remember:** `kompactor start` turns it on and opens the dashboard, `kompactor stop` pauses it, `kompactor uninstall` removes it.
 
 ## How it works
 
@@ -154,9 +155,9 @@ Ask Claude Code the way you normally would. These prompts come from the [evidenc
 
 | Command | What it does |
 |---|---|
-| `kompactor start` | Turn Kompactor on: connect it to Claude Code (CLI + VS Code) and open the dashboard on a free port |
+| `kompactor start` | Turn Kompactor on: connect it to Claude Code (CLI + VS Code), add the extension to VS Code and Cursor, and open the dashboard on a free port |
 | `kompactor stop` | Pause it and close the dashboard; settings are kept |
-| `kompactor uninstall [--purge]` | Remove it from Claude Code (`--purge` also deletes `~/.kompactor`) |
+| `kompactor uninstall` | Remove it from Claude Code and from VS Code / Cursor, and delete its data (`--keep-data` keeps `~/.kompactor`) |
 | `kompactor` / `kompactor status` | On or off, level, savings, how it works |
 | `kompactor presets` · `kompactor config preset 4` | List levels · change level |
 | `kompactor config <setting> <value>` | Change one [setting](#settings) |
@@ -239,7 +240,8 @@ Commit a `.kompactor.json` next to the code to give everyone the same level and 
 |---|---|
 | After each reply | `Kompactor: −8.2k tokens this turn (13.1k › 4.9k, −63%) · session −41k · context ≈31% smaller` |
 | CLI status line | `Kompactor −41.3k · ctx −31% · last turn −8.2k · Balanced` |
-| VS Code status bar | Running savings; hover for details |
+| VS Code / Cursor status bar | Tokens and ≈ dollars saved this session; hover for details |
+| VS Code / Cursor sidebar | Kompactor icon in the activity bar: this session, this project, today and 30 days in tokens and dollars, recent turns (saved or "nothing to trim"), biggest wins |
 | Dashboard (`kompactor start`) | Per-turn chart, biggest wins, savings by feature and by project |
 | `kompactor gain` | The same numbers in the terminal |
 | `kompactor estimate` | Replays your **past** sessions and shows what Kompactor would have saved |
@@ -343,7 +345,7 @@ Everything below happens on your machine. Kompactor makes no network requests of
 
 **What it reads.** The tool output Claude Code passes to its hooks, the files Claude reads (to outline them), your project's source (for the code graph), and the context size Claude Code gives the status line. Hooks never read your session transcripts. `kompactor estimate` and the dashboard's **Replay your history** panel read your local Claude Code session logs in `~/.claude/projects` only when you run them; the result isn't stored or sent anywhere.
 
-**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers. When `kompactor` isn't on your PATH, it adds one link to that launcher in a writable folder that already is (`~/.local/bin`, `~/bin`, `/opt/homebrew/bin` or `/usr/local/bin`); it never edits shell files or replaces an existing command, and `kompactor uninstall` removes the link. History is deleted after 30 days by default. `kompactor start` edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. Nothing is written to your repositories.
+**What it writes.** `~/.kompactor/`: settings, the savings ledger, raw copies of shortened output (for `kompactor show`), the code graph index and the `~/.kompactor/bin/` launchers. When `kompactor` isn't on your PATH, it adds one link to that launcher in a writable folder that already is (`~/.local/bin`, `~/bin`, `/opt/homebrew/bin` or `/usr/local/bin`); it never edits shell files or replaces an existing command, and `kompactor uninstall` removes the link. History is deleted after 30 days by default. `kompactor start` edits `~/.claude/settings.json` to add Kompactor's hooks (non-plugin installs), a status line (only if you have none) and `CLAUDE_CODE_SHELL_PREFIX` (only if it isn't set), keeping a backup in `settings.json.kompactor-backup`; non-plugin installs also get the `/kompactor` skill in `~/.claude/skills`. When VS Code or Cursor is installed, `kompactor start` adds the Kompactor extension to them with their own `code` / `cursor` command (from a copy inside the package; nothing is downloaded), and `kompactor uninstall` removes it and deletes `~/.kompactor`. Nothing is written to your repositories.
 
 **What it never does.** Change your permission rules or sandbox settings, change what a command does, or send your code or output anywhere. Details: [privacy policy](https://github.com/amarkum/kompactor/blob/main/PRIVACY.md).
 
@@ -362,7 +364,7 @@ Everything below happens on your machine. Kompactor makes no network requests of
 ```bash
 kompactor stop        # pause: output passes through untouched; settings are kept
 kompactor start       # turn it back on
-kompactor uninstall   # remove hooks, status line, shell prefix and skill (--purge also deletes ~/.kompactor)
+kompactor uninstall   # remove hooks, status line, shell prefix, skill and editor extension, and delete ~/.kompactor
 ```
 Then remove the package the way you installed it: `claude plugin uninstall amarkum@kompactor`, `pipx uninstall kompactor`, or uninstall the extension in VS Code.
 
@@ -385,6 +387,9 @@ The hooks are Claude Code-specific, but `kompactor run -- <command>` and `kompac
 
 **How much latency does it add?**
 About 50–100 ms per hook, because the filters run in Python.
+
+**How are the dollar figures worked out?**
+They're estimates at an input-token price you set (`kompactor.pricePerMillionTokens` in VS Code, default $3 per million). Each token kept out of the context is counted once as a prompt-cache write (1.25× the input price) and once more at the cache-read price (0.1×) for every later turn in that session that would have re-read it.
 
 **Is it free?**
 Yes. MIT-licensed, no account, no paid tier.

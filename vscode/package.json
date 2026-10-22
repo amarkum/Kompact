@@ -1,8 +1,8 @@
 {
   "name": "kompactor",
   "displayName": "Kompactor: Claude Code token saver",
-  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. Quality-vs-tokens levels, per-turn savings in the status bar, and a settings dashboard.",
-  "version": "0.8.1",
+  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. A sidebar and status bar show tokens and estimated dollars saved.",
+  "version": "0.8.2",
   "publisher": "kompactor",
   "license": "MIT",
   "engines": {
@@ -51,6 +51,11 @@
       {
         "command": "kompactor.openInBrowser",
         "title": "Kompactor: Open Dashboard in Browser"
+      },
+      {
+        "command": "kompactor.refresh",
+        "title": "Kompactor: Refresh Savings",
+        "icon": "$(refresh)"
       }
     ],
     "configuration": {
@@ -80,8 +85,50 @@
           "type": "string",
           "default": "",
           "description": "Python 3.9+ used to run Kompactor. Leave empty to auto-detect (python3, python, py -3)."
+        },
+        "kompactor.pricePerMillionTokens": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "description": "Input-token price in USD per million tokens, used for the dollar estimate. Use the API list price of the model you mostly use."
         }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kompactor",
+          "title": "Kompactor",
+          "icon": "media/kompactor.svg"
+        }
+      ]
+    },
+    "views": {
+      "kompactor": [
+        {
+          "type": "webview",
+          "id": "kompactor.savings",
+          "name": "Savings"
+        }
+      ]
+    },
+    "icons": {
+      "kompactor-logo": {
+        "description": "Kompactor",
+        "default": {
+          "fontPath": "media/kompactor.woff",
+          "fontCharacter": "\\E900"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "kompactor.refresh",
+          "when": "view == kompactor.savings",
+          "group": "navigation"
+        }
+      ]
     }
   },
   "icon": "icon.png"

@@ -1,7 +1,8 @@
 // Smoke test for extension.js against a mock `vscode` API.
 //   node vscode/test/smoke.js
 // Exercises: status bar from live.json, enabling hooks, per-turn message,
-// preset picker, dashboard server + webview. Uses temp HOME / KOMPACTOR_HOME.
+// preset picker, the savings sidebar with dollar estimates, dashboard server +
+// webview. Uses temp HOME / KOMPACTOR_HOME.
 
 const assert = require("assert");
 const fs = require("fs");
@@ -22,6 +23,9 @@ let quickPickAnswer = null;
 const commands = {};
 const statusItem = { text: "", tooltip: "", shown: false, show() { this.shown = true; }, hide() { this.shown = false; }, dispose() {} };
 let webviewHtml = "";
+let viewProvider = null;
+const sidebar = { visible: true, webview: { html: "", options: {}, onDidReceiveMessage() {} },
+  onDidChangeVisibility() {}, onDidDispose() {} };
 
 class MarkdownString { constructor(v) { this.value = v; this.isTrusted = false; } }
 const vscodeMock = {
@@ -36,6 +40,7 @@ const vscodeMock = {
     showErrorMessage: async (msg) => { calls.errors.push(msg); },
     setStatusBarMessage: (msg) => { calls.statusMsg.push(msg); return { dispose() {} }; },
     showQuickPick: async (items) => (typeof quickPickAnswer === "function" ? quickPickAnswer(items) : undefined),
+    registerWebviewViewProvider: (id, p) => { assert.strictEqual(id, "kompactor.savings"); viewProvider = p; return { dispose() {} }; },
     createWebviewPanel: () => ({
       webview: { set html(v) { webviewHtml = v; }, get html() { return webviewHtml; }, postMessage() {} },
       reveal() {}, onDidDispose() {},
@@ -44,7 +49,7 @@ const vscodeMock = {
   commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; } },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: "/work/shop" } }],
-    getConfiguration: () => ({ get: (k) => ({ turnSummary: "statusBar", showStatusBar: true, pythonPath: "" }[k]) }),
+    getConfiguration: () => ({ get: (k) => ({ turnSummary: "statusBar", showStatusBar: true, pythonPath: "", pricePerMillionTokens: 3 }[k]) }),
     onDidChangeConfiguration: () => ({ dispose() {} }),
   },
 };
@@ -67,7 +72,10 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
     message: "Kompactor: −1.2k tokens this turn" });
   ext.activate(ctx);
   await sleep(100);
-  assert.match(statusItem.text, /\$\(fold\) −5\.0k · ctx −14%/, "status bar shows session savings");
+  assert.match(statusItem.text, /^\$\(kompactor-logo\) −5\.0k/, "status bar shows the Kompactor icon and session savings");
+  const pkg = require(path.join(repo, "vscode", "package.json"));
+  assert.strictEqual(pkg.contributes.viewsContainers.activitybar[0].icon, "media/kompactor.svg", "activity bar container");
+  assert.ok(fs.existsSync(path.join(repo, "vscode", "media", "kompactor.woff")), "icon font shipped");
   assert.ok(calls.info.some((m) => m.includes("Enable it?")), "first run offers to enable");
   for (const id of ["kompactor.openDashboard", "kompactor.choosePreset", "kompactor.enable", "kompactor.disable", "kompactor.menu"])
     assert.ok(commands[id], `command ${id} registered`);
@@ -92,6 +100,26 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
     session_totals: { saved: 999 }, message: "Kompactor: other window" });
   await sleep(2500);
   assert.strictEqual(calls.statusMsg.length, before, "other project's turn ignored");
+
+  // the sidebar shows tokens and dollars once Kompactor has compacted something in this session
+  const cp = require("child_process");
+  const big = Array.from({ length: 300 }, (_, i) => `tests/test_x.py::test_${i} PASSED`).join("\n") + "\n1 failed, 299 passed";
+  cp.spawnSync("python3", [path.join(repo, "kompactor", "_launch.py"), "hook", "post-bash"], { env: process.env,
+    input: JSON.stringify({ session_id: "s9", cwd: "/work/shop", tool_input: { command: "pytest -v" },
+      tool_response: { stdout: big, stderr: "", interrupted: false, isImage: false } }) });
+  cp.spawnSync("python3", [path.join(repo, "kompactor", "_launch.py"), "hook", "stop"], { env: process.env,
+    input: JSON.stringify({ session_id: "s9", cwd: "/work/shop" }) });
+  writeLive({ ts: 4, session: "s9", project: "/work/shop", preset_name: "Balanced", turn: { saved: 0 },
+    session_totals: { saved: 2500 }, message: "" });
+  assert.ok(viewProvider, "sidebar view registered");
+  viewProvider.resolveWebviewView(sidebar);
+  await commands["kompactor.refresh"]();
+  assert.match(sidebar.webview.html, /This session[\s\S]*≈ \$0\.0\d+ saved/, "sidebar shows this session's dollars");
+  assert.match(sidebar.webview.html, /Last 30 days/, "sidebar shows the 30-day total");
+  assert.match(sidebar.webview.html, /This project · shop/, "sidebar shows this project's total");
+  assert.match(sidebar.webview.html, /Recent turns in this project[\s\S]*Turn 1 · just now[\s\S]*−2\.5k/, "sidebar lists recent turns");
+  assert.match(sidebar.webview.html, /<code>pytest -v<\/code>/, "sidebar lists the biggest wins");
+  assert.match(statusItem.text, /^\$\(kompactor-logo\) −2\.5k · \$0\.0\d+/, "status bar shows dollars saved");
 
   // preset picker writes config.json
   quickPickAnswer = (items) => items.find((i) => i.n === "4");

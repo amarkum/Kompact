@@ -13,6 +13,7 @@ os.environ["KOMPACTOR_HOME"] = os.path.join(TMP, "home")
 
 from kompactor import config, estimate, filters, hooks, installer, langs, outline, server, store, tokens  # noqa: E402
 installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
+installer.EDITORS = ()  # never install or remove the real VS Code / Cursor extension from tests
 
 
 def run_hook(name, event):
@@ -583,6 +584,29 @@ class SourceTests(unittest.TestCase):
             self.assertEqual(installer.link_on_path(path=str(on_path), dirs=(str(on_path),)), "")
             installer.unlink_from_path(dirs=(str(on_path),))
             self.assertTrue((on_path / "kompactor").exists())
+
+    @unittest.skipIf(os.name == "nt", "uses a POSIX shell script as the fake editor")
+    def test_editor_extension_added_once_and_removed(self):
+        from unittest import mock
+        from kompactor import __version__
+        tmp = Path(tempfile.mkdtemp())
+        ext, log, cli, vsix = tmp / "extensions", tmp / "log", tmp / "code", tmp / "k.vsix"
+        ext.mkdir(); vsix.write_text("x")
+        cli.write_text(f"""#!/bin/sh
+echo "$@" >> '{log}'
+[ "$1" = --install-extension ] && mkdir -p '{ext}/kompactor.kompactor-{__version__}'
+[ "$1" = --uninstall-extension ] && rm -rf '{ext}'/kompactor.kompactor-*
+exit 0
+""")
+        cli.chmod(0o755)
+        fake = (("VS Code", "no-such-editor-command", str(cli), str(tmp)),)
+        with mock.patch.object(installer, "EDITORS", fake), mock.patch.object(installer, "bundled_vsix", return_value=vsix):
+            self.assertEqual(installer.install_editor_extension(), ["VS Code"])
+            self.assertEqual(installer.install_editor_extension(), [])          # this version is already there
+            self.assertEqual(installer.uninstall_editor_extension(), ["VS Code"])
+            self.assertEqual(installer.uninstall_editor_extension(), [])        # nothing left to remove
+        self.assertEqual(log.read_text().split("\n")[:2],
+                         [f"--install-extension {vsix} --force", "--uninstall-extension kompactor.kompactor"])
 
     def test_source_defaults_to_the_public_repo(self):
         self.assertEqual(installer.source("")["marketplace"], "amarkum/kompactor")

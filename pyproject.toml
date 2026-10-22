@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kompactor"
-version = "0.8.1"
+version = "0.8.2"
 description = "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads, a local code graph, and per-turn savings."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -44,9 +44,10 @@ exact = ["tiktoken>=0.7"]
 kompactor = "kompactor.cli:main"
 
 [tool.setuptools]
-packages = ["kompactor", "kompactor.static", "kompactor.static.fonts"]
+packages = ["kompactor", "kompactor.static", "kompactor.static.fonts", "kompactor.vsix"]
 
 [tool.setuptools.package-data]
 kompactor = ["ui.html"]
 "kompactor.static" = ["*.html", "*.svg"]
 "kompactor.static.fonts" = ["*.woff2", "*.txt"]
+"kompactor.vsix" = ["*.vsix"]
