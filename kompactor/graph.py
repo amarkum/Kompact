@@ -1104,6 +1104,18 @@ class Graph:
         out.sort(key=lambda r: (self.files.get(r[0], {}).get("test", False), bool(AUX_FILE.search(r[0])), r[0], r[1]))
         return out[:limit], len(out)
 
+    def link(self, ref_file: str, defs) -> str:
+        """How sure a by-name reference from `ref_file` is to mean one of `defs`: "exact" when the referencing
+        module is the defining one or imports it, "likely" when the name has a single definition in the repo,
+        "ambiguous" when several do and nothing ties the reference to one, "external" when none do."""
+        if not defs:
+            return "external"
+        ru = self.unit_of(ref_file)
+        reach = {ru} | self.out_units.get(ru, set())
+        if any(self.unit_of(d["file"]) in reach for d in defs):
+            return "exact"
+        return "likely" if len(defs) == 1 else "ambiguous"
+
     def callees(self, sym: dict, limit: int = 30):
         qual = f"{sym['parent']}.{sym['name']}" if sym["parent"] else sym["name"]
         unit = self.unit_of(sym["file"])
@@ -1235,11 +1247,15 @@ def callers_text(root: str, name: str, budget: int = 1200) -> str:
     leaf = name.split(".")[-1]
     defs = hits if kind == "symbol" else []
     rows, total = g.callers(leaf, limit=200)
+    sure = [g.link(r[0], defs) for r in rows]
+    counts = Counter(sure)
     out = [f"{name}: defined at " + (", ".join(_loc(s) for s in defs[:5]) if defs else "(not found in this repo)"),
-           f"referenced {total}× in {len({r[0] for r in rows})} files" + (" (by name; may include same-named symbols)"
-                                                                           if len(defs) > 1 else "")]
-    for f, line, scope, k in rows:
-        out.append(f"  {f}:{line}  {scope}" + ("" if k == "call" else f"  [{k}]"))
+           f"referenced {total}× in {len({r[0] for r in rows})} files · "
+           + ", ".join(f"{counts[k]} {k}" for k in ("exact", "likely", "ambiguous", "external") if counts[k])]
+    for (f, line, scope, k), c in sorted(zip(rows, sure), key=lambda x: ("exact", "likely", "ambiguous", "external").index(x[1])):
+        out.append(f"  {f}:{line}  {scope}" + ("" if k == "call" else f"  [{k}]") + ("" if c == "exact" else f"  ({c})"))
+    if counts["ambiguous"]:
+        out.append("  (ambiguous: several definitions share this name and the file imports none of them)")
     return _fit(out, budget)
 
 
@@ -1594,7 +1610,9 @@ def explain_text(root: str, name: str, budget: int = 1200) -> str:
         out.append(f"  {s['signature']}")
         rows, total = g.callers(s["name"], limit=8)
         if rows:
-            out.append(f"  used by ({total}): " + ", ".join(f"{r[0]}:{r[1]} {r[2]}" for r in rows[:8]))
+            out.append(f"  used by ({total}): " + ", ".join(
+                f"{r[0]}:{r[1]} {r[2]}" + ("" if g.link(r[0], [s]) == "exact" else f" ({g.link(r[0], [s])})")
+                for r in rows[:8]))
         calls = g.callees(s, limit=12)
         if calls:
             out.append("  uses: " + ", ".join(calls))

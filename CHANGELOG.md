@@ -4,6 +4,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- Callers and `explain` label each link: exact (same module, or it imports the definition), likely (the only definition of that name), ambiguous (several definitions, none imported) or external (not defined in the repo), with a count per label.
 - Code graph communities: modules that import each other are grouped into areas (label propagation over the import graph, folder-mates weighted a little higher). `graph report` lists them with their hub; the dashboard's module map colours nodes by area with a named legend.
 - `kompactor mcp`: an MCP server (stdio) with read-only tools for graph query, callers, impact, deps, explain, path, report, unused, outline and symbol, so any MCP client can use the code graph. `claude mcp add kompactor -- kompactor mcp`.
 - Code graph for Rust, Java, Kotlin, Scala, C#, Swift, C, C++, Ruby and PHP: symbols, methods, visibility, doc comments, imports resolved to files, calls and inheritance. Each gets a language profile (detection, library stack frames, generated and lock files) and test-file recognition. Existing graphs rebuild once.

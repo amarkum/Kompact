@@ -646,3 +646,24 @@ class CommunityTests(unittest.TestCase):
         v = graph.viz(root)
         self.assertEqual({a["name"] for a in v["areas"]}, {"app/billing/", "app/auth/"})
         self.assertTrue(all(n["area"] >= 0 for n in v["nodes"]))
+
+
+class LinkConfidenceTests(unittest.TestCase):
+    def test_callers_are_labelled_by_how_sure_the_link_is(self):
+        root = make_repo({
+            "pyproject.toml": "[project]\nname='app'\n",
+            "app/jobs.py": "def run():\n    return 1\n",
+            "app/tasks.py": "def run():\n    return 2\n\ndef only_here():\n    return 3\n",
+            "app/cli.py": "from app.jobs import run\n\ndef main():\n    return run()\n",
+            "app/loose.py": "def go():\n    return run() + only_here()\n",
+        })
+        graph.build(root)
+        g = graph.Graph(root)
+        jobs_run = [s for s in g.by_name["run"] if s["file"] == "app/jobs.py"]
+        self.assertEqual(g.link("app/cli.py", jobs_run), "exact")
+        self.assertEqual(g.link("app/loose.py", g.by_name["run"]), "ambiguous")
+        self.assertEqual(g.link("app/loose.py", g.by_name["only_here"]), "likely")
+        self.assertEqual(g.link("app/loose.py", []), "external")
+        text = graph.callers_text(root, "run")
+        self.assertIn("1 exact, 1 ambiguous", text)
+        self.assertIn("app/loose.py:2  go  (ambiguous)", text)
