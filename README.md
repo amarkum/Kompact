@@ -90,7 +90,7 @@ kompactor start
 ```
 If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.2.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
+**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.3.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
 
 **From source:**
 ```bash
@@ -103,12 +103,15 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line like `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code):
    ```
-   Kompactor 0.8.2: ON
-     Connected via the Claude Code plugin. New Claude Code sessions are compacted.
-     Level: Balanced (level 3 of 5). Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced
-     Saved so far: 41.3k tokens (−38%) over 52 tool calls. Details: `kompactor gain`
+   Kompactor 0.8.3 is on
+
+     Claude Code   connected
+     Level         Balanced (3 of 5)
+     Saved         41.3k tokens (−38%) in 52 tool calls
+     Dashboard     http://127.0.0.1:56710/
    ```
-4. **In VS Code or Cursor:** click the **Kompactor** icon in the activity bar for tokens and estimated dollars saved this session, in this project, today and over 30 days, plus what every recent turn saved.
+   `kompactor help` lists every command.
+4. **In VS Code or Cursor:** click the **Kompactor** icon in the activity bar for tokens and estimated dollars saved this session, in this project, today and over 30 days, plus what Kompactor shortened in each of Claude's recent replies.
 5. **Three commands to remember:** `kompactor start` turns it on and opens the dashboard, `kompactor stop` pauses it, `kompactor uninstall` removes it.
 
 ## How it works

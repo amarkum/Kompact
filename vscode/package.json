@@ -2,7 +2,7 @@
   "name": "kompactor",
   "displayName": "Kompactor: Claude Code token saver",
   "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. A sidebar and status bar show tokens and estimated dollars saved.",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "publisher": "kompactor",
   "license": "MIT",
   "engines": {

@@ -117,7 +117,7 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   assert.match(sidebar.webview.html, /This session[\s\S]*≈ \$0\.0\d+ saved/, "sidebar shows this session's dollars");
   assert.match(sidebar.webview.html, /Last 30 days/, "sidebar shows the 30-day total");
   assert.match(sidebar.webview.html, /This project · shop/, "sidebar shows this project's total");
-  assert.match(sidebar.webview.html, /Recent turns in this project[\s\S]*Turn 1 · just now[\s\S]*−2\.5k/, "sidebar lists recent turns");
+  assert.match(sidebar.webview.html, /Recent replies in this project[\s\S]*pytest -v<\/span><span class="s">−2\.5k[\s\S]*just now/, "sidebar lists what each reply shortened");
   assert.match(sidebar.webview.html, /<code>pytest -v<\/code>/, "sidebar lists the biggest wins");
   assert.match(statusItem.text, /^\$\(kompactor-logo\) −2\.5k · \$0\.0\d+/, "status bar shows dollars saved");
 

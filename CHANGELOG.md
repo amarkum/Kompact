@@ -2,6 +2,13 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.8.3
+
+- `kompactor help` (and `-h`, `--help`) is a short, standard help page grouped by task; internal commands are hidden.
+- A mistyped command suggests the closest one ("Did you mean this? kompactor start") instead of printing every command.
+- Plain `kompactor` shows a compact, aligned status summary.
+- VS Code / Cursor sidebar: "Recent replies" shows what Kompactor shortened in each of Claude's replies (commands and files, e.g. `pytest -v ×2`) instead of numbered turns, and folds replies with nothing to shorten into one line.
+
 ## 0.8.2
 
 - VS Code and Cursor: a **Kompactor** icon in the activity bar opens a sidebar with tokens and estimated dollars saved this session, in this project, today and over 30 days, what every recent turn saved (or "nothing to trim"), and the biggest wins.

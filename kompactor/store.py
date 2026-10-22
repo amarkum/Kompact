@@ -160,8 +160,18 @@ def savings(price_per_mtok: float = 3.0, session: str = "", project: str = "") -
         if project:
             periods["project"] = total("project = ?", (project,))
         recent = db.execute("SELECT session, idx, ts, raw_tokens, kept_tokens, features FROM turns "
-                            "WHERE project = ? OR (? = '' AND session = ?) ORDER BY ts DESC LIMIT 12",
+                            "WHERE project = ? OR (? = '' AND session = ?) ORDER BY ts DESC LIMIT 30",
                             (project, project, session)).fetchall()
+        shortened = {}  # what each recent reply shortened: its commands and files, biggest first
+        for s, idx, ts, *_ in recent:
+            prev = db.execute("SELECT COALESCE(MAX(ts), 0) FROM turns WHERE session = ? AND idx < ?", (s, idx)).fetchone()[0]
+            items = {}
+            for f, d, r, k in db.execute("SELECT feature, detail, raw_tokens, kept_tokens FROM events WHERE session = ? "
+                                         "AND ts > ? AND ts <= ? AND raw_tokens > kept_tokens", (s, prev, ts)):
+                it = items.setdefault(_label(f, d), {"what": _label(f, d), "saved": 0, "times": 0})
+                it["saved"] += r - k
+                it["times"] += 1
+            shortened[(s, idx)] = sorted(items.values(), key=lambda it: -it["saved"])[:3]
         turns = db.execute("SELECT session, ts, raw_tokens - kept_tokens, project FROM turns "
                            "ORDER BY session, idx").fetchall()
         top = db.execute("SELECT detail, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE feature='bash' "
@@ -183,7 +193,13 @@ def savings(price_per_mtok: float = 3.0, session: str = "", project: str = "") -
     return {"price_per_mtok": price_per_mtok, "sessions": sessions, **periods,
             "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
             "turns": [{"session": t[0], "idx": t[1], "ts": t[2], "raw": t[3], "kept": t[4], "saved": t[3] - t[4],
-                       "features": json.loads(t[5] or "{}")} for t in recent]}
+                       "features": json.loads(t[5] or "{}"), "shortened": shortened[(t[0], t[1])]} for t in recent]}
+
+
+def _label(feature: str, detail: str) -> str:
+    """How a saving reads in a list: the command, or the file that was outlined or not re-read."""
+    name = os.path.basename((detail or "").split(" (")[0])
+    return {"read_outline": f"read {name}", "read_dedupe": f"re-read {name}"}.get(feature, detail or feature)
 
 
 def prune(retention_days: float) -> None:

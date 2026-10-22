@@ -190,47 +190,36 @@ def cmd_status(a):
     """What Kompactor is doing right now, and what to do next. Also what plain `kompactor` prints."""
     st = installer.status()
     cfg = config.load(os.getcwd())
-    level = f"{config.PRESETS[cfg['preset']]['name']} (level {cfg['preset']} of 5)"
-    on = (st["plugin_enabled"] or st["hooks_installed"]) and not store.paused()
-    state = ("ON" if on else "STOPPED" if store.paused() else "NOT SET UP")
-    print(f"Kompactor {__version__}: {state}")
-    if not (st["plugin_enabled"] or st["hooks_installed"]):
-        print("  Run `kompactor start` to connect it to Claude Code (CLI and VS Code).")
+    connected = st["plugin_enabled"] or st["hooks_installed"]
+    state = "on" if connected and not store.paused() else "stopped" if connected else "not set up"
+    if not connected:
+        claude = "not connected; run 'kompactor start'"
     elif store.paused():
-        print("  Claude Code output passes through untouched. Turn it back on: `kompactor start`")
+        claude = "paused; run 'kompactor start' to resume"
     else:
-        print(f"  Connected via {'the Claude Code plugin' if st['plugin_enabled'] else st['settings_file']}."
-              " New Claude Code sessions are compacted.")
-    print(f"  Level: {level}. Change it: `kompactor config preset 1-5`, the dashboard, or /kompactor balanced")
+        claude = "connected (plugin)" if st["plugin_enabled"] else "connected"
     with store.connect() as db:
         raw, kept, n = db.execute("SELECT COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0), COUNT(*) "
                                   "FROM events").fetchone()
-    if n:
-        print(f"  Saved so far: {_fmt(raw - kept)} tokens ({_pct(raw - kept, raw)}) over {n} tool calls."
-              " Details: `kompactor gain`")
-    else:
-        print("  Saved so far: nothing yet. Use Claude Code as usual; the status line shows savings per turn.")
+    saved = f"{_fmt(raw - kept)} tokens ({_pct(raw - kept, raw)}) in {n} tool calls" if n else "nothing yet"
     d = _dashboard()
-    print(f"  Dashboard: {d['url'] if d else 'not running (`kompactor start` opens it)'}")
-    print(f"""
-How it works
-  Kompactor sits between Claude Code's tools and Claude. Long command output (test runs, installs,
-  git log), big file reads and searches are shortened before Claude reads them: errors, failing tests,
-  your own stack frames and summary lines are always kept. Claude can still get the full text with
-  `kompactor show <id>`. You don't change how you work; just use Claude Code.
+    print(f"""Kompactor {__version__} is {state}
 
-Use it from Claude Code
-  /kompactor status · /kompactor max savings · /kompactor balanced · /kompactor stop · /kompactor start
+  Claude Code   {claude}
+  Level         {config.PRESETS[cfg['preset']]['name']} ({cfg['preset']} of 5)
+  Saved         {saved}
+  Dashboard     {d['url'] if d else "not running"}
 
-Turn it off
-  kompactor stop        pause it (settings kept); `kompactor start` resumes
-  kompactor uninstall   remove it from Claude Code, VS Code and Cursor, and delete its data
+Commands:
+  start         Turn Kompactor on and open the dashboard
+  stop          Pause Kompactor (settings are kept)
+  uninstall     Remove Kompactor and delete its data
+  gain          Show what it saved, command by command
+  help          List all commands
 
-Evidence
-  Measured A/B runs of real Claude Code tasks: {EVIDENCE_URL}
-  Your own sessions: `kompactor estimate` replays them and shows what it would have saved.
-
-All commands: kompactor --help""")
+Kompactor shortens test runs, installs, logs and big file reads
+before Claude reads them, keeping every error, failure and summary.
+Evidence: {EVIDENCE_URL}""")
     return 0
 
 
@@ -486,16 +475,59 @@ def cmd_doctor(a):
     return 0
 
 
+HELP = """Kompactor {version}: cut the tokens Claude Code spends on noise
+
+Usage:
+  kompactor <command> [options]
+
+Getting started:
+  start         Turn Kompactor on and open the dashboard
+  stop          Pause Kompactor (settings are kept)
+  uninstall     Remove Kompactor and delete its data
+  status        Show whether it's on and what it saved
+
+Savings:
+  gain          Show what it saved, command by command
+  estimate      Estimate savings on your past sessions
+  ui            Open the dashboard in this terminal
+
+Settings:
+  presets       List the quality-vs-tokens levels
+  config        Show or change settings
+
+Code:
+  graph         Find code, callers and the impact of a change
+  outline       List a file's symbols with line ranges
+  symbol        Print one definition
+  show          Print an output Kompactor shortened
+  search        Search outputs Kompactor shortened
+
+Other:
+  run           Run a command and print its compacted output
+  doctor        Check the installation
+  prove         A/B test Kompactor in Claude Code sessions
+
+Options:
+  -h, --help    Show this help
+  --version     Show the version
+
+Run 'kompactor <command> --help' for details on a command.
+Docs: https://github.com/amarkum/kompactor"""
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["setup"]:  # the old name for `start`; older docs still say it
         argv = ["start"] + ["--no-browser" if x == "--no-ui" else x for x in argv[1:]]
+    if argv[:1] in (["help"], ["-h"], ["--help"]):
+        print(HELP.format(version=__version__))
+        return 0
     if argv[:1] == ["prove"]:  # has its own parser
         from . import prove
         return prove.main(argv[1:])
     ap = argparse.ArgumentParser(prog="kompactor", description="Cut the tokens Claude Code spends on noise.")
     ap.add_argument("--version", action="version", version=__version__)
-    sp = ap.add_subparsers(dest="cmd")
+    sp = ap.add_subparsers(dest="cmd", metavar="<command>")
 
     p = sp.add_parser("status", help="is it on, your level, savings so far, and how to use it (also: plain `kompactor`)")
     p.set_defaults(fn=cmd_status)
@@ -543,7 +575,7 @@ def main(argv=None):
                    help="don't set CLAUDE_CODE_SHELL_PREFIX (then commands that fail are not compacted)")
     p.set_defaults(fn=cmd_install)
 
-    p = sp.add_parser("statusline", help="(internal) Claude Code status line")
+    p = sp.add_parser("statusline")  # internal: Claude Code's status line
     p.set_defaults(fn=cmd_statusline)
 
     p = sp.add_parser("map", help="ranked repo skeleton within a token budget")
@@ -606,13 +638,20 @@ def main(argv=None):
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_presets)
 
-    p = sp.add_parser("hook", help="(internal) Claude Code hook entrypoint")
+    p = sp.add_parser("hook")  # internal: Claude Code hook entry point
     p.add_argument("name", choices=list(hooks.HANDLERS))
     p.set_defaults(fn=cmd_hook)
 
     p = sp.add_parser("doctor", help="check installation")
     p.set_defaults(fn=cmd_doctor)
 
+    if argv and not argv[0].startswith("-") and argv[0] not in sp.choices:
+        import difflib
+        near = difflib.get_close_matches(argv[0], [c for c in sp.choices if c not in ("hook", "statusline")], n=1)
+        print(f"kompactor: unknown command '{argv[0]}'" + (f"\n\nDid you mean this?\n  kompactor {near[0]}" if near else ""),
+              file=sys.stderr)
+        print("\nRun 'kompactor help' for a list of commands.", file=sys.stderr)
+        return 2
     a = ap.parse_args(argv)
     if not a.cmd:
         a.fn = cmd_status

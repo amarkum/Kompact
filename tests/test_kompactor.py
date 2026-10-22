@@ -16,6 +16,11 @@ installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from t
 installer.EDITORS = ()  # never install or remove the real VS Code / Cursor extension from tests
 
 
+def mock_stderr(buf):
+    from contextlib import redirect_stderr
+    return redirect_stderr(buf)
+
+
 def run_hook(name, event):
     sys.stdin = io.StringIO(json.dumps(event))
     buf = io.StringIO()
@@ -607,6 +612,20 @@ exit 0
             self.assertEqual(installer.uninstall_editor_extension(), [])        # nothing left to remove
         self.assertEqual(log.read_text().split("\n")[:2],
                          [f"--install-extension {vsix} --force", "--uninstall-extension kompactor.kompactor"])
+
+    def test_help_and_mistyped_commands(self):
+        from kompactor import cli
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(cli.main(["help"]), 0)
+        self.assertIn("Usage:\n  kompactor <command> [options]", out.getvalue())
+        self.assertIn("  start         Turn Kompactor on", out.getvalue())
+        self.assertLessEqual(max(len(line) for line in out.getvalue().splitlines()), 80)   # fits a normal terminal
+        self.assertNotIn("statusline", out.getvalue())          # internal commands stay out of the help
+        err = io.StringIO()
+        with mock_stderr(err):
+            self.assertEqual(cli.main(["strt"]), 2)
+        self.assertIn("Did you mean this?\n  kompactor start", err.getvalue())
 
     def test_source_defaults_to_the_public_repo(self):
         self.assertEqual(installer.source("")["marketplace"], "amarkum/kompactor")

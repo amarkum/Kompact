@@ -257,10 +257,13 @@ function viewHtml(webview) {
     : `<div class="card"><div class="lbl">${title}</div><div class="none">Nothing saved yet</div></div>`;
   const sessionExtra = (ctxPct ? `<div class="sub">Context ≈${ctxPct}% smaller</div>` : "") +
     (turn.saved > 0 ? `<div class="sub">Last turn −${fmt(turn.saved)} (${fmt(turn.raw)} › ${fmt(turn.kept)})</div>` : "");
-  const turns = ((summary && summary.turns) || []).map((t) =>
-    `<li><span class="t">Turn ${t.idx} · ${ago(t.ts)}</span>` + (t.saved > 0
-      ? `<span class="s">−${fmt(t.saved)}</span><span>${fmt(t.raw)} › ${fmt(t.kept)}</span>`
-      : `<span>nothing to trim</span>`) + `</li>`).join("");
+  const all = (summary && summary.turns) || [];
+  const helped = all.filter((t) => t.saved > 0);
+  const what = (t) => (t.shortened || []).map((x) => esc(x.what) + (x.times > 1 ? ` ×${x.times}` : "")).join(", ") || "tool output";
+  const turns = helped.slice(0, 6).map((t) =>
+    `<li class="reply"><div class="row"><span class="what">${what(t)}</span><span class="s">−${fmt(t.saved)}</span></div>
+     <div class="meta">${ago(t.ts)} · ${fmt(t.raw)} › ${fmt(t.kept)} tokens</div></li>`).join("");
+  const quiet = all.length - helped.length;
   const projectName = summary && summary.project_path ? summary.project_path.split(/[\\/]/).pop() : "";
   const top = ((summary && summary.top) || []).filter((t) => t.raw > t.kept).map((t) =>
     `<li><code>${esc(t.cmd)}</code><span>${fmt(t.raw)} › ${fmt(t.kept)}</span></li>`).join("");
@@ -283,7 +286,11 @@ body{padding:4px 12px 16px;color:var(--vscode-foreground);font-family:var(--vsco
 h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--vscode-descriptionForeground);margin:14px 0 6px}
 ul{list-style:none;padding:0;margin:0}li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12px}
 li code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}li span{color:var(--vscode-descriptionForeground);white-space:nowrap}
-li .t{color:var(--vscode-foreground);flex:1}li .s{color:var(--vscode-charts-green,#3fb950)}
+li .s{color:var(--vscode-charts-green,#3fb950)}
+li.reply{display:block;padding:5px 0;border-bottom:1px solid var(--vscode-widget-border,transparent)}
+li.reply .row{display:flex;justify-content:space-between;gap:8px}
+li.reply .what{font-family:var(--vscode-editor-font-family);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li.reply .meta{font-size:11px;color:var(--vscode-descriptionForeground);margin-top:1px}
 .btns{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 8px}
 button{border:0;border-radius:2px;padding:5px 10px;cursor:pointer;background:var(--vscode-button-background);color:var(--vscode-button-foreground);font:inherit}
 button:hover{background:var(--vscode-button-hoverBackground)}
@@ -294,7 +301,10 @@ ${card("This session", summary && summary.session, sessionExtra)}
 ${projectName ? card(`This project · ${esc(projectName)}`, summary && summary.project) : ""}
 ${card("Today", summary && summary.today)}
 ${card("Last 30 days", summary && summary.all, summary && summary.sessions ? `<div class="sub">${summary.sessions} session${summary.sessions === 1 ? "" : "s"}</div>` : "")}
-${turns ? `<h3>Recent turns${projectName ? " in this project" : ""}</h3><ul>${turns}</ul>` : ""}
+${all.length ? `<h3>Recent replies${projectName ? " in this project" : ""}</h3>
+<div class="sub" style="margin:-2px 0 6px">What Kompactor shortened in each of Claude's replies</div>
+${turns ? `<ul>${turns}</ul>` : ""}
+${quiet ? `<div class="sub">${quiet} ${quiet === 1 ? "reply" : "replies"} had nothing to shorten</div>` : ""}` : ""}
 ${top ? `<h3>Biggest wins</h3><ul>${top}</ul>` : ""}
 <div class="btns"><button data-cmd="dashboard">Open dashboard</button><button class="secondary" data-cmd="level">Change level</button>${action}</div>
 <div class="note">Dollars are estimates at ${usd(price())} per million input tokens: each token kept out is counted once as a prompt-cache write and again for every later turn that would have re-read it. Change the price in Settings › Kompactor.</div>
