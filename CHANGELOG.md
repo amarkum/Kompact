@@ -5,7 +5,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 ## Unreleased
 
 - Configuration: switch and setting changes apply to every level card, so switching compaction off lowers them all and they stay in order from Max quality to Max savings. Before, only the selected card changed.
-- Configuration: a level card's "trimming & rules" figure combines what each technique that's on saved by itself in the benchmark (outline-first reads, short replies, lean-code rules; trimming and the code graph saved nothing measurable by themselves). Before, it used each level's own benchmark result, about 1% and within noise, so switching compaction off showed ≈0% on every card. The cards now read about 8, 21, 30, 44 and 57% lower cost with compaction, and 8, 12, 14, 14 and 14% without.
+- Configuration: a level card's "trimming & rules" figure combines what each technique that's on saved by itself in the benchmark (outline-first reads, short replies, lean-code rules; trimming and the code graph saved nothing measurable by themselves). Before, it used each level's own benchmark result, about 1% and within noise, so switching compaction off showed ≈0% on every card. The cards now read about 7, 22, 32, 45 and 58% lower cost with compaction, and 7, 14, 16, 16 and 16% without.
 - Advanced settings shows only prose style and code style. The rest, the Claude Code display settings and the All configuration table are under "More settings", closed by default, which counts how many you've changed.
 
 ## 0.8.7
