@@ -48,6 +48,6 @@ packages = ["kompactor", "kompactor.static", "kompactor.static.fonts", "kompacto
 
 [tool.setuptools.package-data]
 kompactor = ["ui.html"]
-"kompactor.static" = ["*.html", "*.svg"]
+"kompactor.static" = ["*.html", "*.svg", "*.json"]
 "kompactor.static.fonts" = ["*.woff2", "*.txt"]
 "kompactor.vsix" = ["*.vsix"]

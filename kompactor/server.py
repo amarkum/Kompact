@@ -86,6 +86,14 @@ def preset_savings(rows=None) -> dict:
     return res
 
 
+def _techniques() -> dict:
+    """What each technique saved by itself in Kompactor's A/B runs (bench/techniques.py), for the switches."""
+    try:
+        return json.loads((STATIC / "techniques.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 def state() -> dict:
     data = config.read_file()
     projects = list(dict.fromkeys(store.projects() + list(data["projects"])))
@@ -99,6 +107,7 @@ def state() -> dict:
                     for p, v in config.PRESETS.items()},
         "knobs": {k: list(v) for k, v in config.KNOB_INFO.items()},
         "knob_order": config.KNOBS,
+        "techniques": _techniques(),
         "languages": {k: v["label"] for k, v in langs.PROFILES.items()},
         "projects": [{"path": p, "detected": langs.detect(p) if os.path.isdir(p) else [],
                       "override": data["projects"].get(p),

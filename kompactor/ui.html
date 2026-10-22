@@ -182,7 +182,7 @@ td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: 
 .lv-save { margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-2); display: grid; gap: 2px; }
 .lv-save b { font: 600 17px var(--mono); color: var(--good); letter-spacing: -0.02em; }
 .lv-why { font-size: 11.5px; color: var(--ink-3); }
-@media (max-width: 900px) { .lv-steps { grid-template-columns: repeat(5, minmax(170px, 1fr)); overflow-x: auto; padding-bottom: 4px; } }
+@media (max-width: 900px) { .lv-steps { grid-template-columns: repeat(5, minmax(170px, 1fr)); overflow-x: auto; padding: 2px 2px 6px; margin: -2px; } }  /* room for the selected card's ring */
 .level-detail { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: baseline; margin-top: 4px; }
 .level-detail .name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .level-detail .desc { color: var(--ink-2); }
@@ -282,6 +282,20 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
 .part .label .tag { font-weight: 400; }
 .part-est { font-size: 12px; color: var(--good); margin-top: 3px; font-family: var(--mono); }
 .part-est.muted { color: var(--ink-3); font-family: var(--sans); }
+.part-est.worse { color: var(--bad); }
+.part-est .muted { color: var(--ink-3); font-family: var(--sans); }
+.part.off .label, .part.off .help { opacity: .6; }
+.parts-total { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line-2); }
+.parts-total:empty { display: none; }
+.parts-total > div { padding: 14px 16px; }
+.parts-total > div + div { border-left: 1px solid var(--line-2); }
+.parts-total .k { font-size: 12.5px; color: var(--ink-2); }
+.parts-total .v { font: 500 24px/1.3 var(--mono); color: var(--good); letter-spacing: -0.02em; }
+.parts-total .v span { font: 400 13px var(--sans); color: var(--ink-2); letter-spacing: 0; }
+.parts-total .f { font-size: 12px; color: var(--ink-3); }
+.parts-note { padding: 10px 16px 14px; font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line-2); }
+.parts-note:empty { display: none; }
+@media (max-width: 640px) { .parts-total { grid-template-columns: 1fr; } .parts-total > div + div { border-left: 0; border-top: 1px solid var(--line-2); } }
 .recreated { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; max-width: 90ch; }
 .meaning dl { margin: 0; padding: 0 18px 16px 36px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; }
 .meaning dt { font-weight: 500; color: var(--ink); }
@@ -435,8 +449,10 @@ td .usd { color: var(--good); }
           <div><button class="btn sm" id="toAdvanced">Fine-tune each setting</button></div>
         </div></div>
         <div class="panel">
-          <div class="panel-h"><div><h2>What Kompactor does</h2><div class="sub">Each technique saves tokens in a different place. Switch any of them off; for the ones that are on, the level sets how strong they are.</div></div><span class="chip brand" id="partsTotal" hidden></span></div>
+          <div class="panel-h"><div><h2>What Kompactor does</h2><div class="sub">Each technique saves tokens in a different place. Switch any of them off; for the ones that are on, the level sets how strong they are.</div></div></div>
+          <div class="parts-total" id="partsTotal"></div>
           <div id="parts"></div>
+          <div class="parts-note" id="partsNote"></div>
         </div>
         <div class="section-h" id="advanced"><h2>Advanced settings</h2><p>Every setting the level controls, explained. Changing one overrides the level for it; "Reset" goes back to the level's value.</p></div>
         <div class="panel" id="groups"></div>
@@ -650,36 +666,49 @@ const PARTS = [
   { id: "compact", name: "Compact the conversation earlier", est: "compact", isOn: (e) => e.compact_window > 0,
     desc: (e) => `Claude Code summarises the conversation ${e.compact_window ? `once it reaches ${Math.round(e.compact_window / 1000)}K tokens` : "earlier"} instead of letting it grow to the model's limit. Every request re-sends the conversation, so in long sessions this is the biggest saving. Claude keeps a summary of the early part, not every detail.`,
     off: { compact_window: 0 } },
-  { id: "trim", name: "Trim command output", tag: "rtk-style", est: "trim", isOn: (e) => e.bash,
+  { id: "trim", name: "Trim command output", tag: "rtk-style", est: "trim", bench: "trim", isOn: (e) => e.bash,
     desc: () => "Long test, build, install, git and search output is shortened before Claude reads it. Failures, errors and summaries are always kept.",
     off: { bash: false, bash_wrap: false } },
   { id: "reads", name: "Outline-first file reads", est: "reads", isOn: (e) => e.read_outline || e.read_dedupe,
     desc: () => "A big file opens as its structure first, and Claude reads only the parts it needs. Re-reading an unchanged file gets a short note.",
     off: { read_outline: false, read_dedupe: false } },
-  { id: "graph", name: "Code graph", tag: "graphify-style", isOn: (e) => e.graph,
+  { id: "graph", name: "Code graph", tag: "graphify-style", bench: "graph", isOn: (e) => e.graph,
     desc: () => "Functions, imports and calls are indexed, so Claude finds code by topic and sees what a change affects without opening whole files.",
     note: "Saves tokens when Claude looks code up; past sessions can't show how much.", off: { graph: false, session_map_tokens: 0, read_graph_context: false } },
-  { id: "lean", name: "Lean-code rules", tag: "ponytail-style", isOn: (e) => e.code_style !== "normal",
+  { id: "lean", name: "Lean-code rules", tag: "ponytail-style", bench: "lean", isOn: (e) => e.code_style !== "normal",
     desc: () => "Claude reuses what exists and makes the smallest change, after checking callers and tests.",
     note: "Changes what Claude writes, so past sessions can't show how much it saves.", off: { code_style: "normal" } },
-  { id: "terse", name: "Short replies", tag: "caveman-style", isOn: (e) => e.style !== "off",
+  { id: "terse", name: "Short replies", tag: "caveman-style", bench: "terse", isOn: (e) => e.style !== "off",
     desc: () => "Claude answers first and skips recaps. Code, commands and errors are never shortened.",
     note: "Changes what Claude writes, so past sessions can't show how much it saves.", off: { style: "off" } },
 ];
+/* "−4.2%" for a saving, "+1.3%" for an increase */
+const signed = (v) => (v <= 0 ? "−" : "+") + Math.abs(v) + "%";
 function renderParts() {
-  const eff = effective();
-  const est = (P) => {
-    if (!P.est) return `<div class="part-est muted">${P.note}</div>`;
-    if (!P.isOn(eff)) return "";
+  const eff = effective(), T = (S.techniques && S.techniques.techniques) || {};
+  const bench = (P) => {
+    const b = P.bench && T[P.bench];
+    if (!b) return P.est ? "" : `<div class="part-est muted">${P.note}</div>`;
+    return `<div class="part-est${b.cost > 0 ? " worse" : ""}">${signed(b.cost)} cost by itself in the benchmark <span class="muted">· ${signed(b.tokens)} tokens · ${b.sessions} sessions each way</span></div>`;
+  };
+  const mine = (P) => {
+    if (!P.est || !P.isOn(eff)) return "";
     if (!PARTS_EST) return `<div class="part-est muted">Estimating on your past sessions…</div>`;
     const v = PARTS_EST[P.est];
     return v == null || !PARTS_EST.sessions ? "" : `<div class="part-est">${v >= 0.1 ? `≈${v}%` : "under 0.1%"} lower cost on your last ${PARTS_EST.sessions} sessions</div>`;
   };
-  $("parts").innerHTML = PARTS.map((P) => `<div class="knob part"><div><div class="label">${esc(P.name)}${P.tag ? ` <span class="tag">${P.tag}</span>` : ""}</div><div class="help">${esc(P.desc(eff))}</div>${est(P)}</div>
+  $("parts").innerHTML = PARTS.map((P) => `<div class="knob part${P.isOn(eff) ? "" : " off"}"><div><div class="label">${esc(P.name)}${P.tag ? ` <span class="tag">${P.tag}</span>` : ""}</div><div class="help">${esc(P.desc(eff))}</div>${bench(P)}${mine(P)}</div>
     <div class="ctl"><label class="switch"><input type="checkbox" data-part="${P.id}" ${P.isOn(eff) ? "checked" : ""} aria-label="${esc(P.name)}"><span></span></label></div></div>`).join("");
   $("parts").querySelectorAll("input[data-part]").forEach((el) => (el.onchange = () => setPart(PARTS.find((P) => P.id === el.dataset.part), el.checked)));
-  $("partsTotal").hidden = !(PARTS_EST && PARTS_EST.sessions);
-  if (PARTS_EST && PARTS_EST.sessions) $("partsTotal").textContent = `≈${PARTS_EST.total}% lower cost in all`;
+  // the techniques that are on, combined: each one's measured change applies to what the others leave
+  const on = PARTS.filter((P) => P.bench && T[P.bench] && P.isOn(eff));
+  const together = Math.round(1000 * (1 - on.reduce((a, P) => a * (1 + T[P.bench].cost / 100), 1))) / 10;
+  const compactOn = eff.compact_window > 0, compact = PARTS_EST && PARTS_EST.sessions ? PARTS_EST.compact : null;
+  $("partsTotal").innerHTML = Object.keys(T).length ? `
+    <div><div class="k">Techniques switched on, in the benchmark</div><div class="v">${!on.length ? "—" : together >= 0 ? `≈${together}%<span> lower cost</span>` : `+${-together}%<span> higher cost</span>`}</div><div class="f">${on.length ? on.map((P) => P.name.toLowerCase()).join(", ") : "none switched on"}; short sessions, no compaction</div></div>
+    <div><div class="k">Compacting earlier, on your sessions</div><div class="v">${!compactOn ? "off" : compact == null ? "…" : `≈${compact}%`}<span>${compactOn ? " lower cost" : ""}</span></div><div class="f">${compactOn ? `at ${Math.round(eff.compact_window / 1000)}K tokens; long sessions` : "Claude Code compacts only when the window is full"}</div></div>` : "";
+  const D = S.techniques || {};
+  $("partsNote").innerHTML = Object.keys(T).length ? `Benchmark: each technique switched on by itself, everything else off, against the same sessions without Kompactor. ${D.tasks ? D.tasks.length : ""} tasks on Flask, Cobra, SWR and zustand, ${D.reps || 3} runs each way, ${esc(D.model || "")}, ${esc(D.date || "")}. Trimming was measured only on pytest and git log output, so sessions full of builds, installs and other test runs save more. The techniques overlap, so the combined figure is approximate.` : "";
 }
 function setPart(P, on) {
   const lvl = presetKnobs(cfg.preset), base = P.isOn(lvl) ? lvl : presetKnobs(3);

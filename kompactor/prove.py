@@ -101,7 +101,10 @@ def run_once(task: dict, repo: Path, condition: str, work: Path, preset: int, mo
     tools = list(task["tools"])
     session_id = str(uuid.uuid4())
     args = ["claude", "-p", task["prompt"], "--output-format", "json", "--max-turns", str(task.get("max_turns", 10)),
-            "--session-id", session_id, "--max-budget-usd", str(budget), "--strict-mcp-config"]
+            "--session-id", session_id, "--max-budget-usd", str(budget), "--strict-mcp-config",
+            # leave out ~/.claude/settings.json: on a machine with Kompactor installed its hooks would run in the
+            # baseline arm too, and twice in the Kompactor arm
+            "--setting-sources", "project,local"]
     if condition == "kompactor":
         (home / "config.json").write_text(json.dumps({"preset": preset, "overrides": overrides or {}}))
         if (PLUGIN_ROOT / ".claude-plugin" / "plugin.json").exists():  # exactly what a plugin user gets: hooks + skill
