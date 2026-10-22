@@ -1,0 +1,226 @@
+{
+  "_doc": "Tasks for bench/sessions.py, grouped by session length. Each runs in `repo` (relative to --repos) with the same prompt and tools in every arm. A planted test fails with a known message; `expect`: every string must appear in the final answer (case-insensitive). Prompts never mention Kompactor. flask was at d086db85, zustand at 382d29c.",
+  "tasks": [
+    {
+      "id": "short-py",
+      "length": "short",
+      "lang": "python",
+      "repo": "flask",
+      "max_turns": 6,
+      "prompt": "Run the test suite with `.venv/bin/pytest tests -v -p no:cacheprovider` and tell me which test fails and why: the test name and the key error. Do not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "from flask import Flask\n\n\ndef test_json_sort_keys_default():\n    app = Flask(__name__)\n    assert app.json.sort_keys is False, \"PLANTED: the JSON provider should keep key order\"\n"
+        ]
+      ],
+      "expect": [
+        "test_json_sort_keys_default",
+        "sort_keys"
+      ]
+    },
+    {
+      "id": "short-ts",
+      "length": "short",
+      "lang": "typescript",
+      "repo": "zustand",
+      "max_turns": 6,
+      "prompt": "Run the tests with `npx vitest run --reporter=verbose` and tell me which test fails and why: the test name and the key error. Do not change any code.",
+      "tools": [
+        "Bash(npx vitest:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/zz-planted.test.ts",
+          "import { expect, it } from 'vitest'\nimport { createStore } from 'zustand/vanilla'\n\nit('keeps the previous state on replace', () => {\n  const store = createStore<{ a: number; b?: number }>(() => ({ a: 1, b: 2 }))\n  store.setState({ a: 3 }, true)\n  expect(store.getState()).toEqual({ a: 3, b: 2 })\n})\n"
+        ]
+      ],
+      "expect": [
+        "keeps the previous state on replace"
+      ]
+    },
+    {
+      "id": "medium-py",
+      "length": "medium",
+      "lang": "python",
+      "repo": "flask",
+      "max_turns": 18,
+      "prompt": "Work through these steps in order, running each command separately, and report each answer.\n1. Run `.venv/bin/pytest tests -v -p no:cacheprovider` and find the failing test.\n2. Read that test and the Flask code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which file under src/flask was changed in the most of those commits.\n4. Run `.venv/bin/pytest tests/test_json.py -v -p no:cacheprovider` and say how many tests passed.\n5. Run `.venv/bin/pytest tests/test_basic.py -v -p no:cacheprovider` and say how many tests passed.\nDo not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "from flask import Flask\n\n\ndef test_json_sort_keys_default():\n    app = Flask(__name__)\n    assert app.json.sort_keys is False, \"PLANTED: the JSON provider should keep key order\"\n"
+        ]
+      ],
+      "expect": [
+        "test_json_sort_keys_default",
+        "sort_keys"
+      ]
+    },
+    {
+      "id": "medium-ts",
+      "length": "medium",
+      "lang": "typescript",
+      "repo": "zustand",
+      "max_turns": 18,
+      "prompt": "Work through these steps in order, running each command separately, and report each answer.\n1. Run `npx vitest run --reporter=verbose` and find the failing test.\n2. Read that test and the code in src/ it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which file under src/ was changed in the most of those commits.\n4. Run `npx tsc --noEmit -p .` and list every type error with file and line.\n5. Run `npx vitest run tests/persistSync.test.tsx --reporter=verbose` and say how many tests passed.\nDo not change any code.",
+      "tools": [
+        "Bash(npx vitest:*)",
+        "Bash(npx tsc:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/zz-planted.test.ts",
+          "import { expect, it } from 'vitest'\nimport { createStore } from 'zustand/vanilla'\n\nit('keeps the previous state on replace', () => {\n  const store = createStore<{ a: number; b?: number }>(() => ({ a: 1, b: 2 }))\n  store.setState({ a: 3 }, true)\n  expect(store.getState()).toEqual({ a: 3, b: 2 })\n})\n"
+        ]
+      ],
+      "expect": [
+        "keeps the previous state on replace"
+      ]
+    },
+    {
+      "id": "long-py",
+      "length": "long",
+      "lang": "python",
+      "repo": "flask",
+      "max_turns": 40,
+      "prompt": "I'm new to this codebase. Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `.venv/bin/pytest tests -v -p no:cacheprovider` and find the failing test.\n2. Read that test and the Flask code it exercises, and explain the root cause.\n3. Run `git log -n 40 --stat` and say which file under src/flask was changed in the most of those commits.\n4. Find where Flask creates and signs the session cookie: file, class and method.\n5. Run `.venv/bin/pytest tests/test_basic.py -v -p no:cacheprovider` and say how many tests passed.\n6. Find the method on the Flask app that runs the before_request functions, and read it.\n7. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n8. Run `.venv/bin/pytest tests/test_blueprints.py tests/test_cli.py -v -p no:cacheprovider` and say how many tests passed.\n9. Find where the `url_for` function is defined and which method of the app it calls.\n10. Run `.venv/bin/pytest tests -v -p no:cacheprovider -k json` and say how many tests were selected and how many failed.\nDo not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "from flask import Flask\n\n\ndef test_json_sort_keys_default():\n    app = Flask(__name__)\n    assert app.json.sort_keys is False, \"PLANTED: the JSON provider should keep key order\"\n"
+        ]
+      ],
+      "expect": [
+        "test_json_sort_keys_default",
+        "SecureCookieSessionInterface",
+        "preprocess_request"
+      ]
+    },
+    {
+      "id": "long-ts",
+      "length": "long",
+      "lang": "typescript",
+      "repo": "zustand",
+      "max_turns": 40,
+      "prompt": "I'm new to this codebase. Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `npx vitest run --reporter=verbose` and find the failing test.\n2. Read that test and the code in src/ it exercises, and explain the root cause.\n3. Run `git log -n 40 --stat` and say which file under src/ was changed in the most of those commits.\n4. Run `npx tsc --noEmit -p .` and list every type error with file and line.\n5. Find where the persist middleware reads stored state back into the store: file and function.\n6. Run `npx vitest run tests/persistSync.test.tsx tests/persistAsync.test.tsx --reporter=verbose` and say how many tests passed.\n7. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n8. Find which files under src/ import from the vanilla store, and list them.\n9. Run `npx vitest run tests/devtools.test.tsx --reporter=verbose` and say how many tests passed.\n10. Explain how `useStore` in src/react.ts subscribes to the store.\nDo not change any code.",
+      "tools": [
+        "Bash(npx vitest:*)",
+        "Bash(npx tsc:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/zz-planted.test.ts",
+          "import { expect, it } from 'vitest'\nimport { createStore } from 'zustand/vanilla'\n\nit('keeps the previous state on replace', () => {\n  const store = createStore<{ a: number; b?: number }>(() => ({ a: 1, b: 2 }))\n  store.setState({ a: 3 }, true)\n  expect(store.getState()).toEqual({ a: 3, b: 2 })\n})\n"
+        ]
+      ],
+      "expect": [
+        "keeps the previous state on replace",
+        "persist",
+        "useSyncExternalStore"
+      ]
+    },
+    {
+      "id": "xlong-py",
+      "length": "xlong",
+      "lang": "python",
+      "repo": "flask",
+      "max_turns": 80,
+      "prompt": "I'm new to this codebase. Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `.venv/bin/pytest tests -v -p no:cacheprovider` and find the failing test.\n2. Read that test and the Flask code it exercises, and explain the root cause.\n3. Run `git log -n 40 --stat` and say which file under src/flask was changed in the most of those commits.\n4. Find where Flask creates and signs the session cookie: file, class and method.\n5. Run `.venv/bin/pytest tests/test_basic.py -v -p no:cacheprovider` and say how many tests passed.\n6. Find the method on the Flask app that runs the before_request functions, and read it.\n7. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n8. Run `.venv/bin/pytest tests/test_blueprints.py tests/test_cli.py -v -p no:cacheprovider` and say how many tests passed.\n9. Find where the `url_for` function is defined and which method of the app it calls.\n10. Run `.venv/bin/pytest tests -v -p no:cacheprovider -k json` and say how many tests were selected and how many failed.\n11. Run `.venv/bin/pytest tests/test_templating.py tests/test_helpers.py -v -p no:cacheprovider` and say how many tests passed.\n12. Find where a blueprint's routes are registered on the app: file and method.\n13. Run `git show HEAD~5 --stat` and say what that commit changed.\n14. Run `.venv/bin/pytest tests/test_reqctx.py tests/test_appctx.py -v -p no:cacheprovider` and say how many tests passed.\n15. Find how the `flask run` command locates the application: file and function.\n16. Run `git diff HEAD~30 HEAD --stat -- tests` and say which test file had the most changed lines.\n17. Run `.venv/bin/pytest tests -v -p no:cacheprovider -k \"session or cookie\"` and say how many tests were selected.\n18. Find how `Config.from_prefixed_env` turns environment values into Python values.\n19. Run `.venv/bin/pytest tests/test_config.py tests/test_views.py -v -p no:cacheprovider` and say how many tests passed.\n20. Run `.venv/bin/pytest tests -v -p no:cacheprovider` again and confirm whether the same single test fails.\nDo not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "from flask import Flask\n\n\ndef test_json_sort_keys_default():\n    app = Flask(__name__)\n    assert app.json.sort_keys is False, \"PLANTED: the JSON provider should keep key order\"\n"
+        ]
+      ],
+      "expect": [
+        "test_json_sort_keys_default",
+        "SecureCookieSessionInterface",
+        "preprocess_request"
+      ]
+    },
+    {
+      "id": "xlong-ts",
+      "length": "xlong",
+      "lang": "typescript",
+      "repo": "zustand",
+      "max_turns": 80,
+      "prompt": "I'm new to this codebase. Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `npx vitest run --reporter=verbose` and find the failing test.\n2. Read that test and the code in src/ it exercises, and explain the root cause.\n3. Run `git log -n 40 --stat` and say which file under src/ was changed in the most of those commits.\n4. Run `npx tsc --noEmit -p .` and list every type error with file and line.\n5. Find where the persist middleware reads stored state back into the store: file and function.\n6. Run `npx vitest run tests/persistSync.test.tsx tests/persistAsync.test.tsx --reporter=verbose` and say how many tests passed.\n7. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n8. Find which files under src/ import from the vanilla store, and list them.\n9. Run `npx vitest run tests/devtools.test.tsx --reporter=verbose` and say how many tests passed.\n10. Explain how `useStore` in src/react.ts subscribes to the store.\n11. Run `npx vitest run tests/basic.test.tsx --reporter=verbose` and say how many tests passed.\n12. Find where the devtools middleware connects to the Redux DevTools extension: file and function.\n13. Run `git show HEAD~5 --stat` and say what that commit changed.\n14. Run `npx vitest run tests/subscribe.test.tsx tests/shallow.test.tsx --reporter=verbose` and say how many tests passed.\n15. Explain how the `shallow` function in src/vanilla/shallow.ts compares Maps and Sets.\n16. Run `git diff HEAD~30 HEAD --stat -- tests` and say which test file had the most changed lines.\n17. Run `npx vitest run tests/immer.test.tsx tests/ssr.test.tsx --reporter=verbose` and say how many tests passed.\n18. Find how the `combine` middleware merges the initial state with the created actions.\n19. Run `npx tsc --noEmit -p .` again and say whether the errors are the same as before.\n20. Run `npx vitest run --reporter=verbose` again and confirm whether the same single test fails.\nDo not change any code.",
+      "tools": [
+        "Bash(npx vitest:*)",
+        "Bash(npx tsc:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/zz-planted.test.ts",
+          "import { expect, it } from 'vitest'\nimport { createStore } from 'zustand/vanilla'\n\nit('keeps the previous state on replace', () => {\n  const store = createStore<{ a: number; b?: number }>(() => ({ a: 1, b: 2 }))\n  store.setState({ a: 3 }, true)\n  expect(store.getState()).toEqual({ a: 3, b: 2 })\n})\n"
+        ]
+      ],
+      "expect": [
+        "keeps the previous state on replace",
+        "persist",
+        "useSyncExternalStore"
+      ]
+    }
+  ]
+}

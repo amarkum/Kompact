@@ -87,7 +87,8 @@ def preset_savings(rows=None) -> dict:
 
 
 def _techniques() -> dict:
-    """What each technique saved by itself in Kompactor's A/B runs (bench/techniques.py), for the switches."""
+    """What each level, and each technique by itself, saved in Kompactor's A/B runs by session length
+    (bench/sessions.py), for the levels and switches."""
     try:
         return json.loads((STATIC / "techniques.json").read_text())
     except (OSError, ValueError):
