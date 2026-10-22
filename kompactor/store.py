@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS turns (
 CREATE TABLE IF NOT EXISTS context (
     session TEXT PRIMARY KEY, tokens INTEGER, ts REAL
 );
+CREATE TABLE IF NOT EXISTS session_kv (
+    session TEXT, key TEXT, value TEXT, ts REAL, PRIMARY KEY (session, key)
+);
 CREATE TABLE IF NOT EXISTS calls (
     session TEXT, ts REAL, kind TEXT
 );
@@ -443,12 +446,24 @@ def prune(retention_days: float) -> None:
         db.execute("DELETE FROM stash WHERE ts < ?", (min(cutoff, time.time() - 7 * 86400),))
         if db.fts:
             db.execute("INSERT INTO stash_fts(stash_fts) VALUES ('rebuild')")
-        for table in ("events", "turns", "calls", "passes"):
+        for table in ("events", "turns", "calls", "passes", "session_kv"):
             db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
         db.execute("DELETE FROM reads WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM flags WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM context WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM sessions WHERE COALESCE(NULLIF(last_turn, 0), started) < ?", (cutoff,))
+
+
+def session_value(session: str, key: str):
+    """A value remembered for one session (e.g. which rules it was given), or None."""
+    with connect() as db:
+        row = db.execute("SELECT value FROM session_kv WHERE session=? AND key=?", (session, key)).fetchone()
+    return row[0] if row else None
+
+
+def set_session_value(session: str, key: str, value: str) -> None:
+    with connect() as db:
+        db.execute("INSERT OR REPLACE INTO session_kv VALUES (?,?,?,?)", (session, key, value, time.time()))
 
 
 def once(session: str, key: str) -> bool:

@@ -179,7 +179,9 @@ td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: 
 .lv-steps b { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
 .lv-blurb { color: var(--ink-2); font-size: 12.5px; line-height: 1.45; }
 .lv-blurb code { font-size: 11.5px; }
-.lv-cut { font: 500 11.5px var(--mono); color: var(--good); margin-top: auto; padding-top: 2px; }
+.lv-save { margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-2); display: grid; gap: 2px; }
+.lv-save b { font: 600 17px var(--mono); color: var(--good); letter-spacing: -0.02em; }
+.lv-why { font-size: 11.5px; color: var(--ink-3); }
 @media (max-width: 900px) { .lv-steps { grid-template-columns: repeat(5, minmax(170px, 1fr)); overflow-x: auto; padding-bottom: 4px; } }
 .level-detail { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: baseline; margin-top: 4px; }
 .level-detail .name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
@@ -277,6 +279,9 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
 .meaning summary:hover { color: var(--ink); }
 .meaning[open] summary .chev, details.turn-item[open] summary .tog .chev { transform: rotate(90deg); }
 .tog .chev { transition: transform .12s; }
+.part .label .tag { font-weight: 400; }
+.part-est { font-size: 12px; color: var(--good); margin-top: 3px; font-family: var(--mono); }
+.part-est.muted { color: var(--ink-3); font-family: var(--sans); }
 .recreated { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; max-width: 90ch; }
 .meaning dl { margin: 0; padding: 0 18px 16px 36px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; }
 .meaning dt { font-weight: 500; color: var(--ink); }
@@ -429,6 +434,10 @@ td .usd { color: var(--good); }
           <div class="level-detail"><span class="name" id="lvName"></span><span class="chip brand" id="lvSave"></span><span class="desc" id="lvDesc"></span></div>
           <div><button class="btn sm" id="toAdvanced">Fine-tune each setting</button></div>
         </div></div>
+        <div class="panel">
+          <div class="panel-h"><div><h2>What Kompactor does</h2><div class="sub">Each technique saves tokens in a different place. Switch any of them off; for the ones that are on, the level sets how strong they are.</div></div><span class="chip brand" id="partsTotal" hidden></span></div>
+          <div id="parts"></div>
+        </div>
         <div class="section-h" id="advanced"><h2>Advanced settings</h2><p>Every setting the level controls, explained. Changing one overrides the level for it; "Reset" goes back to the level's value.</p></div>
         <div class="panel" id="groups"></div>
         <div class="panel">
@@ -542,7 +551,7 @@ async function api(path, body) {
   return j;
 }
 
-let LV = null;  /* each level's estimated cost saving on this machine's past sessions, from /api/levels */
+let LV = null, PARTS_EST = null;  /* PARTS_EST: what each technique saves on your past sessions, from /api/parts */  /* each level's estimated cost saving on this machine's past sessions, from /api/levels */
 let S, cfg, saveTimer, lastTurns = [], graphData = null, turnPage = 0, leftPage = 0, selTurn = "", baId = 0, baItems = [];
 const PAGE = 10;
 
@@ -564,7 +573,7 @@ const presetKnobs = (p) => Object.fromEntries(S.knob_order.map((k) => [k, S.pres
 const effective = () => Object.assign(presetKnobs(cfg.preset), cfg.overrides || {});
 function save(body, msg = "Saved") {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => { try { cfg = (await api("/api/config", body)).config; renderSide(); toast(msg); } catch (e) { toast("Couldn't save: " + e.message); } }, 220);
+  saveTimer = setTimeout(async () => { try { cfg = (await api("/api/config", body)).config; renderSide(); toast(msg); PARTS_EST = null; renderParts(); loadParts(); } catch (e) { toast("Couldn't save: " + e.message); } }, 220);
 }
 function renderSide() {
   const st = S.setup, on = st.hooks_installed || st.plugin_enabled;
@@ -594,22 +603,40 @@ const GROUPS = [
   ["Conversation", "How long the conversation grows before Claude Code compacts it. In long sessions this is where most of the saving comes from.", ["compact_window"]],
   ["Reply style", "How Claude writes. Code, commands and errors are never shortened.", ["style", "code_style", "subagent_rules"]],
 ];
+/* typical cost saved per level in long sessions on a 1M-context model (65 real sessions replayed), shown when
+   this machine has no sessions to replay */
+const TYPICAL = { 1: "0–5%", 2: "10%", 3: "20%", 4: "35%", 5: "50%" };
+function levelSaving(i) {
+  if (!LV || LV.pending) return `<span class="lv-save"><span class="lv-why">Estimating on your past sessions…</span></span>`;
+  const L = LV.sessions && LV.levels[i];
+  if (!L) return `<span class="lv-save"><b>≈${TYPICAL[i]}</b> lower cost<span class="lv-why">typical in long sessions</span></span>`;
+  const win = S.presets[i].compact_window, parts = [];
+  if (L.compact >= 0.5) parts.push(`compacting at ${Math.round(win / 1000)}K: ${Math.round(L.compact)}%`);
+  if (L.trim + L.reads >= 0.05) parts.push(`trimming: ${L.trim + L.reads >= 1 ? Math.round(L.trim + L.reads) : (L.trim + L.reads).toFixed(1)}%`);
+  return `<span class="lv-save"><b>≈${Math.round(L.total)}%</b> lower cost<span class="lv-why">${parts.join(" · ") || "almost nothing to trim in your sessions"}</span></span>`;
+}
+function loadLevels() {
+  api("/api/levels").then((r) => { LV = r; renderLevels(); if (r.pending) setTimeout(loadLevels, 3000); })
+    .catch(() => { LV = { levels: {}, sessions: 0 }; renderLevels(); });
+}
 function renderLevels() {
   $("endL").innerHTML = `${chev("left")} More detail for Claude`;
   $("endR").innerHTML = `Fewer tokens ${chev("right")}`;
   $("levels").innerHTML = [1, 2, 3, 4, 5].map((i) => {
-    const P = S.presets[i], on = i === cfg.preset, cut = S.preset_savings[i];
+    const P = S.presets[i], on = i === cfg.preset;
     return `<button role="radio" aria-checked="${on}" data-p="${i}" tabindex="${on ? 0 : -1}">
       <span class="lv-top"><span class="lv-dots" title="Compaction strength ${i} of 5">${[1, 2, 3, 4, 5].map((d) => `<i class="${d <= i ? "on" : ""}"></i>`).join("")}</span>${on ? `<span class="lv-check">${icon("check")}</span>` : i === 3 ? `<span class="chip">Default</span>` : ""}</span>
       <b>${esc(P.name)}</b><span class="lv-blurb">${rich(P.blurb.replace(/^Recommended\.\s*/, ""))}</span>
-      ${LV && LV.levels[i] != null ? `<span class="lv-cut">≈${LV.levels[i]}% lower cost</span>` : cut > 0 ? `<span class="lv-cut">≈${cut}% fewer tokens</span>` : ""}</button>`;
+      ${levelSaving(i)}</button>`;
   }).join("");
-  const P = S.presets[cfg.preset], cut = S.preset_savings[cfg.preset];
+  const P = S.presets[cfg.preset];
   $("lvName").textContent = `You're on ${P.name}`;
-  const est = LV && LV.levels[cfg.preset];
-  $("lvSave").hidden = !(est != null || cut > 0);
-  $("lvSave").textContent = est != null ? `≈${est}% lower cost on your last ${LV.sessions} Claude Code sessions` : cut > 0 ? `≈${cut}% fewer tokens on your recent command outputs` : "";
-  $("lvDesc").textContent = !LV ? "Estimating each level on your past sessions…" : est != null ? "Your past sessions replayed at each level: output trimmed, and the conversation compacted at the level's size. Compacting earlier means Claude keeps only a summary of the early part." : "";
+  const est = LV && !LV.pending && LV.sessions ? LV.levels[cfg.preset] : null;
+  $("lvSave").hidden = !est;
+  $("lvSave").textContent = est ? `≈${Math.round(est.total)}% lower cost on your last ${LV.sessions} Claude Code sessions` : "";
+  $("lvDesc").textContent = !LV || LV.pending ? "Replaying your past sessions at each level…"
+    : est ? "Each card is your own past sessions replayed at that level: tool output trimmed, and the conversation compacted at the level's size. Compacting earlier is where most of the saving comes from in long sessions; Claude then keeps a summary of the early part, not every detail."
+    : "No past sessions to replay yet, so the cards show what each level typically saves in long sessions.";
 }
 $("toAdvanced").onclick = () => $("advanced").scrollIntoView({ behavior: "smooth" });
 $("levels").onclick = (e) => { const b = e.target.closest("button"); if (b) setPreset(+b.dataset.p); };
@@ -617,6 +644,53 @@ $("levels").onkeydown = (e) => {
   const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
   if (!d) return; e.preventDefault(); setPreset(Math.min(5, Math.max(1, cfg.preset + d))); $("levels").querySelector('[aria-checked="true"]').focus();
 };
+/* the techniques Kompactor combines, each a switch over the settings it uses. Switching one on goes back to the
+   level's values, or to Balanced's when the level itself has it off. */
+const PARTS = [
+  { id: "compact", name: "Compact the conversation earlier", est: "compact", isOn: (e) => e.compact_window > 0,
+    desc: (e) => `Claude Code summarises the conversation ${e.compact_window ? `once it reaches ${Math.round(e.compact_window / 1000)}K tokens` : "earlier"} instead of letting it grow to the model's limit. Every request re-sends the conversation, so in long sessions this is the biggest saving. Claude keeps a summary of the early part, not every detail.`,
+    off: { compact_window: 0 } },
+  { id: "trim", name: "Trim command output", tag: "rtk-style", est: "trim", isOn: (e) => e.bash,
+    desc: () => "Long test, build, install, git and search output is shortened before Claude reads it. Failures, errors and summaries are always kept.",
+    off: { bash: false, bash_wrap: false } },
+  { id: "reads", name: "Outline-first file reads", est: "reads", isOn: (e) => e.read_outline || e.read_dedupe,
+    desc: () => "A big file opens as its structure first, and Claude reads only the parts it needs. Re-reading an unchanged file gets a short note.",
+    off: { read_outline: false, read_dedupe: false } },
+  { id: "graph", name: "Code graph", tag: "graphify-style", isOn: (e) => e.graph,
+    desc: () => "Functions, imports and calls are indexed, so Claude finds code by topic and sees what a change affects without opening whole files.",
+    note: "Saves tokens when Claude looks code up; past sessions can't show how much.", off: { graph: false, session_map_tokens: 0, read_graph_context: false } },
+  { id: "lean", name: "Lean-code rules", tag: "ponytail-style", isOn: (e) => e.code_style !== "normal",
+    desc: () => "Claude reuses what exists and makes the smallest change, after checking callers and tests.",
+    note: "Changes what Claude writes, so past sessions can't show how much it saves.", off: { code_style: "normal" } },
+  { id: "terse", name: "Short replies", tag: "caveman-style", isOn: (e) => e.style !== "off",
+    desc: () => "Claude answers first and skips recaps. Code, commands and errors are never shortened.",
+    note: "Changes what Claude writes, so past sessions can't show how much it saves.", off: { style: "off" } },
+];
+function renderParts() {
+  const eff = effective();
+  const est = (P) => {
+    if (!P.est) return `<div class="part-est muted">${P.note}</div>`;
+    if (!P.isOn(eff)) return "";
+    if (!PARTS_EST) return `<div class="part-est muted">Estimating on your past sessions…</div>`;
+    const v = PARTS_EST[P.est];
+    return v == null || !PARTS_EST.sessions ? "" : `<div class="part-est">${v >= 0.1 ? `≈${v}%` : "under 0.1%"} lower cost on your last ${PARTS_EST.sessions} sessions</div>`;
+  };
+  $("parts").innerHTML = PARTS.map((P) => `<div class="knob part"><div><div class="label">${esc(P.name)}${P.tag ? ` <span class="tag">${P.tag}</span>` : ""}</div><div class="help">${esc(P.desc(eff))}</div>${est(P)}</div>
+    <div class="ctl"><label class="switch"><input type="checkbox" data-part="${P.id}" ${P.isOn(eff) ? "checked" : ""} aria-label="${esc(P.name)}"><span></span></label></div></div>`).join("");
+  $("parts").querySelectorAll("input[data-part]").forEach((el) => (el.onchange = () => setPart(PARTS.find((P) => P.id === el.dataset.part), el.checked)));
+  $("partsTotal").hidden = !(PARTS_EST && PARTS_EST.sessions);
+  if (PARTS_EST && PARTS_EST.sessions) $("partsTotal").textContent = `≈${PARTS_EST.total}% lower cost in all`;
+}
+function setPart(P, on) {
+  const lvl = presetKnobs(cfg.preset), base = P.isOn(lvl) ? lvl : presetKnobs(3);
+  Object.keys(P.off).forEach((k) => {
+    const v = on ? base[k] : P.off[k];
+    if (JSON.stringify(v) === JSON.stringify(lvl[k])) delete cfg.overrides[k]; else cfg.overrides[k] = v;
+  });
+  PARTS_EST = null; renderKnobs(); save({ overrides: cfg.overrides }, `${P.name}: ${on ? "on" : "off"}`);
+}
+const loadParts = () => api("/api/parts").then((r) => { PARTS_EST = r; renderParts(); }).catch(() => {});
+
 function setPreset(p) { cfg.preset = p; renderLevels(); renderKnobs(); renderSide(); save({ preset: p }, `${S.presets[p].name} saved`); }
 
 function control(k, v) {
@@ -686,7 +760,7 @@ function renderKnobs() {
       const [label, help] = S.knobs[k], mod = changed.includes(k);
       return `<div class="knob"><div><div class="label">${esc(label)}${mod ? ` <span class="mod">changed</span> <button class="reset" data-reset="${k}">Reset</button>` : ""}</div><div class="help">${rich(help)}</div></div><div class="ctl">${control(k, eff[k])}</div></div>`;
     }).join("") + (gi === GROUPS.length - 1 && changed.length ? `<div class="knob"><div class="help">${changed.length} setting${changed.length > 1 ? "s differ" : " differs"} from the ${esc(S.presets[cfg.preset].name)} level.</div><div class="ctl"><button class="btn sm" id="resetAll">Reset all to level</button></div></div>` : "") + `</div>`).join("");
-  renderReference();
+  renderReference(); renderParts();
   $("groups").querySelectorAll("input[data-k]").forEach((el) => {
     const k = el.dataset.k;
     if (el.type === "checkbox") el.onchange = () => { setKnob(k, el.checked); renderKnobs(); };
@@ -1140,7 +1214,8 @@ async function boot() {
   fillProjectSelects();
   renderSide(); renderThemeBtn(); renderLevels(); renderKnobs(); renderProjects(); renderSetup();
   loadStats(); loadOutputs();
-  api("/api/levels").then((r) => { LV = r.sessions ? r : { levels: {}, sessions: 0 }; renderLevels(); }).catch(() => { LV = { levels: {}, sessions: 0 }; renderLevels(); });
+  loadParts();
+  loadLevels();
   const start = location.hash.slice(1) || local.get("kompactor-page") || (S.setup.hooks_installed || S.setup.plugin_enabled ? "overview" : "setup");
   go(PAGES.some(([p]) => p === start) ? start : "overview");
   setInterval(loadStats, 5000);

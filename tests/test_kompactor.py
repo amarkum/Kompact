@@ -383,6 +383,7 @@ class EstimateTests(unittest.TestCase):
         self.assertGreater(s["saved_tool"], 0)
         # ingested at call index 1, so re-sent on 4 calls
         self.assertEqual(s["saved_billed"], s["saved_tool"] * 4)
+        self.assertAlmostEqual(sum(s["cost_by_feature"].values()), s["saved_cost"])  # what each technique saved
 
     def test_compacting_earlier_reads_less_of_a_growing_conversation(self):
         # 40 requests, each 20k tokens bigger than the last: 40k to 820k of context
@@ -524,6 +525,29 @@ class DocsTests(unittest.TestCase):
 
 
 class TurnAndSetupTests(unittest.TestCase):
+    def test_changed_rules_reach_an_open_session_with_the_next_prompt(self):
+        data = config.read_file()
+        ev = {"session_id": "rules1", "cwd": TMP}
+        try:
+            data["preset"] = 3
+            config.write_file(data)
+            self.assertIn("additionalContext", run_hook("session-start", {**ev, "source": "startup"}))
+            self.assertIsNone(run_hook("prompt", {**ev, "prompt": "hi"}))  # nothing changed
+            data["preset"] = 5  # telegraphic replies
+            config.write_file(data)
+            msg = run_hook("prompt", {**ev, "prompt": "next"})["additionalContext"]
+            self.assertIn("replace the earlier", msg)
+            self.assertIn(hooks.rules.build(config.PRESETS[5]["style"], config.PRESETS[5]["code_style"], "x").split("\n")[1], msg)
+            self.assertIsNone(run_hook("prompt", {**ev, "prompt": "again"}))  # given once
+            data["preset"] = 1  # no reply or code rules at all
+            config.write_file(data)
+            self.assertIn("no longer apply", run_hook("prompt", {**ev, "prompt": "more"})["additionalContext"])
+            # a session that started before this hook existed has nothing to compare with
+            self.assertIsNone(run_hook("prompt", {"session_id": "older", "cwd": TMP, "prompt": "hi"}))
+        finally:
+            data["preset"] = 3
+            config.write_file(data)
+
     def test_dollars_use_model_price_and_count_requests_until_compaction(self):
         import time
         from kompactor import cli

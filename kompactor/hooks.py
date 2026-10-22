@@ -5,6 +5,7 @@ prints a JSON response, or nothing, meaning "carry on unchanged".
 Every handler fails open: any exception leaves the tool call untouched.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -236,6 +237,25 @@ def _rules(cfg: dict) -> str:
                                   and installer.prefix_active()))
 
 
+def _digest(text: str) -> str:
+    return hashlib.sha1(text.encode()).hexdigest()[:16]
+
+
+def prompt(event: dict, cfg: dict) -> None:
+    """Rules are given at session start. When the level or the rules have changed since, give Claude the new
+    ones with the next prompt, so sessions that are already open follow the change."""
+    session = event.get("session_id", "")
+    text = _rules(cfg)
+    given = store.session_value(session, "rules")
+    store.set_session_value(session, "rules", _digest(text))
+    if given is None or given == _digest(text):  # unchanged, or a session from before this hook existed
+        return
+    msg = ("[kompactor] Kompactor's settings changed. These rules replace the earlier [kompactor] rules:\n" + text
+           if text else "[kompactor] Kompactor's settings changed: the earlier [kompactor] reply and code rules "
+                        "no longer apply.")
+    _emit({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": msg}})
+
+
 def subagent_start(event: dict, cfg: dict) -> None:
     """Subagents get the same prose and code rules as the main agent (no code map)."""
     if not cfg.get("subagent_rules", True):
@@ -309,6 +329,7 @@ def session_start(event: dict, cfg: dict) -> None:
     if isinstance(event.get("model"), str) and event["model"]:  # for pricing; the status line updates it on /model
         store.note_context(event.get("session_id", ""), 0, event["model"])
     parts = [_rules(cfg)]
+    store.set_session_value(event.get("session_id", ""), "rules", _digest(parts[0]))  # see prompt()
     root = cfg.get("project")
     if cfg.get("graph") and root and event.get("source") in ("startup", "resume", "clear", "compact", None):
         try:
@@ -349,7 +370,7 @@ def stop(event: dict, cfg: dict) -> None:
         _emit({"systemMessage": msg})
 
 
-HANDLERS = {"post-bash": post_bash, "pre-read": pre_read, "pre-compact": pre_compact,
+HANDLERS = {"prompt": prompt, "post-bash": post_bash, "pre-read": pre_read, "pre-compact": pre_compact,
             "session-start": session_start, "stop": stop, "subagent-start": subagent_start, "post-edit": post_edit,
             "post-explore": post_explore}
 

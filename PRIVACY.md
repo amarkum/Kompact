@@ -8,7 +8,7 @@ Kompactor runs entirely on your own machine. It has no server, no accounts and n
 
 **What it stores, locally only.** Raw copies of the output it shortened (so Claude can fetch them with `kompactor show`), savings figures, the code graph index and its settings, in `~/.kompactor` (or `$KOMPACTOR_HOME`). That output can contain whatever your commands printed, including names or email addresses. History is deleted after 30 days by default; change this with the `retention_days` setting. Nothing is written to your repositories.
 
-**What it changes.** `kompactor start` adds hooks, a status line (only if you have none), a shell prefix (only if none is set) and a `/kompactor` skill to your Claude Code configuration in `~/.claude`, and keeps a backup of the previous settings file. If VS Code or Cursor is installed, it also adds the Kompactor extension to them from a copy inside the package; nothing is downloaded.
+**What it changes.** `kompactor start` adds hooks, a status line (only if you have none), a shell prefix (only if none is set), the level's auto-compact window (only if you haven't set one; `kompactor stop` removes it) and a `/kompactor` skill to your Claude Code configuration in `~/.claude`, and keeps a backup of the previous settings file. If VS Code or Cursor is installed, it also adds the Kompactor extension to them from a copy inside the package; nothing is downloaded.
 
 **Network.** The dashboard listens only on `127.0.0.1`. Kompactor makes no outbound network requests of its own. If you install the optional `tiktoken` package for exact token counts, tiktoken downloads its token table once, on first use. The optional `kompactor prove` benchmark runs the Claude Code CLI, which talks to Anthropic as it always does.
 

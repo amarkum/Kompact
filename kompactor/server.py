@@ -97,7 +97,6 @@ def state() -> dict:
         "config": data,
         "presets": {p: {"name": v["name"], "blurb": v["blurb"], **{k: v[k] for k in config.KNOBS}}
                     for p, v in config.PRESETS.items()},
-        "preset_savings": preset_savings(),
         "knobs": {k: list(v) for k, v in config.KNOB_INFO.items()},
         "knob_order": config.KNOBS,
         "languages": {k: v["label"] for k, v in langs.PROFILES.items()},
@@ -160,20 +159,63 @@ def graph_state(project: str) -> dict:
     return v
 
 
-_levels = {}
+_levels = {"busy": False}
+
+
+def _replay_levels() -> dict:
+    res, sessions = {}, 0
+    for p, preset in config.PRESETS.items():
+        s = estimate.run(limit=150, opts={**{k: preset[k] for k in config.KNOBS}, "languages": []})
+        pct = lambda v: round(100 * v / s["cost"], 1) if s["cost"] else None
+        by = s["cost_by_feature"]
+        res[p] = {"total": pct(s["saved_total"]), "compact": pct(s["saved_compact"]),
+                  "trim": pct(sum(v for f, v in by.items() if f.startswith("bash:"))),
+                  "reads": pct(sum(v for f, v in by.items() if f.startswith("read:")))}
+        sessions = int(s["sessions"])
+    return {"levels": res, "sessions": sessions, "ts": time.time()}
 
 
 def level_costs() -> dict:
     """Each level's share of cost saved on this machine's recent Claude Code sessions, replayed through that
-    level's settings (trimming and compacting earlier). Takes a few seconds, so it's kept for 10 minutes."""
-    if time.time() - _levels.get("ts", 0) > 600:
-        res, sessions = {}, 0
-        for p, preset in config.PRESETS.items():
-            s = estimate.run(limit=150, opts={**{k: preset[k] for k in config.KNOBS}, "languages": []})
-            res[p] = round(100 * s["saved_total"] / s["cost"]) if s["cost"] else None
-            sessions = int(s["sessions"])
-        _levels.update(ts=time.time(), value={"levels": res, "sessions": sessions})
-    return _levels["value"]
+    level's settings, split into trimming output and compacting earlier. The replay takes a few seconds, so the
+    last result is kept in ~/.kompactor/levels.json and refreshed in the background after 10 minutes; until
+    the first one finishes, this returns {"pending": True}."""
+    path = store.home() / "levels.json"
+    try:
+        cached = json.loads(path.read_text())
+    except (OSError, ValueError):
+        cached = None
+    if (cached is None or time.time() - cached.get("ts", 0) > 600) and not _levels["busy"]:
+        def work():
+            try:
+                tmp = path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(_replay_levels()))
+                os.replace(tmp, path)
+            finally:
+                _levels["busy"] = False
+        _levels["busy"] = True
+        threading.Thread(target=work, daemon=True).start()
+    return cached or {"pending": True}
+
+
+_parts = {}
+
+
+def part_costs() -> dict:
+    """What each technique saves, as a share of cost on this machine's recent sessions, with the global level and
+    your changes to it. Kept until the settings change or for 10 minutes."""
+    data = config.read_file()
+    opts = {**{k: config.PRESETS[data["preset"]][k] for k in config.KNOBS}, **data.get("overrides", {}), "languages": []}
+    key = json.dumps(opts, sort_keys=True)
+    if _parts.get("key") != key or time.time() - _parts.get("ts", 0) > 600:
+        s = estimate.run(limit=150, opts=opts)
+        pct = lambda v: round(100 * v / s["cost"], 1) if s["cost"] else None
+        by = s["cost_by_feature"]
+        _parts.update(key=key, ts=time.time(), value={
+            "sessions": int(s["sessions"]), "total": pct(s["saved_total"]), "compact": pct(s["saved_compact"]),
+            "trim": pct(sum(v for f, v in by.items() if f.startswith("bash:"))),
+            "reads": pct(sum(v for f, v in by.items() if f.startswith("read:")))})
+    return _parts["value"]
 
 
 def save_config(body: dict) -> dict:
@@ -244,6 +286,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, stats(parse_qs(u.query)))
             if u.path == "/api/levels":
                 return self._send(200, level_costs())
+            if u.path == "/api/parts":
+                return self._send(200, part_costs())
             if u.path == "/api/outputs":
                 q = parse_qs(u.query)
                 items = store.compacted_outputs(time.time() - float(q.get("days", ["30"])[0]) * 86400,
@@ -342,6 +386,7 @@ def _free_port(preferred: int) -> int:
 def serve(port: int = 7420, open_browser: bool = True, print_url: bool = True, exact: bool = False) -> None:
     port = port if exact else _free_port(port)
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    level_costs()  # start the per-level replay now, so the Configuration page has it when it's opened
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     if print_url:
         print(f"Kompactor dashboard: {url}  (Ctrl+C to stop)", flush=True)

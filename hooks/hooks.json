@@ -66,6 +66,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/kompactor/_launch.py\" hook prompt",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "SubagentStart": [
       {
         "hooks": [

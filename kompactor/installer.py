@@ -16,6 +16,7 @@ HOOKS = [  # (event, matcher, handler)
     ("PreToolUse", "Read", "pre-read"),
     ("PreCompact", None, "pre-compact"),
     ("SessionStart", None, "session-start"),
+    ("UserPromptSubmit", None, "prompt"),
     ("SubagentStart", None, "subagent-start"),
     ("Stop", None, "stop"),
 ]
@@ -464,6 +465,7 @@ def selftest() -> list:
                       "tool_response": {"stdout": log, "stderr": "", "interrupted": False, "isImage": False}},
         "pre-read": {"tool_name": "Read", "tool_input": {"file_path": str(big)}},
         "session-start": {"source": "startup"},
+        "prompt": {"prompt": "hello"},
         "subagent-start": {"agent_type": "general-purpose"},
         "stop": {"stop_hook_active": False},
         "pre-compact": {"trigger": "manual"},

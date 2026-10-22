@@ -86,7 +86,7 @@ def analyze_file(path: str, stats: dict, opts=None) -> None:
     windowed, added = compact_earlier(calls, min(1_000_000, max(100_000, window))) if window else (session_cost, 0)
     stats["saved_compact"] += session_cost - windowed
     stats["compactions_added"] += added
-    tool_before = stats["saved_cost"]
+    tool_before, per_session = stats["saved_cost"], {}
 
     def lifetime(k):
         """Number of API calls that would re-send a result first ingested at call k."""
@@ -130,8 +130,12 @@ def analyze_file(path: str, stats: dict, opts=None) -> None:
             stats["saved_cost"] += saved * W_CACHE_WRITE + saved * (n - 1) * W_CACHE_READ
             stats["by_feature"][feature] += saved * n
             stats["count_feature"][feature] += 1
+            per_session[feature] = per_session.get(feature, 0.0) + saved * W_CACHE_WRITE + saved * (n - 1) * W_CACHE_READ
     # a shorter conversation re-sends a trimmed output fewer times: scale this session's trimming saving with it
-    stats["saved_total"] += (session_cost - windowed) + (stats["saved_cost"] - tool_before) * (windowed / session_cost if session_cost else 1)
+    scale = windowed / session_cost if session_cost else 1
+    stats["saved_total"] += (session_cost - windowed) + (stats["saved_cost"] - tool_before) * scale
+    for feature, v in per_session.items():
+        stats["cost_by_feature"][feature] += v * scale
 
 
 def compact_earlier(calls: list, window: int):
@@ -162,7 +166,8 @@ def run(root=None, project=None, limit=None, style_pct=None, opts=None):
         from . import config
         opts = config.load()
     stats = defaultdict(float)
-    stats.update(tool_by_name=defaultdict(int), by_feature=defaultdict(int), count_feature=defaultdict(int), top_cmds=[])
+    stats.update(tool_by_name=defaultdict(int), by_feature=defaultdict(int), count_feature=defaultdict(int),
+                 cost_by_feature=defaultdict(float), top_cmds=[])
     files = transcripts(root, project)
     if limit:
         files = files[-limit:]
