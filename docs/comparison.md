@@ -39,7 +39,7 @@ Kompactor borrows the best idea from each of these tools: graphify's code graph,
 - **Its own instructions are small.** 156 tokens at the default level, against ~1,160 for caveman and an ~11k-token skill for graphify. The code map only appears once Claude starts exploring code.
 - **Its savings numbers are honest.** It counts what Claude would actually have read, not raw output size, and it reverses a saving when Claude reads the full file anyway.
 - **It's proven on cost and correctness, not just token counts.** `kompactor prove` reruns the same tasks with and without Kompactor in real Claude Code sessions, and the results are in this repo.
-- **One control covers every layer**, from a dashboard, with a live preview of exactly what Claude would see.
+- **One control covers every layer**, from a dashboard, with a line-by-line before and after of what Claude actually got.
 
 **Where others are stronger**
 - graphify builds a multimodal graph: docs, PDFs and images through an LLM, about 40 languages, Obsidian and Neo4j exports. Kompactor's graph covers code, plus Markdown and reStructuredText docs linked to the code they mention (no LLM, so no PDFs or images): Python, Go, TypeScript, JavaScript, React, Rust, Java, Kotlin, Scala, C#, Swift, C, C++, Ruby and PHP.

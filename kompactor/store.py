@@ -269,6 +269,110 @@ def _settings_model() -> str:
         return ""
 
 
+def _priced(db, price_per_mtok: float = None, since: float = 0.0, project: str = ""):
+    """Every saving since `since` (optionally in one project) with its dollar value, as savings() explains,
+    and the prices used per model, biggest first."""
+    fallback = model_price(_settings_model()) or ("model not reported ($3/M)", 3.0, 0.30)
+    where, args = "e.ts > ?", [since]
+    if project:
+        where += " AND e.project = ?"
+        args.append(project)
+    events = db.execute("SELECT e.session, e.ts, e.raw_tokens, e.kept_tokens, e.project, e.feature, e.detail, "
+                        f"COALESCE(s.model, '') FROM events e LEFT JOIN sessions s USING (session) WHERE {where}",
+                        args).fetchall()
+    calls, compactions, prompts = {}, {}, {}
+    for s, ts, kind in db.execute("SELECT session, ts, kind FROM calls ORDER BY ts"):
+        (compactions if kind == "compact" else calls).setdefault(s, []).append(ts)
+    for s, ts in db.execute("SELECT session, ts FROM turns ORDER BY ts"):
+        prompts.setdefault(s, []).append(ts)
+    models, out = {}, []
+    for s, ts, raw, kept, proj, feature, detail, model in events:
+        saved = raw - kept
+        if price_per_mtok is not None:
+            name, inp, read = "your price", price_per_mtok, price_per_mtok * 0.1
+        else:
+            name, inp, read = model_price(model) or fallback
+        until = next((c for c in compactions.get(s, ()) if c > ts), float("inf"))
+        rereads = (bisect.bisect_left(calls.get(s, []), until) - bisect.bisect_right(calls.get(s, []), ts)
+                   + max(0, bisect.bisect_left(prompts.get(s, []), until) - bisect.bisect_right(prompts.get(s, []), ts) - 1))
+        usd = saved * (inp * CACHE_WRITE + read * rereads) / 1e6
+        m = models.setdefault(name, {"model": name, "input": inp, "cache_write": inp * CACHE_WRITE, "cache_read": read,
+                                     "saved": 0, "rereads": 0, "usd": 0.0, "known": bool(model) or price_per_mtok is not None})
+        m["saved"] += saved
+        m["rereads"] += rereads * max(saved, 0)
+        m["usd"] += usd
+        out.append({"session": s, "ts": ts, "project": proj, "feature": feature, "detail": detail, "raw": raw,
+                    "kept": kept, "saved": saved, "usd": usd})
+    for m in models.values():
+        m["usd"] = round(m["usd"], 6)
+    return out, sorted(models.values(), key=lambda m: -m["saved"])
+
+
+def turn_list(since: float, project: str = "", q: str = "", feature: str = "", session: str = "", min_saved: int = 0,
+              saved_only: bool = False, sort: str = "new", page: int = 0, size: int = 10, chart: int = 60) -> dict:
+    """Claude's replies since `since`, filtered for the dashboard: by text in what was shortened (a command or
+    file), kind of saving, session and size. Returns one page in `sort` order, the latest `chart` matching
+    replies oldest first, and the sessions and kinds there are to filter by."""
+    where, args = "ts > ?", [since]
+    if project:
+        where += " AND project = ?"
+        args.append(project)
+    with connect() as db:
+        rows = db.execute(f"SELECT session, idx, ts, project, raw_tokens, kept_tokens, context_tokens FROM turns "
+                          f"WHERE {where} ORDER BY ts", args).fetchall()
+        sids = sorted({r[0] for r in rows})
+        ends = {}  # every turn end of these sessions, so each saving lands in its reply
+        for s, ts in db.execute(f"SELECT session, ts FROM turns WHERE session IN ({','.join('?' * len(sids))}) "
+                                f"ORDER BY ts", sids):
+            ends.setdefault(s, []).append(ts)
+        first = min((v[0] for v in ends.values()), default=since)
+        priced, _ = _priced(db, None, min(since, first) - 86400)
+        meta = {s: (st, m) for s, st, m in db.execute(
+            f"SELECT session, started, COALESCE(model, '') FROM sessions WHERE session IN ({','.join('?' * len(sids))})",
+            sids)}
+    per = {}
+    for e in priced:
+        lst = ends.get(e["session"])
+        i = bisect.bisect_left(lst, e["ts"]) if lst else 0
+        if lst and i < len(lst):
+            per.setdefault((e["session"], lst[i]), []).append(e)
+    turns, kinds = [], set()
+    for s, idx, ts, proj, raw, kept, ctx in rows:
+        evs = per.get((s, ts), [])
+        items = {}
+        for e in evs:
+            if e["saved"] <= 0:
+                continue
+            kinds.add(e["feature"])
+            it = items.setdefault(_label(e["feature"], e["detail"]),
+                                  {"what": _label(e["feature"], e["detail"]), "feature": e["feature"], "saved": 0, "times": 0})
+            it["saved"] += e["saved"]
+            it["times"] += 1
+        turns.append({"session": s, "idx": idx, "ts": ts, "project": proj, "raw": raw, "kept": kept, "saved": raw - kept,
+                      "context": ctx, "usd": round(sum(e["usd"] for e in evs), 6),
+                      "shortened": sorted(items.values(), key=lambda it: -it["saved"])})
+    needle = q.strip().lower()
+    match = [t for t in turns
+             if (not saved_only or t["saved"] > 0) and t["saved"] >= min_saved
+             and (not session or t["session"] == session)
+             and (not feature or any(it["feature"] == feature for it in t["shortened"]))
+             and (not needle or any(needle in it["what"].lower() for it in t["shortened"]))]
+    key = {"saved": lambda t: -t["saved"], "usd": lambda t: -t["usd"], "old": lambda t: t["ts"]}.get(sort, lambda t: -t["ts"])
+    ordered = sorted(match, key=key)
+    by_session = {}
+    for t in turns:
+        b = by_session.setdefault(t["session"], {"session": t["session"], "project": t["project"], "turns": 0,
+                                                 "saved": 0, "started": meta.get(t["session"], (t["ts"],))[0] or t["ts"],
+                                                 "model": (model_price(meta.get(t["session"], (0, ""))[1]) or ("",))[0]})
+        b["turns"] += 1
+        b["saved"] += max(0, t["saved"])
+    return {"total": len(match), "all": len(turns), "helped": sum(1 for t in turns if t["saved"] > 0),
+            "page": page, "size": size,
+            "saved": sum(max(0, t["saved"]) for t in match), "usd": round(sum(t["usd"] for t in match), 6),
+            "items": ordered[page * size:(page + 1) * size], "chart": match[-chart:],
+            "sessions": sorted(by_session.values(), key=lambda b: -b["started"]), "kinds": sorted(kinds)}
+
+
 def savings(price_per_mtok: float = None, session: str = "", project: str = "") -> dict:
     """Tokens kept out of Claude's context and what they would have cost. Each saving is priced at the API
     rates of the model its session ran on (from the status line): its tokens would have been written to the
@@ -278,7 +382,6 @@ def savings(price_per_mtok: float = None, session: str = "", project: str = "") 
     unknown use the model in ~/.claude/settings.json, else $3."""
     now = time.time()
     day = now - 86400
-    fallback = model_price(_settings_model()) or ("model not reported ($3/M)", 3.0, 0.30)
     with connect() as db:
         def total(where="1", args=()):
             r = db.execute(f"SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0) FROM events "
@@ -304,33 +407,15 @@ def savings(price_per_mtok: float = None, session: str = "", project: str = "") 
                 it["saved"] += r - k
                 it["times"] += 1
             shortened[(s, idx)] = sorted(items.values(), key=lambda it: -it["saved"])[:3]
-        events = db.execute("SELECT e.session, e.ts, e.raw_tokens - e.kept_tokens, e.project, COALESCE(s.model, '') "
-                            "FROM events e LEFT JOIN sessions s USING (session)").fetchall()
-        calls, compactions, prompts = {}, {}, {}
-        for s, ts, kind in db.execute("SELECT session, ts, kind FROM calls ORDER BY ts"):
-            (compactions if kind == "compact" else calls).setdefault(s, []).append(ts)
-        for s, ts in db.execute("SELECT session, ts FROM turns ORDER BY ts"):
-            prompts.setdefault(s, []).append(ts)
+        priced, models = _priced(db, price_per_mtok)
         top = db.execute("SELECT detail, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE feature='bash' "
                          "GROUP BY detail ORDER BY SUM(raw_tokens) - SUM(kept_tokens) DESC LIMIT 5").fetchall()
         sessions = db.execute("SELECT COUNT(DISTINCT session) FROM events").fetchone()[0]
-    models, turn_usd = {}, {}
-    for s, ts, saved, proj, model in events:
-        if price_per_mtok is not None:
-            name, inp, read = "your price", price_per_mtok, price_per_mtok * 0.1
-        else:
-            name, inp, read = model_price(model) or fallback
-        until = next((c for c in compactions.get(s, ()) if c > ts), float("inf"))
-        rereads = (bisect.bisect_left(calls.get(s, []), until) - bisect.bisect_right(calls.get(s, []), ts)
-                   + max(0, bisect.bisect_left(prompts.get(s, []), until) - bisect.bisect_right(prompts.get(s, []), ts) - 1))
-        usd = saved * (inp * CACHE_WRITE + read * rereads) / 1e6
-        m = models.setdefault(name, {"model": name, "input": inp, "cache_write": inp * CACHE_WRITE, "cache_read": read,
-                                     "saved": 0, "rereads": 0, "usd": 0.0, "known": bool(model) or price_per_mtok is not None})
-        m["saved"] += saved
-        m["rereads"] += rereads * max(saved, 0)
-        m["usd"] += usd
+    turn_usd = {}
+    for e in priced:
+        s, ts, usd = e["session"], e["ts"], e["usd"]
         for k, hit in (("all", True), ("today", ts > day), ("session", s == session),
-                       ("project", bool(project) and proj == project)):
+                       ("project", bool(project) and e["project"] == project)):
             if hit and k in periods:
                 periods[k]["usd"] += usd
         for key, (lo, hi) in bounds.items():
@@ -338,10 +423,7 @@ def savings(price_per_mtok: float = None, session: str = "", project: str = "") 
                 turn_usd[key] = turn_usd.get(key, 0.0) + usd
     for p in periods.values():
         p["usd"] = round(p["usd"], 6)
-    for m in models.values():
-        m["usd"] = round(m["usd"], 6)
-    return {"price_per_mtok": price_per_mtok, "sessions": sessions, **periods,
-            "pricing": sorted(models.values(), key=lambda m: -m["saved"]),
+    return {"price_per_mtok": price_per_mtok, "sessions": sessions, **periods, "pricing": models,
             "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
             "turns": [{"session": t[0], "idx": t[1], "ts": t[2], "raw": t[3], "kept": t[4], "saved": t[3] - t[4],
                        "usd": round(turn_usd.get((t[0], t[1]), 0.0), 6),
@@ -429,25 +511,61 @@ def set_shown(sid: int, text: str) -> None:
 PREVIEW_CHARS = 60_000  # per output, so a huge log can't stall the dashboard
 
 
+def _stashed(db, stash_id: int, cmd: str, ts: float):
+    """(id, output, shown, code) of a saving's stashed command output. Savings recorded before v0.8.6 aren't
+    linked to their output, so those are matched by command and time (stashed just before the saving)."""
+    if stash_id:
+        row = db.execute("SELECT id, output, shown, code FROM stash WHERE id=?", (stash_id,)).fetchone()
+        if row:
+            return row
+    return db.execute("SELECT id, output, shown, code FROM stash WHERE substr(cmd, 1, 200) = ? AND ts BETWEEN ? AND ? "
+                      "ORDER BY abs(ts - ?) LIMIT 1", (cmd[:200], ts - 10, ts + 1, ts)).fetchone()
+
+
+def _output_item(db, feature, detail, raw, kept, project, ts, stash_id) -> dict:
+    row = _stashed(db, stash_id, detail, ts) if feature in ("bash", "run") else None
+    sid, out, shown, code = row or (0, "", None, 0)
+    return {"feature": feature, "what": _label(feature, detail), "cmd": detail, "project": project, "ts": ts,
+            "raw": raw, "kept": kept, "id": sid, "code": code or 0,
+            "before": (out or "")[:PREVIEW_CHARS], "after": (shown or "")[:PREVIEW_CHARS] if shown is not None else None}
+
+
 def turn_outputs(session: str, idx: int) -> list:
-    """What one reply shortened: each saving with, for command output, its raw text and what Claude saw."""
+    """What one reply shortened: each saving with, for command output, its raw text and what Claude saw
+    (`after` is None when that wasn't recorded)."""
     with connect() as db:
         row = db.execute("SELECT ts FROM turns WHERE session=? AND idx=?", (session, idx)).fetchone()
         if row is None:
             return []
         prev = db.execute("SELECT COALESCE(MAX(ts), 0) FROM turns WHERE session=? AND idx<?", (session, idx)).fetchone()[0]
-        rows = db.execute("SELECT e.feature, e.detail, e.raw_tokens, e.kept_tokens, s.output, s.shown FROM events e "
-                          "LEFT JOIN stash s ON s.id = e.stash_id AND e.stash_id > 0 WHERE e.session=? AND e.ts>? "
-                          "AND e.ts<=? AND e.raw_tokens > e.kept_tokens ORDER BY e.raw_tokens - e.kept_tokens DESC",
-                          (session, prev, row[0])).fetchall()
-    return [{"feature": f, "what": _label(f, d), "raw": r, "kept": k,
-             "before": (out or "")[:PREVIEW_CHARS], "after": (shown or "")[:PREVIEW_CHARS]}
-            for f, d, r, k, out, shown in rows]
+        rows = db.execute("SELECT feature, detail, raw_tokens, kept_tokens, project, ts, stash_id FROM events "
+                          "WHERE session=? AND ts>? AND ts<=? AND raw_tokens > kept_tokens "
+                          "ORDER BY raw_tokens - kept_tokens DESC", (session, prev, row[0])).fetchall()
+        return [_output_item(db, *r) for r in rows]
+
+
+def compacted_outputs(since: float, project: str = "", limit: int = 12) -> list:
+    """The latest command outputs Kompactor really shortened: the raw text and what Claude was shown
+    (`after` is None when that wasn't recorded)."""
+    where, args = "ts > ? AND feature IN ('bash', 'run') AND raw_tokens > kept_tokens", [since]
+    if project:
+        where += " AND project = ?"
+        args.append(project)
+    out = []
+    with connect() as db:
+        for r in db.execute(f"SELECT feature, detail, raw_tokens, kept_tokens, project, ts, stash_id FROM events "
+                            f"WHERE {where} ORDER BY ts DESC LIMIT ?", args + [limit * 4]).fetchall():
+            it = _output_item(db, *r)
+            if it["before"]:
+                out.append(it)
+            if len(out) == limit:
+                break
+    return out
 
 
 def project_outputs(project: str = "", limit: int = 12) -> list:
     """The latest stashed command outputs, one per command, from one project or (empty) every project: the real
-    data behind the live preview and each level's savings figure."""
+    data behind each level's savings figure."""
     where, args = ("WHERE project=?", [project]) if project else ("", [])
     with connect() as db:
         return [{"id": f"s{i}", "cmd": c, "text": o[:PREVIEW_CHARS], "code": code, "project": pr}

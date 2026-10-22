@@ -1,12 +1,11 @@
 """Configuration: a quality-vs-tokens preset, optional per-knob overrides,
-language profiles, and per-project overrides.
+and per-project overrides. Each repo's languages are detected from its files.
 
 Stored in ~/.kompactor/config.json and edited from the dashboard (`kompactor ui`):
 
     {
       "preset": 3,
       "overrides": {"bash_max_lines": 250},
-      "languages": {"mode": "auto", "selected": ["python", "go", "typescript", "react"]},
       "projects": {"/path/to/repo": {"preset": 4, "overrides": {}}}
     }
 """
@@ -19,26 +18,26 @@ from pathlib import Path
 from . import store
 
 PRESETS = {
-    1: {"name": "Max quality", "blurb": "Only trims huge outputs and exact noise. Claude sees almost everything.",
+    1: {"name": "Max quality", "blurb": "Only trims huge outputs and exact noise. Claude sees almost everything, and the conversation compacts only when the model's window is full.",
         "bash": True, "bash_wrap": True, "bash_plain": False, "bash_min_tokens": 1500, "bash_max_lines": 600, "max_line_chars": 2000, "grep_per_file": 50, "test_hide_passing": False, "test_boilerplate": False,
         "trim_stack_frames": False, "diff_context": -1, "git_log_compact": False, "read_outline": False,
-        "read_outline_lines": 1500, "graph": True, "session_map_tokens": 0, "read_graph_context": False, "read_dedupe": True, "style": "off", "code_style": "normal", "subagent_rules": True, "never_compact": []},
-    2: {"name": "Quality", "blurb": "Compacts noisy commands; big files are still read whole.",
+        "read_outline_lines": 1500, "graph": True, "session_map_tokens": 0, "read_graph_context": False, "read_dedupe": True, "style": "off", "code_style": "normal", "subagent_rules": True, "compact_window": 0, "never_compact": []},
+    2: {"name": "Quality", "blurb": "Compacts noisy commands; big files are still read whole. The conversation compacts at 780K tokens.",
         "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 1000, "bash_max_lines": 400, "max_line_chars": 1000, "grep_per_file": 25, "test_hide_passing": True, "test_boilerplate": False,
         "trim_stack_frames": False, "diff_context": -1, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 800, "graph": True, "session_map_tokens": 0, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "normal", "subagent_rules": True, "never_compact": []},
-    3: {"name": "Balanced", "blurb": "Recommended. Outline-first reads, compact tool output, terse replies.",
+        "read_outline_lines": 800, "graph": True, "session_map_tokens": 0, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "normal", "subagent_rules": True, "compact_window": 780000, "never_compact": []},
+    3: {"name": "Balanced", "blurb": "Recommended. Outline-first reads, compact tool output, terse replies. The conversation compacts at 650K tokens.",
         "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 300, "bash_max_lines": 200, "max_line_chars": 500, "grep_per_file": 12, "test_hide_passing": True, "test_boilerplate": False,
         "trim_stack_frames": True, "diff_context": -1, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 400, "graph": True, "session_map_tokens": 500, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "lean", "subagent_rules": True, "never_compact": []},
-    4: {"name": "Savings", "blurb": "Tighter caps, trimmed diff context, smaller file threshold.",
+        "read_outline_lines": 400, "graph": True, "session_map_tokens": 500, "read_graph_context": True, "read_dedupe": True, "style": "lite", "code_style": "lean", "subagent_rules": True, "compact_window": 650000, "never_compact": []},
+    4: {"name": "Savings", "blurb": "Tighter caps, trimmed diff context, smaller file threshold. The conversation compacts at 430K tokens.",
         "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 150, "bash_max_lines": 120, "max_line_chars": 300, "grep_per_file": 8, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 3, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 250, "graph": True, "session_map_tokens": 700, "read_graph_context": True, "read_dedupe": True, "style": "full", "code_style": "lean", "subagent_rules": True, "never_compact": []},
-    5: {"name": "Max savings", "blurb": "Most aggressive. Claude may need `kompactor show` more often.",
+        "read_outline_lines": 250, "graph": True, "session_map_tokens": 700, "read_graph_context": True, "read_dedupe": True, "style": "full", "code_style": "lean", "subagent_rules": True, "compact_window": 430000, "never_compact": []},
+    5: {"name": "Max savings", "blurb": "Most aggressive caps, and the conversation compacts at 240K tokens. Claude may need `kompactor show` more often.",
         "bash": True, "bash_wrap": True, "bash_plain": True, "bash_min_tokens": 80, "bash_max_lines": 80, "max_line_chars": 200, "grep_per_file": 5, "test_hide_passing": True, "test_boilerplate": True,
         "trim_stack_frames": True, "diff_context": 1, "git_log_compact": True, "read_outline": True,
-        "read_outline_lines": 150, "graph": True, "session_map_tokens": 900, "read_graph_context": True, "read_dedupe": True, "style": "ultra", "code_style": "lean", "subagent_rules": True, "never_compact": []},
+        "read_outline_lines": 150, "graph": True, "session_map_tokens": 900, "read_graph_context": True, "read_dedupe": True, "style": "ultra", "code_style": "lean", "subagent_rules": True, "compact_window": 240000, "never_compact": []},
 }
 KNOBS = [k for k in PRESETS[3] if k not in ("name", "blurb")]
 
@@ -86,6 +85,13 @@ KNOB_INFO = {
                    "and tests), strict (also proposes a smaller alternative before building).",
                    "choice", ["normal", "lean", "strict"]),
     "subagent_rules": ("Apply rules to subagents", "Subagents get the same prose and code rules.", "bool"),
+    "compact_window": ("Compact the conversation at", "Claude Code summarises the conversation once it reaches "
+                       "this many tokens (its `autoCompactWindow` setting). Every request re-sends the whole "
+                       "conversation, so in long sessions this is the biggest saving; the trade-off is that details "
+                       "from early on survive only as a summary. 0 = Claude Code's default (about 967K on 1M-context "
+                       "models, the window's end on others). Claude Code caps it at each model's window, a window you "
+                       "set with `/autocompact` always wins, and it's removed when Kompactor is stopped.",
+                       "int", 0, 1000000, 10000),
     "never_compact": ("Never compact these commands", "Commands whose output is always passed through untouched, "
                       "comma separated (e.g. terraform plan, kubectl describe).", "list"),
 }
@@ -105,7 +111,7 @@ def coerce_general(key: str, value):
         re.compile(value)  # raises re.error for a bad pattern
     return value
 
-DEFAULT_FILE = {"preset": 3, "overrides": {}, "languages": {"mode": "auto", "selected": []}, "projects": {},
+DEFAULT_FILE = {"preset": 3, "overrides": {}, "projects": {},
                 "general": dict(GENERAL)}
 
 
@@ -224,11 +230,7 @@ def load(cwd: str = "") -> dict:
                 cfg[k] = GENERAL[k]
 
     from . import langs
-    lang_cfg = data.get("languages", {})
-    if lang_cfg.get("mode") == "manual" and lang_cfg.get("selected"):
-        cfg["languages"] = list(lang_cfg["selected"])
-    else:
-        cfg["languages"] = langs.detect(root) if root else []
+    cfg["languages"] = langs.detect(root) if root else []  # always detected; a pinned list from <0.8.6 is ignored
     return cfg
 
 
@@ -241,9 +243,6 @@ def save(key: str, value) -> None:
         data["overrides"][key] = coerce(key, value)
     elif key in GENERAL:
         data["general"][key] = coerce_general(key, value)
-    elif key == "languages":
-        data["languages"] = ({"mode": "auto", "selected": []} if value == "auto"
-                             else {"mode": "manual", "selected": [v.strip() for v in str(value).split(",") if v.strip()]})
     else:
         raise KeyError(key)
     write_file(data)

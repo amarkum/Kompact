@@ -63,15 +63,21 @@ p { margin: 0 0 12px; max-width: 100ch; }
 ul, ol.steps { margin: 0 0 14px; padding-left: 20px; }
 li { margin: 3px 0; }
 .muted { color: var(--ink-2); }
-pre { position: relative; margin: 10px 0 16px; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 74px 12px 14px; overflow-x: auto; font: 13px/1.6 var(--mono); }
+.codewrap { position: relative; margin: 10px 0 16px; min-width: 0; }
+pre { margin: 0; background: var(--code); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.6 var(--mono); }
 pre code { background: none; border: 0; padding: 0; font-size: inherit; }
-pre .copy { position: absolute; top: 6px; right: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); border-radius: 6px; font: 500 12px var(--sans); padding: 2px 8px; cursor: pointer; }
+.copy { position: absolute; top: 7px; right: 7px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); border-radius: 6px; cursor: pointer; transition: opacity .12s; }
+.copy:hover { color: var(--ink); }
+.copy svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.copy.done { color: var(--good, #12713a); }
+@media (hover: hover) { .copy { opacity: 0; } .codewrap:hover .copy, .copy:focus-visible, .copy.done { opacity: 1; } }
 pre .c { color: var(--ink-3); }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 14px 0 6px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
 .card b { font-size: 14.5px; }
 .card .muted { font-size: 13.5px; }
-.card pre { margin: 4px 0 0; font-size: 12px; padding: 32px 12px 10px; white-space: pre; }
+.card .codewrap { margin: 4px 0 0; }
+.card pre { font-size: 12px; padding: 10px 12px; white-space: pre; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0 16px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
 th { font-weight: 500; color: var(--ink-3); font-size: 12.5px; }
@@ -108,7 +114,7 @@ svg.chev { width: 11px; height: 11px; stroke: var(--ink-3); fill: none; stroke-w
       <li><a href="#install">Install</a></li>
       <li><a href="#team">Use it across your team</a></li>
       <li><a href="#session">What happens in a session</a></li>
-      <li><a href="#levels">Quality vs tokens</a></li>
+      <li><a href="#levels">Configuration: levels</a></li>
       <li><a href="#chat">Using it from chat</a></li>
       <li><a href="#graph">Code graph</a></li>
       <li><a href="#savings">Seeing the savings</a></li>
@@ -198,19 +204,20 @@ claude plugin marketplace add <span data-repo>your-org/kompactor</span> && claud
     </section>
 
     <section id="levels">
-      <h2>Quality vs tokens</h2>
+      <h2>Configuration: levels</h2>
       <p>One level sets every option. Move toward quality and Claude sees more raw output; toward savings and it sees less. Every individual setting can still be changed on the dashboard, globally or per project.</p>
       <div class="tbl"><table>
-        <tr><th>Level</th><th>What Claude gets</th><th>Use when</th></tr>
-        <tr><td><span class="lv">1</span> Max quality</td><td>Almost everything. Only outputs over about 1,500 tokens are touched, and only pure noise is removed.</td><td>Debugging something subtle, or auditing Kompactor itself.</td></tr>
-        <tr><td><span class="lv">2</span> Quality</td><td>Noisy commands compacted, passing tests hidden, one-line git log. Big files still read whole up to 800 lines.</td><td>You want savings with no change to how Claude reads files.</td></tr>
-        <tr><td><span class="lv">3</span> Balanced</td><td>Outline-first reads, library stack frames trimmed, a 500-token code map, lean code style.</td><td>Default. Day-to-day work.</td></tr>
-        <tr><td><span class="lv">4</span> Savings</td><td>Tighter caps, 3 lines of diff context, test banners dropped, shorter replies.</td><td>Long sessions, big repos, tight budgets.</td></tr>
-        <tr><td><span class="lv">5</span> Max savings</td><td>Most aggressive caps, 1 line of diff context, telegraphic replies.</td><td>Routine tasks where you mostly want results.</td></tr>
+        <tr><th>Level</th><th>What Claude gets</th><th>Compacts at</th><th>Use when</th></tr>
+        <tr><td><span class="lv">1</span> Max quality</td><td>Almost everything. Only outputs over about 1,500 tokens are touched, and only pure noise is removed.</td><td>Claude Code's default</td><td>Debugging something subtle, or auditing Kompactor itself.</td></tr>
+        <tr><td><span class="lv">2</span> Quality</td><td>Noisy commands compacted, passing tests hidden, one-line git log. Big files still read whole up to 800 lines.</td><td>780K tokens</td><td>You want savings with no change to how Claude reads files.</td></tr>
+        <tr><td><span class="lv">3</span> Balanced</td><td>Outline-first reads, library stack frames trimmed, a 500-token code map, lean code style.</td><td>650K tokens</td><td>Default. Day-to-day work.</td></tr>
+        <tr><td><span class="lv">4</span> Savings</td><td>Tighter caps, 3 lines of diff context, test banners dropped, shorter replies.</td><td>430K tokens</td><td>Long sessions, big repos, tight budgets.</td></tr>
+        <tr><td><span class="lv">5</span> Max savings</td><td>Most aggressive caps, 1 line of diff context, telegraphic replies.</td><td>240K tokens</td><td>Routine tasks where you mostly want results.</td></tr>
       </table></div>
+      <p>Every request re-sends the whole conversation, so in long sessions most of the cost is the conversation being read again. Each level also sets how large the conversation may grow before Claude Code compacts it into a summary (Claude Code's <code>autoCompactWindow</code>). Compacting earlier is where most of the saving comes from: about 10% at Quality, 19% at Balanced, 35% at Savings and 50% at Max savings, on 65 long sessions replayed with <code>kompactor estimate</code>. The cost is that Claude keeps only a summary of the early part of a long session. A window you set with <code>/autocompact</code> always wins, and <code>kompactor stop</code> restores Claude Code's default.</p>
       <h3>Changing the level</h3>
       <ul>
-        <li>Dashboard: <b>Quality vs tokens</b>. The live preview shows exactly what Claude would get, with removed lines marked.</li>
+        <li>Dashboard: <b>Configuration</b>. On the Overview, <b>Before and after</b> shows exactly what Claude got from your real command outputs, with removed lines marked.</li>
         <li>VS Code: click the Kompactor item in the status bar, then <b>Choose quality vs tokens level</b>.</li>
         <li>In Claude Code: type <code>/kompactor balanced</code>, <code>/kompactor max savings</code> and so on.</li>
         <li>Terminal: <code>kompactor config preset 4</code>, or <code>kompactor presets</code> to list them.</li>
@@ -262,8 +269,8 @@ kompactor graph unused</code></pre>
 
     <section id="projects">
       <h2>Projects and languages</h2>
-      <p>Each repo's languages are detected from <code>pyproject.toml</code> or <code>requirements.txt</code> (Python), <code>go.mod</code> (Go), <code>tsconfig.json</code> or <code>package.json</code> (TypeScript) and a <code>react</code> or <code>next</code> dependency (React). The profile decides which stack frames are library noise, which files are generated, and which lock files collapse in diffs. You can pin languages on the dashboard instead.</p>
-      <p>Give a repo its own level under <b>Projects &amp; languages</b>, for example Max quality for a payments service and Savings for everything else.</p>
+      <p>Each repo's languages are detected from <code>pyproject.toml</code> or <code>requirements.txt</code> (Python), <code>go.mod</code> (Go), <code>tsconfig.json</code> or <code>package.json</code> (TypeScript) and a <code>react</code> or <code>next</code> dependency (React). The profile decides which stack frames are library noise, which files are generated, and which lock files collapse in diffs.</p>
+      <p>Give a repo its own level under <b>Projects</b>, for example Max quality for a payments service and Savings for everything else.</p>
     </section>
 
     <section id="raw">
@@ -330,15 +337,24 @@ fetch("/api/state").then((r) => r.json()).then((st) => {
     var t = new URLSearchParams(location.search).get("theme") || localStorage.getItem("kompactor-theme");
     if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
   } catch (e) {}
+  // a copy icon in each code block's corner, shown on hover; it doesn't scroll with long lines
+  var COPY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+  var DONE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   document.querySelectorAll("pre").forEach(function (pre) {
-    var b = document.createElement("button");
-    b.className = "copy"; b.type = "button"; b.textContent = "Copy";
+    var wrap = document.createElement("div"), b = document.createElement("button");
+    wrap.className = "codewrap";
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+    b.className = "copy"; b.type = "button"; b.innerHTML = COPY; b.title = "Copy"; b.setAttribute("aria-label", "Copy");
     b.addEventListener("click", function () {
       var text = pre.querySelector("code").innerText;
-      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1400); };
-      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { b.textContent = "Select to copy"; });
+      var done = function () {
+        b.innerHTML = DONE; b.classList.add("done"); b.title = "Copied"; b.setAttribute("aria-label", "Copied");
+        setTimeout(function () { b.innerHTML = COPY; b.classList.remove("done"); b.title = "Copy"; b.setAttribute("aria-label", "Copy"); }, 1400);
+      };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { b.title = "Select the text to copy it"; });
     });
-    pre.appendChild(b);
+    wrap.appendChild(b);
   });
 })();
 </script>

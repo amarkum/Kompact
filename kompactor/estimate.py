@@ -21,6 +21,8 @@ W_INPUT, W_CACHE_WRITE, W_CACHE_READ, W_OUTPUT = 1.0, 1.25, 0.1, 5.0
 LINE_NO = re.compile(r"^\s*\d+[\t→]", re.M)
 # After an outline, assume Claude still reads this share of the file by range.
 OUTLINE_FOLLOWUP = 0.4
+# Tokens Claude writes when it summarises the conversation, for compacting earlier.
+SUMMARY_TOKENS = 8000
 
 
 def _text(content) -> str:
@@ -71,13 +73,20 @@ def analyze_file(path: str, stats: dict, opts=None) -> None:
         return
 
     stats["sessions"] += 1
+    session_cost = 0.0
     for u in calls:
         i, cw, cr, o = (u.get("input_tokens", 0) or 0, u.get("cache_creation_input_tokens", 0) or 0,
                         u.get("cache_read_input_tokens", 0) or 0, u.get("output_tokens", 0) or 0)
         stats["billed"] += i + cw + cr + o
-        stats["cost"] += i * W_INPUT + cw * W_CACHE_WRITE + cr * W_CACHE_READ + o * W_OUTPUT
+        session_cost += i * W_INPUT + cw * W_CACHE_WRITE + cr * W_CACHE_READ + o * W_OUTPUT
         stats["output"] += o
         stats["calls"] += 1
+    stats["cost"] += session_cost
+    window = int((opts or {}).get("compact_window") or 0)
+    windowed, added = compact_earlier(calls, min(1_000_000, max(100_000, window))) if window else (session_cost, 0)
+    stats["saved_compact"] += session_cost - windowed
+    stats["compactions_added"] += added
+    tool_before = stats["saved_cost"]
 
     def lifetime(k):
         """Number of API calls that would re-send a result first ingested at call k."""
@@ -121,6 +130,30 @@ def analyze_file(path: str, stats: dict, opts=None) -> None:
             stats["saved_cost"] += saved * W_CACHE_WRITE + saved * (n - 1) * W_CACHE_READ
             stats["by_feature"][feature] += saved * n
             stats["count_feature"][feature] += 1
+    # a shorter conversation re-sends a trimmed output fewer times: scale this session's trimming saving with it
+    stats["saved_total"] += (session_cost - windowed) + (stats["saved_cost"] - tool_before) * (windowed / session_cost if session_cost else 1)
+
+
+def compact_earlier(calls: list, window: int):
+    """This session's cost (relative weights) if Claude Code had compacted whenever the context passed `window`
+    tokens, and how many compactions that adds. Each later request re-reads less; each compaction costs one read
+    of the whole context, a summary, and writing the short new context to the cache."""
+    def ctx(u):
+        return sum(u.get(k, 0) or 0 for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+    base, total, offset, prev, added = ctx(calls[0]), 0.0, 0, 0, 0
+    for u in calls:
+        c = ctx(u)
+        if c < prev * 0.6:
+            offset = 0  # the session compacted here itself
+        prev = c
+        o = u.get("output_tokens", 0) or 0
+        if c - offset > window:
+            total += (c - offset) * W_CACHE_READ + SUMMARY_TOKENS * W_OUTPUT + (base + SUMMARY_TOKENS) * W_CACHE_WRITE + o * W_OUTPUT
+            offset, added = c - (base + SUMMARY_TOKENS), added + 1
+            continue
+        total += ((u.get("input_tokens", 0) or 0) * W_INPUT + (u.get("cache_creation_input_tokens", 0) or 0) * W_CACHE_WRITE
+                  + max(0, (u.get("cache_read_input_tokens", 0) or 0) - offset) * W_CACHE_READ + o * W_OUTPUT)
+    return total, added
 
 
 def run(root=None, project=None, limit=None, style_pct=None, opts=None):

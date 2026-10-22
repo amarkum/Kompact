@@ -135,7 +135,7 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   const m = webviewHtml.match(/src="(http:\/\/127\.0\.0\.1:\d+\/)"/);
   assert.ok(m, "webview iframes the dashboard");
   assert.ok((await get(m[1] + "api/ping")).includes("kompactor"), "dashboard server answers");
-  assert.ok((await get(m[1])).includes("Quality vs tokens"), "dashboard page served");
+  assert.ok((await get(m[1])).includes("Claude's replies"), "dashboard page served");
 
   ext.deactivate();
   for (const s of ctx.subscriptions) s.dispose && s.dispose();

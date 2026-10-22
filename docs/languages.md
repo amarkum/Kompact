@@ -2,7 +2,7 @@
 
 [← Back to the README](../README.md)
 
-Kompactor detects each repo's languages (`pyproject.toml` › Python, `go.mod` › Go, `tsconfig.json`/`package.json` › TypeScript, a `react` or `next` dependency › React). You can also pin them in the dashboard.
+Kompactor detects each repo's languages (`pyproject.toml` › Python, `go.mod` › Go, `tsconfig.json`/`package.json` › TypeScript, a `react` or `next` dependency › React).
 
 | | Python | Go | TypeScript / React |
 |---|---|---|---|

@@ -114,7 +114,7 @@ General (not part of presets): show savings after each turn, status line, data r
 
 | Surface | What it offers |
 |---|---|
-| Dashboard (`kompactor ui`, VS Code webview) | Overview (per-turn chart, where savings come from, biggest wins), Quality (level, live preview with removed lines, grouped settings), Code graph (stats, map, interactive module graph, search), Projects & languages (with team levels from `.kompactor.json`), Setup (status, enable/disable, self-test, and "Share with your team" commands for the repo this copy came from), Guide |
+| Dashboard (`kompactor ui`, VS Code webview) | Overview (plain-language summary with dollars, a chart and list of Claude's replies filterable by command or file, kind, session and size, real before-and-after diffs, where savings come from, biggest wins), Configuration (levels and grouped settings), Code graph (stats, map, interactive module graph, search), Projects (detected languages, team levels from `.kompactor.json`), Setup (status, enable/disable, self-test, and "Share with your team" commands for the repo this copy came from), Guide |
 | VS Code extension | One-click enable, status-bar savings, per-turn flash or notification, level picker, dashboard webview |
 | Claude Code chat | `/kompactor`, `/kompactor start`, `/kompactor stop`, `/kompactor <level>`, `/kompactor review`, `/kompactor audit`, `/kompactor debt`, `/kompactor graph <question>` |
 | CLI | `start`, `stop`, `uninstall`, `status`, `ui`, `presets`, `config`, `gain`, `estimate`, `prove`, `graph …`, `outline`, `symbol`, `show`, `search`, `doctor` |

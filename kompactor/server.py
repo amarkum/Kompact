@@ -51,6 +51,17 @@ def preview(knobs: dict, languages, project: str = "", rows=None) -> list:
     return out
 
 
+def with_diff(it: dict) -> dict:
+    """A shortened output with its line diff. When what Claude was shown wasn't recorded (savings from before
+    v0.8.6), it's re-created from the raw output with the project's current settings, and marked."""
+    before, after = it.pop("before"), it.pop("after")
+    it["recreated"] = bool(before) and after is None
+    if it["recreated"]:
+        after = filters.compress(it["cmd"], before, it["code"], stash_id=it["id"], opts=config.load(it["project"] or os.getcwd()))
+    it["segments"] = segments(before, after) if before and after else []
+    return it
+
+
 def segments(before: str, after: str) -> list:
     """Line-level view of what was kept, dropped or added (notes) — for the preview."""
     a, b = filters.clean(before), after.split("\n")
@@ -99,8 +110,9 @@ def state() -> dict:
 
 
 def stats(params: dict) -> dict:
-    days = float(params.get("days", ["30"])[0])
-    project = params.get("project", [""])[0]
+    arg = lambda k, d="": params.get(k, [d])[0]
+    days = float(arg("days", "30"))
+    project = arg("project")
     since = time.time() - days * 86400
     where, args = "ts > ?", [since]
     if project:
@@ -111,20 +123,22 @@ def stats(params: dict) -> dict:
                          f"WHERE {where}", args).fetchone()
         feats = db.execute(f"SELECT feature, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE {where} "
                            f"GROUP BY feature ORDER BY SUM(raw_tokens)-SUM(kept_tokens) DESC", args).fetchall()
-        turns = db.execute(f"SELECT session, idx, ts, project, raw_tokens, kept_tokens, context_tokens, features "
-                           f"FROM turns WHERE {where} ORDER BY ts DESC LIMIT 60", args).fetchall()
         top = db.execute(f"SELECT detail, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE {where} "
                          f"AND feature='bash' GROUP BY detail ORDER BY SUM(raw_tokens)-SUM(kept_tokens) DESC LIMIT 10",
                          args).fetchall()
         sessions = db.execute(f"SELECT COUNT(DISTINCT session) FROM events WHERE {where}", args).fetchone()[0]
+        priced, pricing = store._priced(db, None, since, project)
+    turns = store.turn_list(since, project, q=arg("q"), feature=arg("kind"), session=arg("session"),
+                            min_saved=int(arg("min", "0") or 0), saved_only=arg("only") == "saved",
+                            sort=arg("sort", "new"), page=int(arg("turn_page", "0") or 0),
+                            size=min(50, int(arg("turn_size", "10") or 10)))
     return {
         "events": tot[0], "raw": tot[1], "kept": tot[2], "saved": tot[1] - tot[2], "sessions": sessions,
+        "usd": round(sum(e["usd"] for e in priced), 6), "pricing": pricing,
         "features": [{"feature": f[0], "count": f[1], "raw": f[2], "kept": f[3]} for f in feats],
-        "turns": [{"session": t[0], "idx": t[1], "ts": t[2], "project": t[3], "raw": t[4], "kept": t[5],
-                   "context": t[6], "features": json.loads(t[7] or "{}")} for t in reversed(turns)],
+        "turns": turns,
         "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
-        "left": store.passes_page(days, project, int(params.get("left_page", ["0"])[0]),
-                                  min(50, int(params.get("left_size", ["10"])[0]))),
+        "left": store.passes_page(days, project, int(arg("left_page", "0")), min(50, int(arg("left_size", "10")))),
         "live": store.read_live(),
     }
 
@@ -146,6 +160,22 @@ def graph_state(project: str) -> dict:
     return v
 
 
+_levels = {}
+
+
+def level_costs() -> dict:
+    """Each level's share of cost saved on this machine's recent Claude Code sessions, replayed through that
+    level's settings (trimming and compacting earlier). Takes a few seconds, so it's kept for 10 minutes."""
+    if time.time() - _levels.get("ts", 0) > 600:
+        res, sessions = {}, 0
+        for p, preset in config.PRESETS.items():
+            s = estimate.run(limit=150, opts={**{k: preset[k] for k in config.KNOBS}, "languages": []})
+            res[p] = round(100 * s["saved_total"] / s["cost"]) if s["cost"] else None
+            sessions = int(s["sessions"])
+        _levels.update(ts=time.time(), value={"levels": res, "sessions": sessions})
+    return _levels["value"]
+
+
 def save_config(body: dict) -> dict:
     data = config.read_file()
     if "preset" in body:
@@ -155,10 +185,6 @@ def save_config(body: dict) -> dict:
         data["preset"] = p
     if "overrides" in body:
         data["overrides"] = {k: config.coerce(k, v) for k, v in body["overrides"].items() if k in config.KNOBS}
-    if "languages" in body:
-        mode = body["languages"].get("mode", "auto")
-        sel = [s for s in body["languages"].get("selected", []) if s in langs.PROFILES]
-        data["languages"] = {"mode": "manual" if mode == "manual" else "auto", "selected": sel}
     if "general" in body:
         try:
             data["general"].update({k: config.coerce_general(k, v) for k, v in body["general"].items() if k in config.GENERAL})
@@ -174,6 +200,7 @@ def save_config(body: dict) -> dict:
             else:
                 data["projects"].pop(path, None)
     config.write_file(data)
+    installer.sync_compact_window()  # the level decides Claude Code's auto-compact window
     return {"ok": True, "config": data}
 
 
@@ -215,12 +242,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, state())
             if u.path == "/api/stats":
                 return self._send(200, stats(parse_qs(u.query)))
+            if u.path == "/api/levels":
+                return self._send(200, level_costs())
+            if u.path == "/api/outputs":
+                q = parse_qs(u.query)
+                items = store.compacted_outputs(time.time() - float(q.get("days", ["30"])[0]) * 86400,
+                                                q.get("project", [""])[0])
+                return self._send(200, {"items": [with_diff(it) for it in items]})
             if u.path == "/api/turn":
                 q = parse_qs(u.query)
                 items = store.turn_outputs(q.get("session", [""])[0], int(q.get("idx", ["0"])[0]))
-                for it in items:
-                    it["segments"] = segments(it["before"], it["after"]) if it["before"] and it["after"] else []
-                return self._send(200, {"items": items})
+                return self._send(200, {"items": [with_diff(it) for it in items]})
             if u.path == "/api/graph":
                 return self._send(200, graph_state(parse_qs(u.query).get("project", [""])[0]))
             if u.path in ("/usage", "/usage.html", "/guide"):
@@ -288,6 +320,8 @@ class Handler(BaseHTTPRequestHandler):
                                         "tool_tokens": s["tool_tokens"], "saved_tool": s["saved_tool"],
                                         "billed": s["billed"], "saved_billed": s["saved_billed"],
                                         "cost": s["cost"], "saved_cost": s["saved_cost"],
+                                        "saved_compact": s["saved_compact"], "saved_total": s["saved_total"],
+                                        "compactions_added": s["compactions_added"],
                                         "by_feature": dict(s["by_feature"])})
             return self._send(404, {"error": "not found"})
         except (ValueError, KeyError, RuntimeError) as e:

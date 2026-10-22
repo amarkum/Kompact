@@ -230,6 +230,48 @@ def source(repo=None) -> dict:
     return parse_source(url)
 
 
+# Claude Code's `autoCompactWindow`, set from the level while Kompactor runs (user settings only).
+SYNC_COMPACT_WINDOW = True  # tests switch this off so they never touch ~/.claude/settings.json
+WINDOW_KEY = "autoCompactWindow"
+
+
+def _window_mark() -> Path:
+    """The window Kompactor last wrote, so a value the user set themselves is never touched."""
+    from . import store
+    return store.home() / "compact-window"
+
+
+def _apply_window(settings: dict, remove: bool = False) -> bool:
+    """Set (or remove) Kompactor's auto-compact window in `settings`; True if it changed."""
+    from . import config, store
+    mark = _window_mark()
+    ours = mark.read_text().strip() if mark.exists() else ""
+    cur = settings.get(WINDOW_KEY)
+    if cur is not None and str(cur) != ours:
+        return False  # the user's own window
+    data = config.read_file()
+    want = int({**config.PRESETS[data["preset"]], **data.get("overrides", {})}.get("compact_window") or 0)
+    want = min(1_000_000, max(100_000, want)) if want else 0
+    if want and not remove and not store.paused():
+        mark.write_text(str(want))
+        settings[WINDOW_KEY] = want
+        return cur != want
+    mark.unlink(missing_ok=True)
+    return settings.pop(WINDOW_KEY, None) is not None
+
+
+def sync_compact_window() -> None:
+    """Bring Claude Code's auto-compact window in line with the level, or take it out when Kompactor is
+    stopped or not connected. Called after level changes, `start`, `stop` and `uninstall`."""
+    if not SYNC_COMPACT_WINDOW:
+        return
+    target = settings_path("user")
+    settings = _read(target)
+    connected = plugin_enabled(settings) or any(_ours(e) for ev in (settings.get("hooks") or {}).values() for e in ev)
+    if target.exists() and _apply_window(settings, remove=not connected):
+        target.write_text(json.dumps(settings, indent=2) + "\n")
+
+
 def _read(p: Path) -> dict:
     try:
         return json.loads(p.read_text())
@@ -360,6 +402,8 @@ def install(scope: str = "user", project: str = "", statusline: bool = True, uni
         settings["env"] = env
     else:
         settings.pop("env", None)
+    if scope == "user" and SYNC_COMPACT_WINDOW:
+        _apply_window(settings, remove=uninstall)
     legacy = Path.home() / ".claude" / "skills" / "kompact" / "SKILL.md"  # the /kompact skill, before the rename
     if scope == "user" and legacy.exists() and "Kompact token saver" in legacy.read_text():
         legacy.unlink()

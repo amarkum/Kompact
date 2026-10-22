@@ -290,9 +290,14 @@ def cmd_estimate(a):
     print()
     print(f"  Tool-output tokens removed  {_fmt(s['saved_tool']):>8}  {_bar(s['saved_tool'] / tool if tool else 0)} {_pct(s['saved_tool'], tool)}")
     print(f"  Billed tokens saved         {_fmt(s['saved_billed']):>8}  {_bar(s['saved_billed'] / billed)} {_pct(s['saved_billed'], billed)}")
-    print(f"  Cost saved (context)        {'':>8}  {_bar(s['saved_cost'] / cost)} {_pct(s['saved_cost'], cost)}")
+    print(f"  Cost saved, trimming output {'':>8}  {_bar(s['saved_cost'] / cost)} {_pct(s['saved_cost'], cost)}")
+    if s["saved_compact"]:
+        window = config.load(os.getcwd())["compact_window"]
+        print(f"  Cost saved, compacting at {window // 1000}K {'':>3}  {_bar(s['saved_compact'] / cost)} {_pct(s['saved_compact'], cost)}"
+              f"  ({int(s['compactions_added'])} more compactions)")
+        print(f"  Cost saved, together        {'':>8}  {_bar(s['saved_total'] / cost)} {_pct(s['saved_total'], cost)}")
     if st_cost:
-        tot = s["saved_cost"] + st_cost
+        tot = s["saved_total"] + st_cost
         print(f"  + output style '{a.style}' (assumed −{int(style_pct * 100)}% output){'':>1}  {_bar(tot / cost)} {_pct(tot, cost)}  total cost")
     print("\n  by feature (billed tokens saved):")
     for f, v in sorted(s["by_feature"].items(), key=lambda x: -x[1]):
@@ -303,8 +308,9 @@ def cmd_estimate(a):
             print(f"    {_fmt(r):>6} › {_fmt(k):<6} {cmd}")
     print("\n  Method: Bash/Read results replayed through Kompactor's filters; savings weighted by how many later API"
           "\n  calls would re-send them (cache reads at 0.1×, writes 1.25×, output 5× input price). Read-outline"
-          f"\n  assumes {int(estimate.OUTLINE_FOLLOWUP * 100)}% of the file is still read afterwards. Output-style savings are an assumption,"
-          "\n  not measured.")
+          f"\n  assumes {int(estimate.OUTLINE_FOLLOWUP * 100)}% of the file is still read afterwards. Compacting earlier is simulated from"
+          f"\n  each request's context size, with a {estimate.SUMMARY_TOKENS // 1000}K-token summary per compaction; it doesn't count files Claude"
+          "\n  re-reads after a compaction. Output-style savings are an assumption, not measured.")
     return 0
 
 
@@ -414,6 +420,7 @@ def cmd_start(a):
 def cmd_stop(a):
     """Pause compaction everywhere and stop the dashboard. Settings stay; `kompactor start` resumes."""
     (store.home() / "paused").write_text("")
+    installer.sync_compact_window()  # back to Claude Code's own compaction
     was = _kill_dashboard()
     print("✓ Kompactor stopped: Claude Code output now passes through untouched."
           + (" Dashboard closed." if was else ""))
@@ -487,6 +494,7 @@ def cmd_config(a):
         except (KeyError, ValueError) as e:
             print(f"unknown or invalid setting: {e}", file=sys.stderr)
             return 1
+        installer.sync_compact_window()
     eff = config.load(os.getcwd())
     print(f"preset {eff['preset']} · {config.PRESETS[eff['preset']]['name']}   languages: {', '.join(eff['languages']) or '-'}")
     for k in config.KNOBS:

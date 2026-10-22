@@ -15,6 +15,7 @@ os.environ["KOMPACTOR_HOME"] = os.path.join(TMP, "home")
 from kompactor import config, estimate, filters, hooks, installer, langs, outline, samples, server, store, tokens  # noqa: E402
 installer.PATH_DIRS = ()  # never link `kompactor` into real PATH folders from tests
 installer.EDITORS = ()  # never install or remove the real VS Code / Cursor extension from tests
+installer.SYNC_COMPACT_WINDOW = False  # never change the real ~/.claude/settings.json from tests
 
 
 def mock_stderr(buf):
@@ -383,6 +384,16 @@ class EstimateTests(unittest.TestCase):
         # ingested at call index 1, so re-sent on 4 calls
         self.assertEqual(s["saved_billed"], s["saved_tool"] * 4)
 
+    def test_compacting_earlier_reads_less_of_a_growing_conversation(self):
+        # 40 requests, each 20k tokens bigger than the last: 40k to 820k of context
+        calls = [{"input_tokens": 0, "cache_creation_input_tokens": 20_000, "cache_read_input_tokens": 20_000 * i,
+                  "output_tokens": 500} for i in range(1, 41)]
+        full, none = estimate.compact_earlier(calls, 10 ** 9)
+        smaller, added = estimate.compact_earlier(calls, 300_000)
+        self.assertEqual(none, 0)
+        self.assertGreater(added, 0)
+        self.assertLess(smaller, full * 0.8)
+
 
 PY_TRACE = """Traceback (most recent call last):
   File "/app/main.py", line 10, in <module>
@@ -610,6 +621,42 @@ class TurnAndSetupTests(unittest.TestCase):
         finally:
             os.environ["HOME"] = old
 
+    def test_level_sets_claude_codes_compact_window_but_never_the_users_own(self):
+        home, old, data = tempfile.mkdtemp(), os.environ.get("HOME"), config.read_file()
+        os.environ["HOME"], installer.SYNC_COMPACT_WINDOW = home, True
+        p = Path(home, ".claude", "settings.json")
+        p.parent.mkdir()
+        p.write_text("{}")
+        window = lambda: json.loads(p.read_text()).get("autoCompactWindow")
+        try:
+            data["preset"] = 5
+            config.write_file(data)
+            installer.install()
+            self.assertEqual(window(), config.PRESETS[5]["compact_window"])
+            data["preset"] = 1  # Max quality: Claude Code's own default
+            config.write_file(data)
+            installer.sync_compact_window()
+            self.assertIsNone(window())
+            data["preset"] = 3
+            config.write_file(data)
+            installer.sync_compact_window()
+            self.assertEqual(window(), config.PRESETS[3]["compact_window"])
+            (store.home() / "paused").write_text("")  # kompactor stop
+            installer.sync_compact_window()
+            self.assertIsNone(window())
+            (store.home() / "paused").unlink()
+            d = json.loads(p.read_text())
+            d["autoCompactWindow"] = 500_000  # the user's own
+            p.write_text(json.dumps(d))
+            installer.sync_compact_window()
+            installer.install(uninstall=True)
+            self.assertEqual(window(), 500_000)
+        finally:
+            os.environ["HOME"], installer.SYNC_COMPACT_WINDOW = old, False
+            (store.home() / "paused").unlink(missing_ok=True)
+            data["preset"] = 3
+            config.write_file(data)
+
     def test_server_requires_token(self):
         import threading
         import urllib.request
@@ -702,6 +749,35 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual((item["what"], item["before"]), ("git log", GIT_LOG))
         self.assertIn("[kompactor: ", item["after"])
         self.assertLess(len(item["after"]), len(GIT_LOG))
+        # the Overview's before and after lists the same real output
+        (out,) = [o for o in store.compacted_outputs(0, self.proj) if o["cmd"] == "git log"][:1]
+        self.assertEqual((out["before"], out["after"]), (item["before"], item["after"]))
+
+    def test_preview_of_a_saving_recorded_before_outputs_were_linked(self):
+        # before v0.8.6 the raw output was stashed, but neither linked to the saving nor stored as shown
+        store.stash("git log", GIT_LOG)
+        store.record("bash", 5000, 500, "git log", "old", project=self.proj)
+        store.close_turn("old", self.proj)
+        (item,) = store.turn_outputs("old", 1)
+        self.assertEqual((item["before"], item["after"]), (GIT_LOG, None))
+        d = server.with_diff(item)
+        self.assertTrue(d["recreated"])
+        self.assertIn("drop", {k for k, _ in d["segments"]})
+
+    def test_reply_list_filters_by_command_size_and_session(self):
+        for sid, cmd in (("fa", "git log"), ("fb", "ls")):
+            run_hook("post-bash", {"session_id": sid, "cwd": self.proj, "tool_input": {"command": cmd},
+                                   "tool_response": {"stdout": GIT_LOG if cmd == "git log" else "a\nb", "stderr": ""}})
+            store.close_turn(sid, self.proj)
+        lst = lambda **kw: store.turn_list(0, self.proj, **kw)
+        everything = lst()
+        self.assertGreaterEqual(everything["all"], 2)
+        (hit,) = lst(q="GIT LOG", session="fa")["items"]
+        self.assertEqual([it["what"] for it in hit["shortened"]], ["git log"])
+        self.assertEqual(lst(session="fb", saved_only=True)["total"], 0)  # `ls` had nothing to shorten
+        self.assertEqual(lst(session="fa", min_saved=10 ** 9)["total"], 0)
+        self.assertIn("bash", everything["kinds"])
+        self.assertTrue({"fa", "fb"} <= {s["session"] for s in everything["sessions"]})
 
     def test_live_preview_uses_the_projects_own_outputs(self):
         run_hook("post-bash", {"session_id": "lp", "cwd": self.proj, "tool_input": {"command": "git log"},

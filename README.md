@@ -44,7 +44,7 @@ Measured in 54 real Claude Code sessions on Flask, Cobra, SWR, ky and zustand at
 - [How it works](#how-it-works)
 - [Examples](#examples)
 - [Usage](#usage)
-- [Quality vs tokens](#quality-vs-tokens)
+- [Levels](#levels)
 - [Configuration](#configuration)
 - [See your savings](#see-your-savings)
 - [Code graph](#code-graph)
@@ -66,7 +66,7 @@ Measured in 54 real Claude Code sessions on Flask, Cobra, SWR, ky and zustand at
 - **Local code graph.** Find code by topic, see callers, the impact of a change and the tests to run, for Python, Go, TypeScript, JavaScript, React, Rust, Java, Kotlin, Scala, C#, Swift, C, C++, Ruby and PHP.
 - **Terse replies and lean code.** Short, readable rules for answer-first prose and smallest-diff code, from 0 to 177 tokens depending on the level.
 - **Per-turn savings, in tokens and dollars.** In the reply, the status line, a VS Code / Cursor sidebar (per session, per project and per turn) and a local dashboard. Numbers are conservative and never count output Claude wouldn't have read.
-- **One dial for quality vs tokens.** Five levels, every option adjustable, per project, with a live preview of exactly what Claude would see.
+- **One dial for quality vs tokens.** Five levels, every option adjustable, per project, and a line-by-line before and after of what Claude actually got.
 - **Nothing is lost.** Every shortened output keeps a raw copy (`kompactor show <id>`), and every hook fails open.
 - **Private and dependency-free.** Python 3.9+ standard library only. Runs locally, sends nothing anywhere, no telemetry.
 - **Proven, reproducibly.** `kompactor prove` reruns real Claude Code tasks with and without Kompactor; the results are in this repo.
@@ -173,19 +173,23 @@ Ask Claude Code the way you normally would. These prompts come from the [evidenc
 | `kompactor doctor` | Check the installation and show recent hook errors |
 | `kompactor ui` | The dashboard, in the foreground |
 
-## Quality vs tokens
+## Levels
 
-![Quality vs tokens with a live preview of what Claude receives](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-quality.png)
+![The Configuration page: five levels from Max quality to Max savings](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-quality.png)
 
 One level sets everything. Change it on the dashboard, with `/kompactor <level>` in chat, or with `kompactor config preset <1-5>`. Each project can have its own level.
 
-| Level | What Claude gets | Max lines per output | Outline files from | Code map | Reply rules |
-|---|---|---:|---:|---:|---:|
-| 1 Max quality | Almost everything; only pure noise is removed from large outputs | 600 | 1,500 lines | — | 0 tokens |
-| 2 Quality | Noisy commands compacted, passing tests hidden, one-line `git log` | 400 | 800 lines | — | 72 tokens |
-| 3 **Balanced** (default) | Library frames trimmed, code map, lean-code rules | 200 | 400 lines | 500 tokens | 156 tokens |
-| 4 Savings | Tighter caps, 3 lines of diff context, shorter prose | 120 | 250 lines | 700 tokens | 176 tokens |
-| 5 Max savings | 1 line of diff context, telegraphic prose | 80 | 150 lines | 900 tokens | 177 tokens |
+| Level | What Claude gets | Max lines per output | Outline files from | Conversation compacts at | Code map | Reply rules | Cost saved* |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 1 Max quality | Almost everything; only pure noise is removed from large outputs | 600 | 1,500 lines | Claude Code's default | — | 0 tokens | ≈0–5% |
+| 2 Quality | Noisy commands compacted, passing tests hidden, one-line `git log` | 400 | 800 lines | 780K tokens | — | 72 tokens | ≈10% |
+| 3 **Balanced** (default) | Library frames trimmed, code map, lean-code rules | 200 | 400 lines | 650K tokens | 500 tokens | 156 tokens | ≈19% |
+| 4 Savings | Tighter caps, 3 lines of diff context, shorter prose | 120 | 250 lines | 430K tokens | 700 tokens | 176 tokens | ≈35% |
+| 5 Max savings | 1 line of diff context, telegraphic prose | 80 | 150 lines | 240K tokens | 900 tokens | 177 tokens | ≈50% |
+
+**Where the saving comes from.** Every request re-sends the whole conversation, so on a 1M-context model most of a long session's cost is the conversation being read again (80% of it in the sessions measured). Trimming tool output helps a little; letting the conversation grow less before Claude Code compacts it is what moves the bill. Each level sets Claude Code's own `autoCompactWindow` while Kompactor is on. The trade-off: after a compaction Claude keeps a summary of the early part of the session, not every detail, so higher levels compact more often (in the sessions measured, 7 extra compactions at Quality and 74 at Max savings, over 65 sessions). A window you set yourself with `/autocompact` always wins, `kompactor stop` puts Claude Code's default back, and Claude Code caps the window at each model's own size, so 200K-context models are unaffected.
+
+\* 65 real Claude Code sessions on Opus 5.5 (1M context), replayed at each level with `kompactor estimate`: output trimming plus compacting earlier, with an 8K-token summary per compaction. Not counted: files Claude re-reads after a compaction. Your figures depend on how long your sessions run; the Configuration page shows each level's estimate on your own sessions.
 
 ## Configuration
 
@@ -213,6 +217,7 @@ Settings come from, in increasing priority: the level → your global choices �
 | `read_dedupe` | bool | Re-reading an unchanged file gets a short note |
 | `graph` | bool | Build and use the local code graph |
 | `session_map_tokens` | int | Token budget for the code map given on the first search (`0` = off) |
+| `compact_window` | int | Claude Code compacts the conversation once it reaches this many tokens (its `autoCompactWindow`; `0` = Claude Code's default) |
 | `style` | choice | Prose: `off`, `lite`, `full`, `ultra` |
 | `code_style` | choice | Code: `normal`, `lean`, `strict` |
 | `subagent_rules` | bool | Give subagents the same rules |
