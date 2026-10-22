@@ -330,6 +330,17 @@ At the other levels, against the same baseline:
 | 3 Balanced (default) | **−16%** | **−10%** | **−22%** | 27/27 |
 | 5 Max savings | −12% | −10% | −22% | 27/27 |
 
+One technique at a time, everything else off and no early compaction: 6 of the tasks (Flask, Cobra, SWR, zustand; the Go, vitest and tsc tasks need tools this run didn't install), 3 runs each way, Claude Sonnet 5.5, each technique against all 72 sessions without Kompactor ([`evidence/techniques`](https://github.com/amarkum/kompactor/tree/main/evidence/techniques)):
+
+| Technique | Cost (95% range) | Tokens | Reply tokens | Correct |
+|---|---:|---:|---:|---|
+| Short replies (caveman-style) | **−8.5%** (−12.7 to −4.0) | −9.8% | **−21%** | 18/18 |
+| Lean-code rules (ponytail-style) | −3.0% (−6.3 to +0.4), no clear change | −4.9% | −8.7% | 18/18 |
+| Code graph (graphify-style) | −1.8% (−7.2 to +3.9), no clear change | −11.3% | −14.7% | 18/18 |
+| Trim command output (rtk-style) | +5.1% (−0.6 to +10.6), no clear change | +0.1% | +11.4% | 18/18 |
+
+On their own, in short sessions, only short replies clearly lowered cost; the other effects are within the run-to-run noise of 18 sessions (separate baselines of the same setup differed by up to 12%). Trimming was measured only on `pytest` and `git log` here; its single-command savings (below) show up in sessions with long test, build and install output. The Configuration page shows these figures on each technique's switch.
+
 Single commands, measured directly (`bench/bench.py`):
 
 | Repo | Command | Raw tokens | Balanced | Max savings |

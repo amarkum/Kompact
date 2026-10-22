@@ -689,7 +689,10 @@ function renderParts() {
   const bench = (P) => {
     const b = P.bench && T[P.bench];
     if (!b) return P.est ? "" : `<div class="part-est muted">${P.note}</div>`;
-    return `<div class="part-est${b.cost > 0 ? " worse" : ""}">${signed(b.cost)} cost by itself in the benchmark <span class="muted">· ${signed(b.tokens)} tokens · ${b.sessions} sessions each way</span></div>`;
+    const range = `${signed(b.cost_range[0])} to ${signed(b.cost_range[1])}`;
+    return b.clear
+      ? `<div class="part-est${b.cost > 0 ? " worse" : ""}">${signed(b.cost)} cost by itself in the benchmark <span class="muted">(likely ${range}) · ${signed(b.output)} reply tokens · ${signed(b.tokens)} tokens</span></div>`
+      : `<div class="part-est muted">No clear change in cost by itself in the benchmark: ${signed(b.cost)}, likely ${range} · ${signed(b.tokens)} tokens · ${signed(b.output)} reply tokens</div>`;
   };
   const mine = (P) => {
     if (!P.est || !P.isOn(eff)) return "";
@@ -702,13 +705,13 @@ function renderParts() {
   $("parts").querySelectorAll("input[data-part]").forEach((el) => (el.onchange = () => setPart(PARTS.find((P) => P.id === el.dataset.part), el.checked)));
   // the techniques that are on, combined: each one's measured change applies to what the others leave
   const on = PARTS.filter((P) => P.bench && T[P.bench] && P.isOn(eff));
-  const together = Math.round(1000 * (1 - on.reduce((a, P) => a * (1 + T[P.bench].cost / 100), 1))) / 10;
+  const together = Math.round(100 * (1 - on.reduce((a, P) => a * (1 + T[P.bench].cost / 100), 1)));
   const compactOn = eff.compact_window > 0, compact = PARTS_EST && PARTS_EST.sessions ? PARTS_EST.compact : null;
   $("partsTotal").innerHTML = Object.keys(T).length ? `
-    <div><div class="k">Techniques switched on, in the benchmark</div><div class="v">${!on.length ? "—" : together >= 0 ? `≈${together}%<span> lower cost</span>` : `+${-together}%<span> higher cost</span>`}</div><div class="f">${on.length ? on.map((P) => P.name.toLowerCase()).join(", ") : "none switched on"}; short sessions, no compaction</div></div>
-    <div><div class="k">Compacting earlier, on your sessions</div><div class="v">${!compactOn ? "off" : compact == null ? "…" : `≈${compact}%`}<span>${compactOn ? " lower cost" : ""}</span></div><div class="f">${compactOn ? `at ${Math.round(eff.compact_window / 1000)}K tokens; long sessions` : "Claude Code compacts only when the window is full"}</div></div>` : "";
+    <div><div class="k">Techniques switched on, in the benchmark</div><div class="v">${!on.length ? "—" : together >= 0 ? `≈${together}%<span> lower cost</span>` : `+${-together}%<span> higher cost</span>`}</div><div class="f">${on.length ? on.map((P) => P.name.toLowerCase() + (T[P.bench].clear ? "" : " (within noise)")).join(", ") : "none switched on"}; short sessions, no compaction</div></div>
+    <div><div class="k">Compacting earlier, on your sessions</div><div class="v">${!compactOn ? "off" : !PARTS_EST ? "…" : compact == null ? "—" : `≈${Math.round(compact)}%`}<span>${compactOn && compact != null ? " lower cost" : ""}</span></div><div class="f">${!compactOn ? "Claude Code compacts only when the window is full" : PARTS_EST && compact == null ? "no past sessions on this machine to measure it on yet" : `at ${Math.round(eff.compact_window / 1000)}K tokens; long sessions`}</div></div>` : "";
   const D = S.techniques || {};
-  $("partsNote").innerHTML = Object.keys(T).length ? `Benchmark: each technique switched on by itself, everything else off, against the same sessions without Kompactor. ${D.tasks ? D.tasks.length : ""} tasks on Flask, Cobra, SWR and zustand, ${D.reps || 3} runs each way, ${esc(D.model || "")}, ${esc(D.date || "")}. Trimming was measured only on pytest and git log output, so sessions full of builds, installs and other test runs save more. The techniques overlap, so the combined figure is approximate.` : "";
+  $("partsNote").innerHTML = Object.keys(T).length ? `Benchmark: each technique switched on by itself, everything else off, against the same sessions without Kompactor. ${D.tasks ? D.tasks.length : ""} tasks on Flask, Cobra, SWR and zustand, ${D.reps || 3} runs each way, ${esc(D.model || "")}, ${esc(D.date || "")}. Compared with all ${D.baseline_sessions || ""} sessions without Kompactor; "likely" is the 95% range over the runs, and a range that includes 0 means no clear change. Trimming was measured only on pytest and git log output, where it made no clear difference to cost; sessions full of builds, installs and long test runs are where it matters. The combined figure multiplies the measured changes, so it's approximate.` : "";
 }
 function setPart(P, on) {
   const lvl = presetKnobs(cfg.preset), base = P.isOn(lvl) ? lvl : presetKnobs(3);

@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-22",
+  "model": "claude-sonnet-5-5",
+  "reps": 3,
+  "tasks": [
+    "go-locate-code",
+    "py-failing-tests",
+    "py-git-history",
+    "py-locate-code",
+    "react-impact",
+    "ts-locate-code"
+  ],
+  "baseline_sessions": 72,
+  "techniques": {
+    "trim": {
+      "cost": 5.1,
+      "cost_range": [
+        -0.6,
+        10.6
+      ],
+      "tokens": 0.1,
+      "tokens_range": [
+        -6.3,
+        6.4
+      ],
+      "output": 11.4,
+      "output_range": [
+        -1.7,
+        24.5
+      ],
+      "clear": false,
+      "sessions": 18,
+      "correct": 18
+    },
+    "graph": {
+      "cost": -1.8,
+      "cost_range": [
+        -7.2,
+        3.9
+      ],
+      "tokens": -11.3,
+      "tokens_range": [
+        -15.8,
+        -5.8
+      ],
+      "output": -14.7,
+      "output_range": [
+        -21.7,
+        -6.5
+      ],
+      "clear": false,
+      "sessions": 18,
+      "correct": 18
+    },
+    "lean": {
+      "cost": -3.0,
+      "cost_range": [
+        -6.3,
+        0.4
+      ],
+      "tokens": -4.9,
+      "tokens_range": [
+        -9.5,
+        0.5
+      ],
+      "output": -8.7,
+      "output_range": [
+        -14.7,
+        -2.6
+      ],
+      "clear": false,
+      "sessions": 18,
+      "correct": 18
+    },
+    "terse": {
+      "cost": -8.5,
+      "cost_range": [
+        -12.7,
+        -4.0
+      ],
+      "tokens": -9.8,
+      "tokens_range": [
+        -15.3,
+        -3.3
+      ],
+      "output": -21.0,
+      "output_range": [
+        -28.5,
+        -13.1
+      ],
+      "clear": true,
+      "sessions": 18,
+      "correct": 18
+    }
+  }
+}

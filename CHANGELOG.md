@@ -2,6 +2,12 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- Each technique measured on its own (`evidence/techniques`, 144 Claude Code sessions): short replies −8.5% cost and −21% reply tokens; lean-code rules, the code graph and trimming made no clear difference to cost by themselves in these short sessions. The Configuration page shows each figure with its 95% range on the technique's switch, and the techniques switched on combined, updating as you flip them.
+- `kompactor prove` leaves out `~/.claude/settings.json` (`--setting-sources project,local`), so on a machine with Kompactor installed its hooks no longer run in the baseline arm.
+- The selected level card's top edge is no longer clipped when the cards scroll sideways.
+
 ## 0.8.6
 
 - Levels now cut cost where it's spent. Every request re-sends the whole conversation, and in long sessions that is most of the bill, so each level also sets how large the conversation may grow before Claude Code compacts it (Claude Code's `autoCompactWindow`): Max quality leaves Claude Code's default, Quality 780K, Balanced 650K, Savings 430K, Max savings 240K tokens. On 65 real Opus 5.5 sessions replayed with `kompactor estimate`, the levels save about 0, 10, 19, 35 and 50% of cost; trimming output alone saved under 2%. The window is set while Kompactor runs and removed by `kompactor stop` and `uninstall`; a window you set yourself with `/autocompact` or in settings is never changed. New setting: `compact_window`.
