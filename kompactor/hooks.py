@@ -7,6 +7,7 @@ Every handler fails open: any exception leaves the tool call untouched.
 
 import json
 import os
+import re
 import sys
 import time
 
@@ -239,6 +240,14 @@ def subagent_start(event: dict, cfg: dict) -> None:
     """Subagents get the same prose and code rules as the main agent (no code map)."""
     if not cfg.get("subagent_rules", True):
         return
+    pattern = os.environ.get("KOMPACTOR_SUBAGENT_MATCHER", cfg.get("subagent_match", ""))
+    agent = event.get("agent_type") or ""
+    if pattern and agent:  # only subagents whose type matches; an unknown type or a bad pattern gets the rules
+        try:
+            if not re.search(pattern, agent, re.I):
+                return
+        except re.error:
+            pass
     text = rules.build(cfg.get("style", "lite"), cfg.get("code_style", "normal"), installer.cli_name())
     if text:
         _emit({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": text}})

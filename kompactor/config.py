@@ -13,6 +13,7 @@ Stored in ~/.kompactor/config.json and edited from the dashboard (`kompactor ui`
 
 import json
 import os
+import re
 from pathlib import Path
 
 from . import store
@@ -89,7 +90,20 @@ KNOB_INFO = {
                       "comma separated (e.g. terraform plan, kubectl describe).", "list"),
 }
 
-GENERAL = {"turn_summary": True, "statusline": True, "retention_days": 30}
+GENERAL = {"turn_summary": True, "statusline": True, "retention_days": 30, "subagent_match": ""}
+
+
+def coerce_general(key: str, value):
+    """A general setting in its default's type: on/off, days (1-365), or a subagent-type pattern."""
+    default = GENERAL[key]
+    if isinstance(default, bool):
+        return value if isinstance(value, bool) else str(value).lower() in ("1", "true", "yes", "on")
+    if isinstance(default, int):
+        return default if isinstance(value, bool) else max(1, min(365, int(value)))  # true/false: an old save bug
+    value = str(value).strip()[:200]
+    if value:
+        re.compile(value)  # raises re.error for a bad pattern
+    return value
 
 DEFAULT_FILE = {"preset": 3, "overrides": {}, "languages": {"mode": "auto", "selected": []}, "projects": {},
                 "general": dict(GENERAL)}
@@ -202,7 +216,12 @@ def load(cwd: str = "") -> dict:
         cfg.update({k: PRESETS[preset][k] for k in KNOBS})
     cfg["preset"] = preset
     cfg["project"] = root
-    cfg.update({k: v for k, v in data.get("general", {}).items() if k in GENERAL})
+    for k, v in data.get("general", {}).items():
+        if k in GENERAL:
+            try:
+                cfg[k] = coerce_general(k, v)
+            except (ValueError, TypeError, re.error):
+                cfg[k] = GENERAL[k]
 
     from . import langs
     lang_cfg = data.get("languages", {})
@@ -221,8 +240,7 @@ def save(key: str, value) -> None:
     elif key in KNOBS:
         data["overrides"][key] = coerce(key, value)
     elif key in GENERAL:
-        data["general"][key] = int(value) if isinstance(GENERAL[key], int) and not isinstance(GENERAL[key], bool) \
-            else coerce("bash", value)
+        data["general"][key] = coerce_general(key, value)
     elif key == "languages":
         data["languages"] = ({"mode": "auto", "selected": []} if value == "auto"
                              else {"mode": "manual", "selected": [v.strip() for v in str(value).split(",") if v.strip()]})

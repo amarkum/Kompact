@@ -6,6 +6,7 @@ per-launch token on every write (CSRF), so other websites can't change settings.
 
 import json
 import os
+import re
 import secrets
 import socket
 import threading
@@ -159,7 +160,10 @@ def save_config(body: dict) -> dict:
         sel = [s for s in body["languages"].get("selected", []) if s in langs.PROFILES]
         data["languages"] = {"mode": "manual" if mode == "manual" else "auto", "selected": sel}
     if "general" in body:
-        data["general"].update({k: bool(v) for k, v in body["general"].items() if k in config.GENERAL})
+        try:
+            data["general"].update({k: config.coerce_general(k, v) for k, v in body["general"].items() if k in config.GENERAL})
+        except re.error as e:
+            raise ValueError(f"not a valid pattern: {e}")
     if "project" in body:
         path, ov = body["project"].get("path", ""), body["project"].get("override")
         if path:

@@ -228,6 +228,7 @@ General: `turn_summary` (savings line after each reply), `statusline`, `retentio
 | `KOMPACTOR_PRESET=1…5` | Force a level |
 | `KOMPACTOR_<SETTING>` | Override one setting, e.g. `KOMPACTOR_BASH_MAX_LINES=300` |
 | `KOMPACTOR_HOME` | Where Kompactor keeps its data (default `~/.kompactor`) |
+| `KOMPACTOR_SUBAGENT_MATCHER` | Give the reply and code rules only to subagents whose type matches this pattern, e.g. `explore\|general` (also a dashboard setting; empty means all) |
 | `KOMPACTOR_REPO` | The repo the dashboard's share commands name, for teams running a fork |
 
 ### Per-repository settings

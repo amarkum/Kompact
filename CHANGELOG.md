@@ -4,6 +4,8 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- Choose which subagents get the reply and code rules: a pattern matched against the subagent's type (dashboard setting or `KOMPACTOR_SUBAGENT_MATCHER`, e.g. `explore|general`). Subagents whose type isn't reported, or a bad pattern, still get them.
+- Fixed: the dashboard saved "Keep history for" as true/false, so changing it could prune history older than 1 day instead of the chosen number. General settings now keep their types, and an old true/false value falls back to 30 days.
 - Docs in the code graph: Markdown and reStructuredText headings become searchable sections, and backticked names, paths and local links tie them to the code. `graph impact` lists "docs that mention it" and `graph explain` adds "documented in". Docs never count as modules, areas or callers.
 - `kompactor graph export json|graphml|mermaid|obsidian`: the graph as data, for Gephi or yEd, as a Mermaid diagram grouped by area, or as an Obsidian vault. `kompactor graph hook install` adds a background graph refresh to the repo's post-commit, post-merge and post-checkout hooks, beside any hooks already there (`uninstall` removes only its own line).
 - Callers and `explain` label each link: exact (same module, or it imports the definition), likely (the only definition of that name), ambiguous (several definitions, none imported) or external (not defined in the repo), with a count per label.

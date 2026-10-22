@@ -745,3 +745,25 @@ exit 0
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GeneralSettingsTests(unittest.TestCase):
+    def tearDown(self):
+        config.path().unlink(missing_ok=True)
+
+    def test_dashboard_keeps_history_days_a_number(self):
+        server.save_config({"general": {"retention_days": "45", "turn_summary": False}})
+        self.assertEqual(config.read_file()["general"]["retention_days"], 45)
+        self.assertIs(config.read_file()["general"]["turn_summary"], False)
+        with self.assertRaises(ValueError):
+            server.save_config({"general": {"subagent_match": "explore|("}})
+
+    def test_old_true_days_value_falls_back_to_the_default(self):
+        config.write_file({**config.read_file(), "general": {"retention_days": True}})
+        self.assertEqual(config.load()["retention_days"], 30)
+
+    def test_subagent_rules_only_for_matching_types(self):
+        config.write_file({**config.read_file(), "general": {"subagent_match": "explore|general"}})
+        self.assertIsNotNone(run_hook("subagent-start", {"agent_type": "Explore", "cwd": TMP}))
+        self.assertIsNone(run_hook("subagent-start", {"agent_type": "Plan", "cwd": TMP}))
+        self.assertIsNotNone(run_hook("subagent-start", {"cwd": TMP}))  # type not reported: rules apply

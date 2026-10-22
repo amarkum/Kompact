@@ -351,6 +351,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
           <div class="group-h" style="padding-bottom:4px"><h3>In Claude Code</h3><p>How savings are shown. These don't depend on the level.</p></div>
           <div class="knob"><div><div class="label">Show savings after each turn</div><div class="help">A one-line summary after every Claude reply, such as "−8.2k tokens this turn".</div></div><div class="ctl"><label class="switch"><input type="checkbox" id="gTurn"><span></span></label></div></div>
           <div class="knob"><div><div class="label">Status line</div><div class="help">Running savings in the Claude Code terminal status line. Never replaces a status line you already have.</div></div><div class="ctl"><label class="switch"><input type="checkbox" id="gStatus"><span></span></label></div></div>
+          <div class="knob"><div><div class="label">Subagents that get the rules</div><div class="help">A pattern matched against each subagent's type, e.g. <code>explore|general</code>. Empty means every subagent. Applies while "Apply rules to subagents" is on.</div></div><div class="ctl"><input type="text" id="gSubMatch" placeholder="all subagents" style="width:200px" aria-label="Subagent type pattern"></div></div>
           <div class="knob" id="retentionKnob"><div><div class="label">Keep history for</div><div class="help">Savings history and stashed raw outputs older than this are deleted.</div></div><div class="ctl"><input type="number" id="gRetention" min="1" max="365" aria-label="Days of history"><span style="color:var(--ink-3)">days</span></div></div>
         </div>
         <div class="section-h"><h2>All configuration</h2><p>Every setting at every level, what you're using now, and how settings combine.</p></div>
@@ -560,6 +561,7 @@ function renderReference() {
     <ul>
       <li><code>KOMPACTOR_HOME</code>: where Kompactor keeps its data (now <code>${esc(S.home)}</code>).</li>
       <li><code>KOMPACTOR_RAW=1</code>: put before a command to run it without compaction.</li>
+      <li><code>KOMPACTOR_SUBAGENT_MATCHER</code>: only subagents whose type matches this pattern get the rules (same as the setting above).</li>
       <li><code>KOMPACTOR_REPO</code>: the repo the team install snippets point at.</li>
       <li><code>BASH_MAX_OUTPUT_LENGTH</code>: Claude Code's own output limit; Kompactor reads it to count what Claude would otherwise have seen.</li>
     </ul>
@@ -620,6 +622,7 @@ async function runPreview() {
 $("showRemoved").onchange = runPreview;
 $("pvProject").onchange = runPreview;
 $("gTurn").onchange = (e) => save({ general: { turn_summary: e.target.checked } });
+$("gSubMatch").onchange = (e) => save({ general: { subagent_match: e.target.value.trim() } });
 $("gRetention").onchange = (e) => save({ general: { retention_days: Math.max(1, Math.min(365, +e.target.value || 30)) } });
 $("gStatus").onchange = async (e) => {
   save({ general: { statusline: e.target.checked } });
@@ -981,6 +984,7 @@ async function boot() {
   $("gTurn").checked = cfg.general.turn_summary !== false;
   $("gStatus").checked = cfg.general.statusline !== false;
   $("gRetention").value = cfg.general.retention_days || 30;
+  $("gSubMatch").value = cfg.general.subagent_match || "";
   fillProjectSelects();
   renderSide(); renderLevels(); renderKnobs(); renderLangs(); renderProjects(); renderSetup();
   runPreview(); loadStats();
