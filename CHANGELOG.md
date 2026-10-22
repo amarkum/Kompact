@@ -2,6 +2,10 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.8.1
+
+- Dashboard: the Rebuild button's refresh icon is drawn correctly.
+
 ## 0.8.0
 
 - Three commands to remember: `kompactor start` turns Kompactor on (hooks, status line, shell prefix, the `kompactor` command on PATH, and the dashboard), `kompactor stop` pauses it, `kompactor uninstall` removes it. `setup` is folded into `start`; the old name still works.
