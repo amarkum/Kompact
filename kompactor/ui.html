@@ -275,6 +275,10 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
 .summary .good { color: var(--good); }
 .metric .v .usd { color: var(--good); }
 .meaning { border-top: 1px solid var(--line-2); font-size: 13px; }
+.more-settings { border-top: 0; }
+.more-settings > summary { padding: 4px 2px; font-size: 14px; }
+.more-settings[open] { display: grid; gap: 16px; }
+.more-settings[open] summary .chev { transform: rotate(90deg); }
 .meaning summary { cursor: pointer; padding: 10px 18px; color: var(--ink-2); list-style: none; display: flex; align-items: center; gap: 6px; }
 .meaning summary::-webkit-details-marker { display: none; }
 .meaning summary:hover { color: var(--ink); }
@@ -455,8 +459,10 @@ td .usd { color: var(--good); }
           <div id="parts"></div>
           <div class="parts-note" id="partsNote"></div>
         </div>
-        <div class="section-h" id="advanced"><h2>Advanced settings</h2><p>Every setting the level controls, explained. Changing one overrides the level for it; "Reset" goes back to the level's value.</p></div>
+        <div class="section-h" id="advanced"><h2>Advanced settings</h2><p>How Claude writes. Changing one overrides the level for it; "Reset" goes back to the level's value.</p></div>
         <div class="panel" id="groups"></div>
+        <details class="meaning more-settings" id="moreSettings"><summary><svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg><span id="moreLabel">More settings</span></summary>
+        <div class="panel" id="moreGroups"></div>
         <div class="panel">
           <div class="group-h" style="padding-bottom:4px"><h3>In Claude Code</h3><p>How savings are shown. These don't depend on the level.</p></div>
           <div class="knob"><div><div class="label">Show savings after each turn</div><div class="help">A one-line summary after every Claude reply, such as "−8.2k tokens this turn".</div></div><div class="ctl"><label class="switch"><input type="checkbox" id="gTurn"><span></span></label></div></div>
@@ -468,7 +474,8 @@ td .usd { color: var(--good); }
         <div class="panel">
           <div class="scroll-x" id="refTable"></div>
           <div class="explain" id="refExplain"></div>
-      </div>
+        </div>
+        </details>
     </section>
 
     <section data-page="graph" hidden>
@@ -612,6 +619,8 @@ $("themeBtn").onclick = () => {
 darkMQ.addEventListener("change", () => { renderThemeBtn(); turnChart(lastTurns); });
 
 /* quality */
+/* shown under Advanced settings; every other setting is under "More settings" */
+const KEY_KNOBS = ["style", "code_style"];
 const GROUPS = [
   ["Command output", "What Claude sees when a Bash command runs.", ["bash", "bash_wrap", "bash_plain", "bash_min_tokens", "bash_max_lines", "max_line_chars", "grep_per_file", "test_hide_passing", "test_boilerplate", "trim_stack_frames", "diff_context", "git_log_compact", "never_compact"]],
   ["File reads", "How big files are opened.", ["read_outline", "read_outline_lines", "read_graph_context", "read_dedupe"]],
@@ -631,29 +640,12 @@ function compactSaving(w) {
   for (let j = 1; j < C.length; j++) if (w <= C[j][0]) { const [a, x] = C[j - 1], [b, y] = C[j]; return x + (y - x) * (w - a) / (b - a); }
   return 0;
 }
-/* what each level's trimming and reply rules saved in the benchmark's longest sessions, made non-decreasing from
-   level 1 to 5 (neighbouring levels that came out in the wrong order are averaged: the runs are noisy) */
-function levelTech(B) {
-  const v = [1, 2, 3, 4, 5].map((i) => { const a = B && B.arms[`level-${i}`]; return a ? Math.max(0, -a.cost) : 0; });
-  const blocks = v.map((x) => [x, 1]);
-  for (let i = 0; i < blocks.length - 1;) {
-    if (blocks[i][0] > blocks[i + 1][0]) { const [a, n] = blocks[i], [b, m] = blocks[i + 1]; blocks.splice(i, 2, [(a * n + b * m) / (n + m), n + m]); i = Math.max(0, i - 1); }
-    else i++;
-  }
-  return blocks.flatMap(([x, n]) => Array(n).fill(x));
-}
-/* approximate % of cost saved in long sessions with level p's settings changed to e: the level's measured
-   trimming and rules, each switch you flipped against the level adjusted by that technique's own measured saving,
-   then compacting earlier on what's left */
+/* approximate % of cost saved in long sessions with settings e: each technique that's on, at what it saved by
+   itself in the benchmark (none when it saved nothing measurable), combined, then compacting earlier on what's left */
 function estimate(p, e) {
-  const B = benchLong(), lvl = presetKnobs(p);
-  let t = 1 - levelTech(B)[p - 1] / 100;
-  if (B) PARTS.filter((P) => P.bench && B.arms[P.bench]).forEach((P) => {
-    const on = P.isOn(e);
-    if (on === P.isOn(lvl)) return;
-    const f = 1 + Math.min(0, B.arms[P.bench].cost) / 100;
-    t = on ? t * f : Math.min(1, t / f);
-  });
+  const B = benchLong();
+  let t = 1;
+  if (B) PARTS.filter((P) => P.bench && B.arms[P.bench] && P.isOn(e)).forEach((P) => { t *= 1 + Math.min(0, B.arms[P.bench].cost) / 100; });
   const c = compactSaving(e.compact_window);
   return { tech: Math.round(100 * (1 - t)), compact: Math.round(c), total: Math.round(100 * (1 - t * (1 - c / 100))) };
 }
@@ -678,7 +670,7 @@ function renderLevels() {
   const E = estimate(cfg.preset, effective()), changed = Object.keys(cfg.overrides || {}).length;
   $("lvSave").hidden = false;
   $("lvSave").textContent = `≈${E.total}% lower cost${changed ? " with your changes (they apply to every card)" : ""}`;
-  $("lvDesc").textContent = "An approximation from Kompactor's benchmark, not a promise for your own sessions: about how much lower the cost of a long Claude Code session is with these settings. Trimming and reply rules are measured in real benchmark sessions; compacting earlier adds to that once a conversation grows past the level's size. Change the level, a switch or any setting below and the figures update.";
+  $("lvDesc").textContent = "An approximation from Kompactor's benchmark, not a promise for your own sessions: about how much lower the cost of a long Claude Code session is with these settings. Trimming and reply rules add up what each technique that's on saved by itself in real benchmark sessions; compacting earlier adds to that once a conversation grows past the level's size. Change the level, a switch or any setting below and the figures update.";
 }
 $("toAdvanced").onclick = () => $("advanced").scrollIntoView({ behavior: "smooth" });
 $("levels").onclick = (e) => { const b = e.target.closest("button"); if (b) setPreset(+b.dataset.p); };
@@ -834,21 +826,26 @@ function renderKnobs() {
   cfg.overrides = cfg.overrides || {};
   const eff = effective(), base = presetKnobs(cfg.preset), ov = cfg.overrides;
   const changed = Object.keys(ov).filter((k) => JSON.stringify(ov[k]) !== JSON.stringify(base[k]));
-  $("groups").innerHTML = GROUPS.map(([title, desc, keys], gi) => `<div class="group"><div class="group-h"><h3>${title}</h3><p>${desc}</p></div>` +
-    keys.filter((k) => S.knobs[k]).map((k) => {
-      const [label, help] = S.knobs[k], mod = changed.includes(k);
-      return `<div class="knob"><div><div class="label">${esc(label)}${mod ? ` <span class="mod">changed</span> <button class="reset" data-reset="${k}">Reset</button>` : ""}</div><div class="help">${rich(help)}</div></div><div class="ctl">${control(k, eff[k])}</div></div>`;
-    }).join("") + (gi === GROUPS.length - 1 && changed.length ? `<div class="knob"><div class="help">${changed.length} setting${changed.length > 1 ? "s differ" : " differs"} from the ${esc(S.presets[cfg.preset].name)} level.</div><div class="ctl"><button class="btn sm" id="resetAll">Reset all to level</button></div></div>` : "") + `</div>`).join("");
+  const knob = (k) => {
+    const [label, help] = S.knobs[k], mod = changed.includes(k);
+    return `<div class="knob"><div><div class="label">${esc(label)}${mod ? ` <span class="mod">changed</span> <button class="reset" data-reset="${k}">Reset</button>` : ""}</div><div class="help">${rich(help)}</div></div><div class="ctl">${control(k, eff[k])}</div></div>`;
+  };
+  const more = GROUPS.map(([title, desc, keys]) => [title, desc, keys.filter((k) => S.knobs[k] && !KEY_KNOBS.includes(k))]).filter(([, , keys]) => keys.length);
+  const moreChanged = changed.filter((k) => !KEY_KNOBS.includes(k)).length;
+  $("groups").innerHTML = `<div class="group">${KEY_KNOBS.filter((k) => S.knobs[k]).map(knob).join("")}` +
+    (changed.length ? `<div class="knob"><div class="help">${changed.length} setting${changed.length > 1 ? "s differ" : " differs"} from the ${esc(S.presets[cfg.preset].name)} level.</div><div class="ctl"><button class="btn sm" id="resetAll">Reset all to level</button></div></div>` : "") + `</div>`;
+  $("moreGroups").innerHTML = more.map(([title, desc, keys]) => `<div class="group"><div class="group-h"><h3>${title}</h3><p>${desc}</p></div>${keys.map(knob).join("")}</div>`).join("");
+  $("moreLabel").textContent = `More settings${moreChanged ? ` (${moreChanged} changed)` : ""}`;
   renderReference(); renderParts();
-  $("groups").querySelectorAll("input[data-k]").forEach((el) => {
+  document.querySelectorAll("#groups input[data-k], #moreGroups input[data-k]").forEach((el) => {
     const k = el.dataset.k;
     if (el.type === "checkbox") el.onchange = () => { setKnob(k, el.checked); renderKnobs(); };
     else if (el.type === "range") { el.oninput = () => { el.nextElementSibling.value = el.value; setKnob(k, +el.value); }; el.onchange = renderKnobs; }
     else if (el.type === "number") el.onchange = () => { const v = Math.min(+el.max, Math.max(+el.min, +el.value || 0)); el.previousElementSibling.value = v; setKnob(k, v); renderKnobs(); };
     else el.onchange = () => { setKnob(k, el.value.split(",").map((s) => s.trim()).filter(Boolean)); renderKnobs(); };
   });
-  $("groups").querySelectorAll("button[data-v]").forEach((b) => (b.onclick = () => { setKnob(b.dataset.k, b.dataset.v); renderKnobs(); }));
-  $("groups").querySelectorAll("[data-reset]").forEach((b) => (b.onclick = () => { delete cfg.overrides[b.dataset.reset]; renderKnobs(); save({ overrides: cfg.overrides }, "Reset"); }));
+  document.querySelectorAll("#groups button[data-v], #moreGroups button[data-v]").forEach((b) => (b.onclick = () => { setKnob(b.dataset.k, b.dataset.v); renderKnobs(); }));
+  document.querySelectorAll("#groups [data-reset], #moreGroups [data-reset]").forEach((b) => (b.onclick = () => { delete cfg.overrides[b.dataset.reset]; renderKnobs(); save({ overrides: cfg.overrides }, "Reset"); }));
   const ra = $("resetAll"); if (ra) ra.onclick = () => { cfg.overrides = {}; renderKnobs(); save({ overrides: {} }, "Reset to level"); };
 }
 $("gTurn").onchange = (e) => save({ general: { turn_summary: e.target.checked } });
