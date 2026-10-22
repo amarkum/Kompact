@@ -235,6 +235,15 @@ class MoreRunnerTests(unittest.TestCase):
         self.assertNotIn("Compiling Files", out)
         self.assertTrue(filters.wrappable("swift test") and filters.wrappable("dotnet test"))
 
+    def test_long_error_lines_keep_their_message(self):
+        path = "/private/tmp/" + "deep/" * 40 + "Tests/PlantedTests.swift"
+        err = f"{path}:5: error: XCTAssertEqual failed: (81) is not equal to (90) - PLANTED-FAILURE"
+        out = filters.truncate_long([err, "x" * 900], 200)
+        self.assertEqual(out[0], err)  # under 2,000 chars: whole
+        self.assertTrue(out[1].endswith("…[+700 chars]"))  # not an error: clipped as before
+        huge = filters.truncate_long(["error: " + "y" * 5000 + " PLANTED-FAILURE"], 200)[0]
+        self.assertTrue(huge.startswith("error: ") and huge.endswith("PLANTED-FAILURE"))
+
     def test_maven_drops_banners_and_help_footer_but_keeps_failures(self):
         raw = ("WARNING: sun.misc.Unsafe::staticFieldBase has been called by x\n[INFO] Scanning for projects...\n[INFO] \n"
                "[INFO] --- surefire:3.6.0:test (default-test) @ demo ---\n[INFO]   from pom.xml\n"

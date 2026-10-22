@@ -169,8 +169,25 @@ def collapse_repeats(lines, min_run: int = 4, shapes: str = "none"):
     return out
 
 
+ERROR_LINE_MAX = 2000  # error lines are kept whole up to this; past it, both ends (path and message) are kept
+
+
 def truncate_long(lines, limit: int = MAX_LINE):
-    return [ln if len(ln) <= limit else f"{ln[:limit]}…[+{len(ln) - limit} chars]" for ln in lines]
+    """Clip long lines (minified code, giant JSON). An error line often starts with a long path and ends with the
+    message, so it is kept whole up to ERROR_LINE_MAX and then clipped in the middle, never at the end."""
+    out = []
+    for ln in lines:
+        if len(ln) <= limit:
+            out.append(ln)
+        elif IMPORTANT.search(ln):
+            if len(ln) <= max(limit, ERROR_LINE_MAX):
+                out.append(ln)
+            else:
+                half = ERROR_LINE_MAX // 2
+                out.append(f"{ln[:half]}…[{len(ln) - 2 * half} chars]…{ln[-half:]}")
+        else:
+            out.append(f"{ln[:limit]}…[+{len(ln) - limit} chars]")
+    return out
 
 
 def cap(lines, max_lines: int, head: int, tail: int, stash_id=None):
