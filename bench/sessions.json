@@ -1,6 +1,24 @@
 {
-  "_doc": "Tasks for bench/sessions.py, grouped by session length. Each runs in `repo` (relative to --repos) with the same prompt and tools in every arm. A planted test fails with a known message; `expect`: every string must appear in the final answer (case-insensitive). Prompts never mention Kompactor. flask was at d086db85, zustand at 382d29c.",
+  "_doc": "Tasks for bench/sessions.py, grouped by session length. Each runs in `repo` (relative to --repos) with the same prompt and tools in every arm. A planted test fails with a known message; `expect`: every string must appear in the final answer (case-insensitive). Prompts never mention Kompactor. flask was at d086db85, zustand at 382d29c, cobra at adbc881 (TestFailGenFishCompletionFile fails as root, no plant needed), click at 2247b35.",
   "tasks": [
+    {
+      "id": "short-go",
+      "length": "short",
+      "lang": "go",
+      "repo": "cobra",
+      "max_turns": 6,
+      "prompt": "Run the tests with `go test -v ./...` and tell me which test fails and why: the test name and the key error. Do not change any code.",
+      "tools": [
+        "Bash(go test:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [],
+      "expect": [
+        "TestFailGenFishCompletionFile"
+      ]
+    },
     {
       "id": "short-py",
       "length": "short",
@@ -27,6 +45,30 @@
       ]
     },
     {
+      "id": "short-py2",
+      "length": "short",
+      "lang": "python",
+      "repo": "click",
+      "max_turns": 6,
+      "prompt": "Run the tests with `.venv/bin/pytest tests -v -p no:cacheprovider` and tell me which test fails and why: the test name and the key error. Do not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "import click\nfrom click.testing import CliRunner\n\n\ndef test_flag_counts_twice():\n    @click.command()\n    @click.option(\"-v\", count=True)\n    def cli(v):\n        click.echo(v)\n\n    result = CliRunner().invoke(cli, [\"-vv\"])\n    assert result.output == \"3\\n\", \"PLANTED: -vv should count three\"\n"
+        ]
+      ],
+      "expect": [
+        "test_flag_counts_twice"
+      ]
+    },
+    {
       "id": "short-ts",
       "length": "short",
       "lang": "typescript",
@@ -48,6 +90,27 @@
       ],
       "expect": [
         "keeps the previous state on replace"
+      ]
+    },
+    {
+      "id": "medium-go",
+      "length": "medium",
+      "lang": "go",
+      "repo": "cobra",
+      "max_turns": 18,
+      "prompt": "Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `go test -v ./...` and find the failing test.\n2. Read that test and the code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which .go file was changed in the most of those commits.\n4. Run `go test -v -run 'Flag' .` and say how many tests passed.\n5. Run `go test -v ./doc/...` and say how many tests passed.\nDo not change any code.",
+      "tools": [
+        "Bash(go test:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [],
+      "expect": [
+        "TestFailGenFishCompletionFile"
       ]
     },
     {
@@ -78,6 +141,33 @@
       ]
     },
     {
+      "id": "medium-py2",
+      "length": "medium",
+      "lang": "python",
+      "repo": "click",
+      "max_turns": 18,
+      "prompt": "Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `.venv/bin/pytest tests -v -p no:cacheprovider` and find the failing test.\n2. Read that test and the click code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which file under src/click was changed in the most of those commits.\n4. Run `.venv/bin/pytest tests/test_options.py -v -p no:cacheprovider` and say how many tests passed.\n5. Run `.venv/bin/pytest tests/test_arguments.py -v -p no:cacheprovider` and say how many tests passed.\nDo not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "import click\nfrom click.testing import CliRunner\n\n\ndef test_flag_counts_twice():\n    @click.command()\n    @click.option(\"-v\", count=True)\n    def cli(v):\n        click.echo(v)\n\n    result = CliRunner().invoke(cli, [\"-vv\"])\n    assert result.output == \"3\\n\", \"PLANTED: -vv should count three\"\n"
+        ]
+      ],
+      "expect": [
+        "test_flag_counts_twice"
+      ]
+    },
+    {
       "id": "medium-ts",
       "length": "medium",
       "lang": "typescript",
@@ -102,6 +192,29 @@
       ],
       "expect": [
         "keeps the previous state on replace"
+      ]
+    },
+    {
+      "id": "long-go",
+      "length": "long",
+      "lang": "go",
+      "repo": "cobra",
+      "max_turns": 40,
+      "prompt": "Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `go test -v ./...` and find the failing test.\n2. Read that test and the code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which .go file was changed in the most of those commits.\n4. Run `go test -v -run 'Flag' .` and say how many tests passed.\n5. Run `go test -v ./doc/...` and say how many tests passed.\n6. Find the function that checks that flags marked 'required together' are all set or none set: name and file.\n7. Run `go test -v -run 'Completion' .` and say how many tests passed.\n8. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n9. Find how `ExecuteC` finds the subcommand to run from the arguments: the method it calls.\n10. Run `go test -v -run 'Help|Usage' .` and say how many tests passed.\nDo not change any code.",
+      "tools": [
+        "Bash(go test:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [],
+      "expect": [
+        "TestFailGenFishCompletionFile",
+        "validateRequiredFlagGroups",
+        "Find"
       ]
     },
     {
@@ -131,6 +244,35 @@
         "test_json_sort_keys_default",
         "SecureCookieSessionInterface",
         "preprocess_request"
+      ]
+    },
+    {
+      "id": "long-py2",
+      "length": "long",
+      "lang": "python",
+      "repo": "click",
+      "max_turns": 40,
+      "prompt": "Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `.venv/bin/pytest tests -v -p no:cacheprovider` and find the failing test.\n2. Read that test and the click code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which file under src/click was changed in the most of those commits.\n4. Run `.venv/bin/pytest tests/test_options.py -v -p no:cacheprovider` and say how many tests passed.\n5. Run `.venv/bin/pytest tests/test_arguments.py -v -p no:cacheprovider` and say how many tests passed.\n6. Find where an option's value is read from an environment variable: class and method.\n7. Run `.venv/bin/pytest tests/test_commands.py tests/test_context.py -v -p no:cacheprovider` and say how many tests passed.\n8. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n9. Find where shell completion is triggered when a program starts: the method in core.py.\n10. Run `.venv/bin/pytest tests -v -p no:cacheprovider -k \"count or flag\"` and say how many tests were selected and how many failed.\nDo not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "import click\nfrom click.testing import CliRunner\n\n\ndef test_flag_counts_twice():\n    @click.command()\n    @click.option(\"-v\", count=True)\n    def cli(v):\n        click.echo(v)\n\n    result = CliRunner().invoke(cli, [\"-vv\"])\n    assert result.output == \"3\\n\", \"PLANTED: -vv should count three\"\n"
+        ]
+      ],
+      "expect": [
+        "test_flag_counts_twice",
+        "resolve_envvar_value",
+        "_main_shell_completion"
       ]
     },
     {
@@ -164,6 +306,29 @@
       ]
     },
     {
+      "id": "xlong-go",
+      "length": "xlong",
+      "lang": "go",
+      "repo": "cobra",
+      "max_turns": 80,
+      "prompt": "Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `go test -v ./...` and find the failing test.\n2. Read that test and the code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which .go file was changed in the most of those commits.\n4. Run `go test -v -run 'Flag' .` and say how many tests passed.\n5. Run `go test -v ./doc/...` and say how many tests passed.\n6. Find the function that checks that flags marked 'required together' are all set or none set: name and file.\n7. Run `go test -v -run 'Completion' .` and say how many tests passed.\n8. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n9. Find how `ExecuteC` finds the subcommand to run from the arguments: the method it calls.\n10. Run `go test -v -run 'Help|Usage' .` and say how many tests passed.\n11. Run `go test -v -run 'Args' .` and say how many tests passed.\n12. Find where cobra generates the bash completion script: file and function.\n13. Run `git show HEAD~5 --stat` and say what that commit changed.\n14. Run `go test -v -run 'Persistent' .` and say how many tests passed.\n15. Explain how persistent pre-run hooks are chosen when a subcommand runs.\n16. Run `git diff HEAD~30 HEAD --stat -- doc` and say which file had the most changed lines.\n17. Run `go test -v -run 'Suggest' .` and say how many tests passed.\n18. Find how cobra decides a command is 'not runnable'.\n19. Run `go test -v ./doc/...` again and say how many tests passed.\n20. Run `go test -v ./...` again and confirm whether the same single test fails.\nDo not change any code.",
+      "tools": [
+        "Bash(go test:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [],
+      "expect": [
+        "TestFailGenFishCompletionFile",
+        "validateRequiredFlagGroups",
+        "Find"
+      ]
+    },
+    {
       "id": "xlong-py",
       "length": "xlong",
       "lang": "python",
@@ -190,6 +355,35 @@
         "test_json_sort_keys_default",
         "SecureCookieSessionInterface",
         "preprocess_request"
+      ]
+    },
+    {
+      "id": "xlong-py2",
+      "length": "xlong",
+      "lang": "python",
+      "repo": "click",
+      "max_turns": 80,
+      "prompt": "Work through these steps in order, running each command separately (don't combine them), and report each answer.\n1. Run `.venv/bin/pytest tests -v -p no:cacheprovider` and find the failing test.\n2. Read that test and the click code it exercises, and explain the root cause.\n3. Run `git log -n 25 --stat` and say which file under src/click was changed in the most of those commits.\n4. Run `.venv/bin/pytest tests/test_options.py -v -p no:cacheprovider` and say how many tests passed.\n5. Run `.venv/bin/pytest tests/test_arguments.py -v -p no:cacheprovider` and say how many tests passed.\n6. Find where an option's value is read from an environment variable: class and method.\n7. Run `.venv/bin/pytest tests/test_commands.py tests/test_context.py -v -p no:cacheprovider` and say how many tests passed.\n8. Run `git diff HEAD~15 HEAD --stat` and say which file had the most changed lines.\n9. Find where shell completion is triggered when a program starts: the method in core.py.\n10. Run `.venv/bin/pytest tests -v -p no:cacheprovider -k \"count or flag\"` and say how many tests were selected and how many failed.\n11. Run `.venv/bin/pytest tests/test_termui.py -v -p no:cacheprovider` and say how many tests passed.\n12. Find how click wraps help text to the terminal width: file and function.\n13. Run `git show HEAD~5 --stat` and say what that commit changed.\n14. Run `.venv/bin/pytest tests/test_shell_completion.py -v -p no:cacheprovider` and say how many tests passed.\n15. Explain how a Group finds the subcommand to invoke.\n16. Run `git diff HEAD~30 HEAD --stat -- tests` and say which test file had the most changed lines.\n17. Run `.venv/bin/pytest tests/test_formatting.py tests/test_basic.py -v -p no:cacheprovider` and say how many tests passed.\n18. Find how the `Choice` type validates a value.\n19. Run `.venv/bin/pytest tests/test_chain.py -v -p no:cacheprovider` and say how many tests passed.\n20. Run `.venv/bin/pytest tests -v -p no:cacheprovider` again and confirm whether the same single test fails.\nDo not change any code.",
+      "tools": [
+        "Bash(.venv/bin/pytest:*)",
+        "Bash(git log:*)",
+        "Bash(git show:*)",
+        "Bash(git diff:*)",
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "setup": [
+        [
+          "write",
+          "tests/test_zz_planted.py",
+          "import click\nfrom click.testing import CliRunner\n\n\ndef test_flag_counts_twice():\n    @click.command()\n    @click.option(\"-v\", count=True)\n    def cli(v):\n        click.echo(v)\n\n    result = CliRunner().invoke(cli, [\"-vv\"])\n    assert result.output == \"3\\n\", \"PLANTED: -vv should count three\"\n"
+        ]
+      ],
+      "expect": [
+        "test_flag_counts_twice",
+        "resolve_envvar_value",
+        "_main_shell_completion"
       ]
     },
     {

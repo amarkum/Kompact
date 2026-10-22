@@ -54,7 +54,7 @@ def change(base: float, with_: float) -> float:
     return round(100 * (with_ - base) / base, 1) if base else 0.0
 
 
-def summary(results: list, meta: dict) -> dict:
+def summary(results: list, meta: dict, repos=()) -> dict:
     """Per session length: each arm's change in cost and tokens against the baseline, over the tasks both ran."""
     lengths = {}
     for length in LENGTHS:
@@ -91,7 +91,8 @@ def summary(results: list, meta: dict) -> dict:
         }
     return {"date": meta.get("date"), "model": ", ".join(meta.get("models", [])), "reps": meta.get("reps"),
             "claude_version": meta.get("claude_version"), "kompactor_version": meta.get("kompactor_version"),
-            "repos": "Flask and zustand", "lengths": lengths}
+            "repos": ", ".join(repos[:-1]) + f" and {repos[-1]}" if len(repos) > 1 else "".join(repos),
+            "lengths": lengths}
 
 
 def report(doc: dict) -> str:
@@ -115,9 +116,11 @@ def report(doc: dict) -> str:
     return "\n".join(lines)
 
 
-def write(out: Path, results: list, meta: dict) -> dict:
+def write(out: Path, results: list, meta: dict, tasks: list) -> dict:
     (out / "results.json").write_text(json.dumps({"meta": meta, "results": results}, indent=1))
-    doc = summary(results, meta)
+    ran = {r["task"] for r in results}
+    repos = list(dict.fromkeys(t["repo"] for t in tasks if t["id"] in ran))
+    doc = summary(results, meta, repos)
     (ROOT / "kompactor" / "static" / "techniques.json").write_text(json.dumps(doc, indent=2) + "\n")
     (out / "REPORT.md").write_text(report(doc))
     return doc
@@ -135,16 +138,24 @@ def main(argv=None) -> int:
     ap.add_argument("--arms", help="comma-separated arms to run (default: all)")
     ap.add_argument("--only", help="comma-separated task ids")
     ap.add_argument("--summary", action="store_true", help="rewrite the summary from the saved runs, run nothing")
+    ap.add_argument("--merge", action="append", default=[], metavar="RESULTS_JSON",
+                    help="with --summary: first add the runs in another results.json (e.g. from a run on more repos)")
     a = ap.parse_args(argv)
     out = Path(a.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     saved = json.loads((out / "results.json").read_text()) if (out / "results.json").exists() else {}
     results, meta = saved.get("results", []), saved.get("meta", {})
+    all_tasks = json.loads(Path(a.tasks).read_text())["tasks"]
     if a.summary:
-        doc = write(out, results, meta)
+        for f in a.merge:
+            more = json.loads(Path(f).read_text())
+            seen = {(r["task"], r["arm"], r["tokens"]["total"], r["cost"]) for r in results}
+            results += [r for r in more["results"] if (r["task"], r["arm"], r["tokens"]["total"], r["cost"]) not in seen]
+            meta["models"] = sorted(set(meta.get("models", [])) | set(more["meta"].get("models", [])))
+        doc = write(out, results, meta, all_tasks)
         print(report(doc))
         return 0
-    tasks = json.loads(Path(a.tasks).read_text())["tasks"]
+    tasks = all_tasks
     if a.only:
         tasks = [t for t in tasks if t["id"] in a.only.split(",")]
     arms = a.arms.split(",") if a.arms else list(ARMS)
@@ -190,7 +201,7 @@ def main(argv=None) -> int:
         for (repo, _), step in planted.items():
             prove._setup(Path(a.repos, repo), [step], undo=True)
     meta["models"] = sorted({m for r in results for m in r.get("models", [])})
-    doc = write(out, results, meta)
+    doc = write(out, results, meta, all_tasks)
     print(report(doc))
     return 0
 
