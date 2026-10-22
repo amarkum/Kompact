@@ -268,6 +268,16 @@ kompactor graph report                     core modules, entry points, import cy
 kompactor graph unused                     dead-code candidates
 ```
 
+### Use the graph from any MCP client
+
+`kompactor mcp` serves the graph over the Model Context Protocol (stdio), so Cursor, Codex, Gemini CLI, Windsurf or a second Claude Code setup can use it too. Its tools are read-only: `graph_query`, `graph_callers`, `graph_impact`, `graph_deps`, `graph_explain`, `graph_path`, `graph_report`, `graph_unused`, `outline` and `symbol`. The graph is refreshed (only changed files) before each answer, and paths outside the project are refused.
+
+```bash
+claude mcp add kompactor -- kompactor mcp
+```
+
+Other clients take the same command in their MCP settings, for example `{"mcpServers": {"kompactor": {"command": "kompactor", "args": ["mcp"]}}}`. Add `--root <folder>` to serve a project other than the folder the client starts it in.
+
 ## Use it across a team
 
 ![Share with your team: the dashboard's Setup panel](https://raw.githubusercontent.com/amarkum/kompactor/main/docs/dashboard-team.png)

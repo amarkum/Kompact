@@ -517,6 +517,7 @@ Code:
   graph         Find code, callers and the impact of a change
   outline       List a file's symbols with line ranges
   symbol        Print one definition
+  mcp           Serve the code graph to any MCP client
   show          Print an output Kompactor shortened
   search        Search outputs Kompactor shortened
 
@@ -645,6 +646,10 @@ def main(argv=None):
     p.add_argument("--budget", type=int, help="max tokens of output")
     p.add_argument("--full", action="store_true", help="rebuild from scratch")
     p.set_defaults(fn=cmd_graph)
+
+    p = sp.add_parser("mcp", help="MCP server for the code graph (stdio): claude mcp add kompactor -- kompactor mcp")
+    p.add_argument("--root", help="project directory (default: the folder it starts in)")
+    p.set_defaults(fn=lambda a: __import__("kompactor.mcp", fromlist=["mcp"]).serve(a.root or ""))
 
     p = sp.add_parser("debt", help="ledger of shortcut:/FIXME/HACK/TODO comments")
     p.add_argument("--root")

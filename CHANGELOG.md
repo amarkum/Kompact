@@ -4,6 +4,7 @@ All notable changes to Kompactor. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+- `kompactor mcp`: an MCP server (stdio) with read-only tools for graph query, callers, impact, deps, explain, path, report, unused, outline and symbol, so any MCP client can use the code graph. `claude mcp add kompactor -- kompactor mcp`.
 - Code graph for Rust, Java, Kotlin, Scala, C#, Swift, C, C++, Ruby and PHP: symbols, methods, visibility, doc comments, imports resolved to files, calls and inheritance. Each gets a language profile (detection, library stack frames, generated and lock files) and test-file recognition. Existing graphs rebuild once.
 - Dashboard: tool outputs passed to Claude unchanged are listed with why; every project appears in the picker; each turn can be previewed (raw output and what Claude saw); the live preview and level figures use your own latest outputs only; delete history by project and time range; an All configuration reference; dates like "22nd Oct 2026, 6:24 PM".
 

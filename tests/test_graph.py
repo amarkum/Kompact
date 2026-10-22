@@ -583,3 +583,44 @@ class MoreLanguagesGraphTests(unittest.TestCase):
         self.assertTrue(self.g.files["java/src/test/java/com/shop/CartTest.java"]["test"])
         res, _ = graph.impact(self.root, "java/src/main/java/com/shop/pricing/Pricing.java")
         self.assertIn("java/src/main/java/com/shop/Cart.java", res["affected"])
+
+
+class McpServerTests(unittest.TestCase):
+    """`kompactor mcp`: JSON-RPC over stdio, read-only graph tools."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo(PY)
+
+    def run_server(self, *msgs):
+        from kompactor import mcp
+        out = io.StringIO()
+        mcp.serve(self.root, io.StringIO("".join(json.dumps(m) + "\n" for m in msgs)), out)
+        return {r["id"]: r for r in map(json.loads, out.getvalue().splitlines())}
+
+    def call(self, i, tool, **args):
+        return {"jsonrpc": "2.0", "id": i, "method": "tools/call", "params": {"name": tool, "arguments": args}}
+
+    def test_handshake_and_tools(self):
+        res = self.run_server({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}},
+                              {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                              {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                              {"jsonrpc": "2.0", "id": 3, "method": "nope"})
+        self.assertEqual(res[1]["result"]["protocolVersion"], "2024-11-05")
+        names = {t["name"] for t in res[2]["result"]["tools"]}
+        self.assertTrue({"graph_query", "graph_callers", "graph_impact", "outline", "symbol"} <= names)
+        self.assertTrue(all(t["annotations"]["readOnlyHint"] for t in res[2]["result"]["tools"]))
+        self.assertEqual(res[3]["error"]["code"], -32601)
+        self.assertEqual(len(res), 3)  # the notification got no reply
+
+    def test_tools_answer_from_the_graph(self):
+        res = self.run_server(self.call(1, "graph_callers", name="price_for"),
+                              self.call(2, "symbol", name="Cart.total"),
+                              self.call(3, "outline", path="shop/cart.py"),
+                              self.call(4, "outline", path="../../etc/passwd"),
+                              self.call(5, "graph_callers"))
+        self.assertIn("shop/cart.py", res[1]["result"]["content"][0]["text"])
+        self.assertIn("def total", res[2]["result"]["content"][0]["text"])
+        self.assertFalse(res[3]["result"]["isError"])
+        self.assertTrue(res[4]["result"]["isError"])  # outside the project
+        self.assertTrue(res[5]["result"]["isError"])  # missing argument
