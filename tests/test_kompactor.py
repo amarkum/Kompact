@@ -466,6 +466,32 @@ class DocsTests(unittest.TestCase):
 
 
 class TurnAndSetupTests(unittest.TestCase):
+    def test_dollars_use_model_price_and_count_requests_until_compaction(self):
+        import time
+        from kompactor import cli
+
+        def step(fn, *args):
+            time.sleep(0.002)  # keep timestamps strictly ordered
+            fn(*args)
+        run_hook("session-start", {"session_id": "usd1", "cwd": TMP, "source": "startup", "model": "claude-sonnet-5-5"})
+        sys.stdin = io.StringIO(json.dumps({"session_id": "usd1", "workspace": {"current_dir": TMP},
+                                            "model": {"id": "claude-opus-5-5[1m]"}}))  # then /model opus
+        with redirect_stdout(io.StringIO()):
+            cli.main(["statusline"])
+        step(store.tick, "usd1")                                      # the call that produced the saving
+        step(store.record, "bash", 12000, 2000, "pytest", "usd1")     # 10k tokens kept out
+        for _ in range(3):
+            step(store.tick, "usd1")                                  # 3 later requests re-read it
+        step(store.close_turn, "usd1", "")
+        step(store.close_turn, "usd1", "")                            # 1 more prompt
+        step(store.mark_compacted, "usd1")
+        for _ in range(5):
+            step(store.tick, "usd1")                                  # gone from context: not counted
+        s = store.savings(session="usd1")
+        self.assertAlmostEqual(s["session"]["usd"], 10000 * (4.0 * 1.25 + 0.20 * 4) / 1e6)
+        self.assertIn("Opus 5.5", [m["model"] for m in s["pricing"]])
+        self.assertAlmostEqual(store.savings(3.0, session="usd1")["session"]["usd"], 10000 * (3.75 + 0.3 * 4) / 1e6)
+
     def test_stop_summarises_turn(self):
         ev = {"session_id": "turn1", "tool_input": {"command": "git log"}, "cwd": TMP,
               "tool_response": {"stdout": GIT_LOG, "stderr": "", "interrupted": False, "isImage": False}}

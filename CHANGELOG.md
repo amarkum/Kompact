@@ -2,6 +2,13 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.8.5
+
+- Dollars saved are worked out at the API price of the model each session ran on (read from the status line: Opus 5.5 $4 per million input, cache writes $5, cache reads $0.20), instead of a flat $3.
+- Each saved token is counted once as a prompt-cache write and again at the cache-read price for every later request that would have re-read it (one per tool call and one per new prompt), stopping at compaction. Before, only later turns were counted, and compaction was ignored.
+- VS Code / Cursor: amounts show to the cent or a hundredth of a cent, each recent reply shows what it saved in dollars, and the note names the prices used. `kompactor.pricePerMillionTokens` now defaults to 0 (use the model's price); set it to override.
+- `kompactor gain` prints the dollar figure.
+
 ## 0.8.4
 
 - Status: savings read "2.7k tokens (−44%)" instead of "( 44.4%)".

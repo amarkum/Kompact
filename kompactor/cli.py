@@ -174,8 +174,10 @@ def cmd_gain(a):
         print(f"  {f:<14}{n:>8}{_fmt(r):>10}{_fmt(k):>10}{_pct(r - k, r):>9}")
     print(f"  {'TOTAL':<14}{sum(r[1] for r in rows):>8}{_fmt(tr):>10}{_fmt(tk):>10}{_pct(tr - tk, tr):>9}")
     print(f"\n  {_bar((tr - tk) / tr if tr else 0)}  {_fmt(tr - tk)} tokens kept out of context")
-    print("  (each one is also re-sent on every later turn until compaction, so billed savings are larger;"
-          " see `kompactor estimate`)")
+    sv = store.savings(a.price)
+    models = ", ".join(m["model"] for m in sv["pricing"] if m["saved"] > 0)
+    print(f"  worth ${sv['all']['usd']:.4f} at API prices ({models}): each token once as a prompt-cache write,"
+          "\n  then at the cache-read price on every later request that would have re-read it")
     if top:
         print("\n  biggest wins:")
         for d, r, k in top:
@@ -413,8 +415,9 @@ def cmd_statusline(a):
     sid = event.get("session_id", "")
     ctx = (event.get("context_window") or {}).get("total_input_tokens")
     ctx = int(ctx) if isinstance(ctx, (int, float)) and ctx > 0 else 0
-    if sid and ctx:
-        store.note_context(sid, ctx)
+    model = (event.get("model") or {}).get("id") if isinstance(event.get("model"), dict) else event.get("model")
+    if sid and (ctx or model):
+        store.note_context(sid, ctx, model if isinstance(model, str) else "")
     cfg = config.load((event.get("workspace") or {}).get("current_dir") or event.get("cwd") or os.getcwd())
     name = config.PRESETS[cfg["preset"]]["name"]
     tot = store.session_totals(sid) if sid else {}
@@ -556,8 +559,9 @@ def main(argv=None):
     p.set_defaults(fn=cmd_estimate)
 
     p = sp.add_parser("gain", help="live savings recorded by the hooks")
-    p.add_argument("--json", action="store_true", help="machine-readable totals with a dollar estimate")
-    p.add_argument("--price", type=float, default=3.0, help="input-token price in USD per million (default 3)")
+    p.add_argument("--json", action="store_true", help="machine-readable totals with dollars")
+    p.add_argument("--price", type=float, default=None,
+                   help="input-token price in USD per million (default: each session's model's API price)")
     p.add_argument("--session", help="also report this Claude Code session")
     p.add_argument("--project", help="also report this project folder, with its recent turns")
     p.set_defaults(fn=cmd_gain)

@@ -1,5 +1,5 @@
 // Kompactor for VS Code: wires Kompactor's hooks into Claude Code (the VS Code
-// extension and the CLI share ~/.claude/settings.json), shows tokens and estimated
+// extension and the CLI share ~/.claude/settings.json), shows tokens and
 // dollars saved in the status bar and an activity-bar sidebar, and hosts the
 // settings dashboard in a webview.
 // Plain JavaScript, no dependencies, no build step.
@@ -33,7 +33,20 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 
 function usd(n) {
   n = Number(n) || 0;
-  return n >= 100 ? "$" + n.toFixed(0) : n >= 0.01 ? "$" + n.toFixed(2) : n >= 0.001 ? "$" + n.toFixed(3) : n > 0 ? "under $0.001" : "$0";
+  return n >= 1 ? "$" + n.toFixed(2) : n >= 0.0001 ? "$" + n.toFixed(4) : n > 0 ? "$" + n.toPrecision(2) : "$0";
+}
+
+// How the dollars were worked out, from the per-model pricing `kompactor gain --json` returns.
+function pricingNote(pricing) {
+  const rate = (m) => `${m.model} (${usd(m.input)}/M input, cache write ${usd(m.cache_write)}/M, cache read ${usd(m.cache_read)}/M)`;
+  const rows = (pricing || []).filter((m) => m.saved > 0);
+  if (!rows.length) return "";
+  const reads = rows.reduce((a, m) => a + m.rereads, 0) / Math.max(1, rows.reduce((a, m) => a + m.saved, 0));
+  const unknown = rows.filter((m) => !m.known);
+  return `Dollars are at the API prices of the model each session ran on: ${rows.map(rate).join("; ")}. ` +
+    `Each token kept out counts once as a prompt-cache write and again at the cache-read price for every later request ` +
+    `that would have re-read it until compaction (${Math.round(reads)} on average).` +
+    (unknown.length ? ` Sessions without a model from the status line use ${unknown.map((m) => m.model).join(", ")}.` : "");
 }
 
 function fmt(n) {
@@ -166,7 +179,7 @@ function renderStatus(live) {
     const md = new vscode.MarkdownString(
       `**Kompactor** · ${live.preset_name || ""}\n\n` +
       (turn.saved > 0 ? `Last turn: **−${fmt(turn.saved)} tokens** (${fmt(turn.raw)} › ${fmt(turn.kept)})\n\n` : "Last turn: nothing to trim\n\n") +
-      `This session: −${fmt(tot.saved)} tokens` + (dollars ? `, ≈${usd(dollars)} saved` : "") +
+      `This session: −${fmt(tot.saved)} tokens` + (dollars ? `, ${usd(dollars)} saved` : "") +
       (ctxPct ? `, context ≈${ctxPct}% smaller` : "") +
       `\n\n[Open dashboard](command:kompactor.openDashboard) · [Change level](command:kompactor.choosePreset)`);
     md.isTrusted = true;
@@ -221,7 +234,8 @@ function refreshSummary() {
       refreshAgain = false;
       try {
         const live = readLive();
-        const args = ["gain", "--json", "--price", String(price())];
+        const args = ["gain", "--json"];
+        if (price() > 0) args.push("--price", String(price()));
         if (live && live.session) args.push("--session", live.session);
         const folder = (vscode.workspace.workspaceFolders || [])[0];
         if (folder) args.push("--project", folder.uri.fsPath);
@@ -253,7 +267,7 @@ function viewHtml(webview) {
   const ctxPct = tot.context && tot.in_context_saved > 0 ? Math.round(100 * tot.in_context_saved / (tot.context + tot.in_context_saved)) : 0;
   const card = (title, p, extra) => p && p.saved > 0
     ? `<div class="card"><div class="lbl">${title}</div><div class="big">−${fmt(p.saved)} <span>tokens</span></div>
-       <div class="usd">≈ ${usd(p.usd)} saved</div>${extra || ""}</div>`
+       <div class="usd">${usd(p.usd)} saved</div>${extra || ""}</div>`
     : `<div class="card"><div class="lbl">${title}</div><div class="none">Nothing saved yet</div></div>`;
   const sessionExtra = (ctxPct ? `<div class="sub">Context ≈${ctxPct}% smaller</div>` : "") +
     (turn.saved > 0 ? `<div class="sub">Last turn −${fmt(turn.saved)} (${fmt(turn.raw)} › ${fmt(turn.kept)})</div>` : "");
@@ -262,7 +276,7 @@ function viewHtml(webview) {
   const what = (t) => (t.shortened || []).map((x) => esc(x.what) + (x.times > 1 ? ` ×${x.times}` : "")).join(", ") || "tool output";
   const turns = helped.slice(0, 6).map((t) =>
     `<li class="reply"><div class="row"><span class="what">${what(t)}</span><span class="s">−${fmt(t.saved)}</span></div>
-     <div class="meta">${ago(t.ts)} · ${fmt(t.raw)} › ${fmt(t.kept)} tokens</div></li>`).join("");
+     <div class="meta">${ago(t.ts)} · ${fmt(t.raw)} › ${fmt(t.kept)} tokens${t.usd > 0 ? ` · ${usd(t.usd)}` : ""}</div></li>`).join("");
   const quiet = all.length - helped.length;
   const projectName = summary && summary.project_path ? summary.project_path.split(/[\\/]/).pop() : "";
   const top = ((summary && summary.top) || []).filter((t) => t.raw > t.kept).map((t) =>
@@ -307,7 +321,7 @@ ${turns ? `<ul>${turns}</ul>` : ""}
 ${quiet ? `<div class="sub">${quiet} ${quiet === 1 ? "reply" : "replies"} had nothing to shorten</div>` : ""}` : ""}
 ${top ? `<h3>Biggest wins</h3><ul>${top}</ul>` : ""}
 <div class="btns"><button data-cmd="dashboard">Open dashboard</button><button class="secondary" data-cmd="level">Change level</button>${action}</div>
-<div class="note">Dollars are estimates at ${usd(price())} per million input tokens: each token kept out is counted once as a prompt-cache write and again for every later turn that would have re-read it. Change the price in Settings › Kompactor.</div>
+${summary && summary.pricing ? `<div class="note">${esc(pricingNote(summary.pricing))}</div>` : ""}
 <script nonce="${nonce}">const vs=acquireVsCodeApi();document.querySelectorAll("[data-cmd]").forEach((b)=>b.addEventListener("click",()=>vs.postMessage({cmd:b.dataset.cmd})));</script>
 </body></html>`;
 }

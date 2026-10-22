@@ -49,7 +49,7 @@ const vscodeMock = {
   commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; } },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: "/work/shop" } }],
-    getConfiguration: () => ({ get: (k) => ({ turnSummary: "statusBar", showStatusBar: true, pythonPath: "", pricePerMillionTokens: 3 }[k]) }),
+    getConfiguration: () => ({ get: (k) => ({ turnSummary: "statusBar", showStatusBar: true, pythonPath: "", pricePerMillionTokens: 0 }[k]) }),
     onDidChangeConfiguration: () => ({ dispose() {} }),
   },
 };
@@ -104,6 +104,8 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   // the sidebar shows tokens and dollars once Kompactor has compacted something in this session
   const cp = require("child_process");
   const big = Array.from({ length: 300 }, (_, i) => `tests/test_x.py::test_${i} PASSED`).join("\n") + "\n1 failed, 299 passed";
+  cp.spawnSync("python3", [path.join(repo, "kompactor", "_launch.py"), "statusline"], { env: process.env,
+    input: JSON.stringify({ session_id: "s9", workspace: { current_dir: "/work/shop" }, model: { id: "claude-opus-5-5" } }) });
   cp.spawnSync("python3", [path.join(repo, "kompactor", "_launch.py"), "hook", "post-bash"], { env: process.env,
     input: JSON.stringify({ session_id: "s9", cwd: "/work/shop", tool_input: { command: "pytest -v" },
       tool_response: { stdout: big, stderr: "", interrupted: false, isImage: false } }) });
@@ -114,7 +116,8 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   assert.ok(viewProvider, "sidebar view registered");
   viewProvider.resolveWebviewView(sidebar);
   await commands["kompactor.refresh"]();
-  assert.match(sidebar.webview.html, /This session[\s\S]*≈ \$0\.0\d+ saved/, "sidebar shows this session's dollars");
+  assert.match(sidebar.webview.html, /This session[\s\S]*\$0\.0125 saved/, "sidebar shows this session's dollars");
+  assert.match(sidebar.webview.html, /API prices of the model each session ran on: Opus 5\.5 \(\$4\.00\/M input/, "sidebar names the model's prices");
   assert.match(sidebar.webview.html, /Last 30 days/, "sidebar shows the 30-day total");
   assert.match(sidebar.webview.html, /This project · shop/, "sidebar shows this project's total");
   assert.match(sidebar.webview.html, /Recent replies in this project[\s\S]*pytest -v<\/span><span class="s">−2\.5k[\s\S]*just now/, "sidebar lists what each reply shortened");

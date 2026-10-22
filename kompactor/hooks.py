@@ -273,6 +273,8 @@ def session_start(event: dict, cfg: dict) -> None:
         store.mark_compacted(event.get("session_id", ""))
     elif event.get("source") == "startup":
         store.prune(cfg.get("retention_days", 30))
+    if isinstance(event.get("model"), str) and event["model"]:  # for pricing; the status line updates it on /model
+        store.note_context(event.get("session_id", ""), 0, event["model"])
     parts = [_rules(cfg)]
     root = cfg.get("project")
     if cfg.get("graph") and root and event.get("source") in ("startup", "resume", "clear", "compact", None):
@@ -324,6 +326,8 @@ def run(name: str) -> int:
         if store.paused():
             return 0
         event = json.load(sys.stdin)
+        if name.startswith("post-"):  # each tool call sends Claude one more request; the dollar figures count them
+            store.tick(event.get("session_id", ""))
         HANDLERS[name](event, config.load(event.get("cwd") or os.getcwd()))
     except Exception as e:  # fail open, but leave a trace for `kompactor doctor`
         try:

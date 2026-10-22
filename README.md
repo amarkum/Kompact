@@ -90,7 +90,7 @@ kompactor start
 ```
 If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.4.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
+**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.5.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
 
 **From source:**
 ```bash
@@ -103,7 +103,7 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line like `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code):
    ```
-   Kompactor 0.8.4 is on
+   Kompactor 0.8.5 is on
 
      Claude Code   connected
      Level         Balanced (3 of 5)
@@ -111,7 +111,7 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
      Dashboard     http://127.0.0.1:56710/
    ```
    `kompactor help` lists every command.
-4. **In VS Code or Cursor:** click the **Kompactor** icon in the activity bar for tokens and estimated dollars saved this session, in this project, today and over 30 days, plus what Kompactor shortened in each of Claude's recent replies.
+4. **In VS Code or Cursor:** click the **Kompactor** icon in the activity bar for tokens and dollars saved this session, in this project, today and over 30 days, plus what Kompactor shortened in each of Claude's recent replies.
 5. **Three commands to remember:** `kompactor start` turns it on and opens the dashboard, `kompactor stop` pauses it, `kompactor uninstall` removes it.
 
 ## How it works
@@ -243,7 +243,7 @@ Commit a `.kompactor.json` next to the code to give everyone the same level and 
 |---|---|
 | After each reply | `Kompactor: −8.2k tokens this turn (13.1k › 4.9k, −63%) · session −41k · context ≈31% smaller` |
 | CLI status line | `Kompactor −41.3k · ctx −31% · last turn −8.2k · Balanced` |
-| VS Code / Cursor status bar | Tokens and ≈ dollars saved this session; hover for details |
+| VS Code / Cursor status bar | Tokens and dollars saved this session; hover for details |
 | VS Code / Cursor sidebar | Kompactor icon in the activity bar: this session, this project, today and 30 days in tokens and dollars, recent turns (saved or "nothing to trim"), biggest wins |
 | Dashboard (`kompactor start`) | Per-turn chart, biggest wins, savings by feature and by project |
 | `kompactor gain` | The same numbers in the terminal |
@@ -394,7 +394,7 @@ The hooks are Claude Code-specific, but `kompactor run -- <command>` and `kompac
 About 50–100 ms per hook, because the filters run in Python.
 
 **How are the dollar figures worked out?**
-They're estimates at an input-token price you set (`kompactor.pricePerMillionTokens` in VS Code, default $3 per million). Each token kept out of the context is counted once as a prompt-cache write (1.25× the input price) and once more at the cache-read price (0.1×) for every later turn in that session that would have re-read it.
+At the API list price of the model each session ran on, which Claude Code reports to the status line (Opus 5.5: $4 per million input tokens, cache writes $5, cache reads $0.20). Each token kept out of the context is counted once as a prompt-cache write and again at the cache-read price for every later request that would have re-read it: one per tool call and one per new prompt, until the session compacts. Sessions with no model reported use the `model` in `~/.claude/settings.json`, else $3 per million. To use your own price instead, set `kompactor.pricePerMillionTokens` in VS Code or pass `kompactor gain --price`. On a Pro or Max plan these are what the same tokens would cost on the API, not money off your bill.
 
 **Is it free?**
 Yes. MIT-licensed, no account, no paid tier.

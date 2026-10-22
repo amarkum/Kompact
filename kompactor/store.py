@@ -1,6 +1,7 @@
 """Local SQLite store: savings ledger, per-turn summaries, stashed raw outputs
 (FTS5), and the Read tracker. Lives in ~/.kompactor (override with KOMPACTOR_HOME)."""
 
+import bisect
 import json
 import os
 import sqlite3
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS reads (
 );
 CREATE TABLE IF NOT EXISTS sessions (
     session TEXT PRIMARY KEY, project TEXT, started REAL, last_turn REAL, compacted REAL DEFAULT 0,
-    turns INTEGER DEFAULT 0
+    turns INTEGER DEFAULT 0, model TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS flags (
     session TEXT, key TEXT, ts REAL, PRIMARY KEY (session, key)
@@ -32,6 +33,9 @@ CREATE TABLE IF NOT EXISTS turns (
 );
 CREATE TABLE IF NOT EXISTS context (
     session TEXT PRIMARY KEY, tokens INTEGER, ts REAL
+);
+CREATE TABLE IF NOT EXISTS calls (
+    session TEXT, ts REAL, kind TEXT
 );
 """
 
@@ -65,6 +69,9 @@ def connect() -> _Conn:
     db.executescript(SCHEMA)
     if "project" not in {r[1] for r in db.execute("PRAGMA table_info(events)")}:  # created by v0.1
         db.execute("ALTER TABLE events ADD COLUMN project TEXT DEFAULT ''")
+    if "model" not in {r[1] for r in db.execute("PRAGMA table_info(sessions)")}:  # created before v0.8.5
+        db.execute("ALTER TABLE sessions ADD COLUMN model TEXT DEFAULT ''")
+    db.execute("CREATE INDEX IF NOT EXISTS calls_session ON calls(session, ts)")
     db.execute("CREATE INDEX IF NOT EXISTS events_session ON events(session, ts)")
     try:
         db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS stash_fts USING fts5(output, content='stash', content_rowid='id')")
@@ -94,7 +101,8 @@ def close_turn(session: str, project: str, context_tokens: int = 0):
     with connect() as db:
         row = db.execute("SELECT last_turn, compacted, turns FROM sessions WHERE session=?", (session,)).fetchone()
         if row is None:
-            db.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?)", (session, project, now, 0, 0, 0))
+            db.execute("INSERT INTO sessions (session, project, started, last_turn, compacted, turns) "
+                       "VALUES (?,?,?,?,?,?)", (session, project, now, 0, 0, 0))
             row = (0, 0, 0)
         last, compacted, n = row
         feats = db.execute("SELECT feature, SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE session=? AND ts>? "
@@ -116,11 +124,22 @@ def close_turn(session: str, project: str, context_tokens: int = 0):
     return turn, totals
 
 
-def note_context(session: str, tokens: int) -> None:
-    """The context size Claude Code hands the status line (context_window.total_input_tokens).
-    Kompactor never reads session transcripts for it."""
+def note_context(session: str, tokens: int, model: str = "") -> None:
+    """The context size and model Claude Code hands the status line (context_window.total_input_tokens,
+    model.id). Kompactor never reads session transcripts for them."""
     with connect() as db:
-        db.execute("INSERT OR REPLACE INTO context VALUES (?,?,?)", (session, int(tokens), time.time()))
+        if tokens:
+            db.execute("INSERT OR REPLACE INTO context VALUES (?,?,?)", (session, int(tokens), time.time()))
+        if model:
+            db.execute("INSERT OR IGNORE INTO sessions (session, project, started, last_turn, compacted, turns) "
+                       "VALUES (?,?,?,?,?,?)", (session, "", time.time(), 0, 0, 0))
+            db.execute("UPDATE sessions SET model=? WHERE session=?", (model, session))
+
+
+def tick(session: str, kind: str = "tool") -> None:
+    """One tool call (each one sends Claude a new request that re-reads the context) or a compaction."""
+    with connect() as db:
+        db.execute("INSERT INTO calls VALUES (?,?,?)", (session, time.time(), kind))
 
 
 def context_size(session: str) -> int:
@@ -143,17 +162,56 @@ def session_totals(session: str) -> dict:
             "context": last[2] if last else 0, "last_turn_saved": (last[0] - last[1]) if last else 0}
 
 
-def savings(price_per_mtok: float = 3.0, session: str = "", project: str = "") -> dict:
-    """Tokens kept out of Claude's context, with a dollar estimate at `price_per_mtok` (the input-token
-    price). A kept-out token would have been written to the prompt cache once (1.25x) and re-read on every
-    later turn of its session (0.1x each), the same weights `kompactor estimate` uses."""
+# API list prices in USD per million tokens: (input, cache read). A prompt-cache write costs 1.25x the input
+# price (5-minute TTL, what Claude Code uses). Matched by prefix, most specific first.
+PRICES = [
+    ("claude-fable-5-1", 10.0, 0.25), ("claude-mythos-5-1", 10.0, 0.25),
+    ("claude-fable-5", 10.0, 1.0), ("claude-mythos-5", 10.0, 1.0),
+    ("claude-opus-5-5", 4.0, 0.20), ("claude-opus-5", 5.0, 0.50),
+    ("claude-opus-4-5", 5.0, 0.50), ("claude-opus-4-6", 5.0, 0.50), ("claude-opus-4-7", 5.0, 0.50),
+    ("claude-opus-4-8", 5.0, 0.50), ("claude-opus-4", 15.0, 1.50),
+    ("claude-sonnet-5", 2.0, 0.20), ("claude-sonnet-4", 3.0, 0.30), ("claude-3-7-sonnet", 3.0, 0.30),
+    ("claude-haiku-5-5", 0.10, 0.01), ("claude-haiku-4-5", 1.0, 0.10), ("claude-3-5-haiku", 0.80, 0.08),
+]
+ALIASES = {"fable": "claude-fable-5-1", "opus": "claude-opus-5-5", "sonnet": "claude-sonnet-5-5",
+           "haiku": "claude-haiku-5-5"}
+CACHE_WRITE = 1.25
+
+
+def model_price(model: str):
+    """(name, input, cache read) for a model id or alias as Claude Code reports it, or None if unknown."""
+    m = (model or "").lower().split("[")[0].strip()
+    m = m[m.find("claude-"):] if "claude-" in m else next((v for k, v in ALIASES.items() if m.startswith(k)), m)
+    for prefix, inp, read in PRICES:
+        if m.startswith(prefix):
+            parts = [p for p in m.split("@")[0].split("-")[1:] if not (p.isdigit() and len(p) > 2)]  # no dates
+            name = " ".join(p.title() for p in parts if not p.isdigit()) + " " + ".".join(p for p in parts if p.isdigit())
+            return name, inp, read
+    return None
+
+
+def _settings_model() -> str:
+    try:
+        return json.loads((Path.home() / ".claude" / "settings.json").read_text()).get("model") or ""
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+def savings(price_per_mtok: float = None, session: str = "", project: str = "") -> dict:
+    """Tokens kept out of Claude's context and what they would have cost. Each saving is priced at the API
+    rates of the model its session ran on (from the status line): its tokens would have been written to the
+    prompt cache once (1.25x input) and re-read by every later request until the session compacted (one per
+    tool call and one per new prompt, at the cache-read price). The model comes from the SessionStart hook and
+    the status line. `price_per_mtok` overrides the input price (cache reads at 0.1x); sessions whose model is
+    unknown use the model in ~/.claude/settings.json, else $3."""
     now = time.time()
     day = now - 86400
+    fallback = model_price(_settings_model()) or ("model not reported ($3/M)", 3.0, 0.30)
     with connect() as db:
         def total(where="1", args=()):
             r = db.execute(f"SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(kept_tokens),0) FROM events "
                            f"WHERE {where}", args).fetchone()
-            return {"events": r[0], "raw": r[1], "kept": r[2], "saved": r[1] - r[2]}
+            return {"events": r[0], "raw": r[1], "kept": r[2], "saved": r[1] - r[2], "usd": 0.0}
         periods = {"all": total(), "today": total("ts > ?", (day,))}
         if session:
             periods["session"] = total("session = ?", (session,))
@@ -163,8 +221,10 @@ def savings(price_per_mtok: float = 3.0, session: str = "", project: str = "") -
                             "WHERE project = ? OR (? = '' AND session = ?) ORDER BY ts DESC LIMIT 30",
                             (project, project, session)).fetchall()
         shortened = {}  # what each recent reply shortened: its commands and files, biggest first
+        bounds = {}     # (session, prev turn end, turn end) of each recent reply
         for s, idx, ts, *_ in recent:
             prev = db.execute("SELECT COALESCE(MAX(ts), 0) FROM turns WHERE session = ? AND idx < ?", (s, idx)).fetchone()[0]
+            bounds[(s, idx)] = (prev, ts)
             items = {}
             for f, d, r, k in db.execute("SELECT feature, detail, raw_tokens, kept_tokens FROM events WHERE session = ? "
                                          "AND ts > ? AND ts <= ? AND raw_tokens > kept_tokens", (s, prev, ts)):
@@ -172,27 +232,47 @@ def savings(price_per_mtok: float = 3.0, session: str = "", project: str = "") -
                 it["saved"] += r - k
                 it["times"] += 1
             shortened[(s, idx)] = sorted(items.values(), key=lambda it: -it["saved"])[:3]
-        turns = db.execute("SELECT session, ts, raw_tokens - kept_tokens, project FROM turns "
-                           "ORDER BY session, idx").fetchall()
+        events = db.execute("SELECT e.session, e.ts, e.raw_tokens - e.kept_tokens, e.project, COALESCE(s.model, '') "
+                            "FROM events e LEFT JOIN sessions s USING (session)").fetchall()
+        calls, compactions, prompts = {}, {}, {}
+        for s, ts, kind in db.execute("SELECT session, ts, kind FROM calls ORDER BY ts"):
+            (compactions if kind == "compact" else calls).setdefault(s, []).append(ts)
+        for s, ts in db.execute("SELECT session, ts FROM turns ORDER BY ts"):
+            prompts.setdefault(s, []).append(ts)
         top = db.execute("SELECT detail, COUNT(*), SUM(raw_tokens), SUM(kept_tokens) FROM events WHERE feature='bash' "
                          "GROUP BY detail ORDER BY SUM(raw_tokens) - SUM(kept_tokens) DESC LIMIT 5").fetchall()
         sessions = db.execute("SELECT COUNT(DISTINCT session) FROM events").fetchone()[0]
-    rereads = {"all": 0.0, "today": 0.0, "session": 0.0, "project": 0.0}
-    by_session = {}
-    for s, ts, saved, proj in turns:
-        by_session.setdefault(s, []).append((ts, saved, proj))
-    for s, rows in by_session.items():
-        for i, (ts, saved, proj) in enumerate(rows):
-            later = (len(rows) - i - 1) * saved * 0.1
-            rereads["all"] += later
-            rereads["today"] += later if ts > day else 0
-            rereads["session"] += later if s == session else 0
-            rereads["project"] += later if project and proj == project else 0
-    for k, p in periods.items():
-        p["usd"] = round((p["saved"] * 1.25 + rereads[k]) * price_per_mtok / 1e6, 4)
+    models, turn_usd = {}, {}
+    for s, ts, saved, proj, model in events:
+        if price_per_mtok is not None:
+            name, inp, read = "your price", price_per_mtok, price_per_mtok * 0.1
+        else:
+            name, inp, read = model_price(model) or fallback
+        until = next((c for c in compactions.get(s, ()) if c > ts), float("inf"))
+        rereads = (bisect.bisect_left(calls.get(s, []), until) - bisect.bisect_right(calls.get(s, []), ts)
+                   + max(0, bisect.bisect_left(prompts.get(s, []), until) - bisect.bisect_right(prompts.get(s, []), ts) - 1))
+        usd = saved * (inp * CACHE_WRITE + read * rereads) / 1e6
+        m = models.setdefault(name, {"model": name, "input": inp, "cache_write": inp * CACHE_WRITE, "cache_read": read,
+                                     "saved": 0, "rereads": 0, "usd": 0.0, "known": bool(model) or price_per_mtok is not None})
+        m["saved"] += saved
+        m["rereads"] += rereads * max(saved, 0)
+        m["usd"] += usd
+        for k, hit in (("all", True), ("today", ts > day), ("session", s == session),
+                       ("project", bool(project) and proj == project)):
+            if hit and k in periods:
+                periods[k]["usd"] += usd
+        for key, (lo, hi) in bounds.items():
+            if key[0] == s and lo < ts <= hi:
+                turn_usd[key] = turn_usd.get(key, 0.0) + usd
+    for p in periods.values():
+        p["usd"] = round(p["usd"], 6)
+    for m in models.values():
+        m["usd"] = round(m["usd"], 6)
     return {"price_per_mtok": price_per_mtok, "sessions": sessions, **periods,
+            "pricing": sorted(models.values(), key=lambda m: -m["saved"]),
             "top": [{"cmd": t[0], "runs": t[1], "raw": t[2], "kept": t[3]} for t in top],
             "turns": [{"session": t[0], "idx": t[1], "ts": t[2], "raw": t[3], "kept": t[4], "saved": t[3] - t[4],
+                       "usd": round(turn_usd.get((t[0], t[1]), 0.0), 6),
                        "features": json.loads(t[5] or "{}"), "shortened": shortened[(t[0], t[1])]} for t in recent]}
 
 
@@ -209,7 +289,7 @@ def prune(retention_days: float) -> None:
         db.execute("DELETE FROM stash WHERE ts < ?", (min(cutoff, time.time() - 7 * 86400),))
         if db.fts:
             db.execute("INSERT INTO stash_fts(stash_fts) VALUES ('rebuild')")
-        for table in ("events", "turns"):
+        for table in ("events", "turns", "calls"):
             db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
         db.execute("DELETE FROM reads WHERE ts < ?", (time.time() - 2 * 86400,))
         db.execute("DELETE FROM flags WHERE ts < ?", (time.time() - 2 * 86400,))
@@ -227,6 +307,7 @@ def once(session: str, key: str) -> bool:
 def mark_compacted(session: str) -> None:
     with connect() as db:
         db.execute("UPDATE sessions SET compacted=? WHERE session=?", (time.time(), session))
+        db.execute("INSERT INTO calls VALUES (?,?,?)", (session, time.time(), "compact"))
         db.execute("DELETE FROM reads WHERE session=?", (session,))
         db.execute("DELETE FROM flags WHERE session=?", (session,))
 

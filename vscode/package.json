@@ -1,8 +1,8 @@
 {
   "name": "kompactor",
   "displayName": "Kompactor: Claude Code token saver",
-  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. A sidebar and status bar show tokens and estimated dollars saved.",
-  "version": "0.8.4",
+  "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first reads and a local code graph. A sidebar and status bar show tokens and dollars saved.",
+  "version": "0.8.5",
   "publisher": "kompactor",
   "license": "MIT",
   "engines": {
@@ -88,9 +88,9 @@
         },
         "kompactor.pricePerMillionTokens": {
           "type": "number",
-          "default": 3,
+          "default": 0,
           "minimum": 0,
-          "description": "Input-token price in USD per million tokens, used for the dollar estimate. Use the API list price of the model you mostly use."
+          "description": "Override the input-token price in USD per million tokens (cache reads at 0.1x). 0 uses the API price of the model each Claude Code session ran on."
         }
       }
     },
