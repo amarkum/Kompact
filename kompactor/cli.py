@@ -390,7 +390,7 @@ def cmd_uninstall(a):
         (store.home() / "paused").unlink(missing_ok=True)
         print("  Kept savings history and config in ~/.kompactor (add --purge to delete).")
     if installer.status()["plugin_enabled"]:
-        print("  The Claude Code plugin is still enabled; run: claude plugin uninstall stackcone@kompactor")
+        print("  The Claude Code plugin is still enabled; run: claude plugin uninstall amarkum@kompactor")
     print("  Installed it as a Python package? Remove that too, with the tool you installed it with (pip, pipx or uv).")
     return 0
 

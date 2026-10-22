@@ -8,7 +8,7 @@ Fixes ship as a new release on GitHub, PyPI and the Claude Code plugin, and the 
 
 ## Supported versions
 
-Only the latest release gets security fixes. Update with `claude plugin update stackcone@kompactor`, `pipx upgrade kompactor`, or the newest `.vsix` from the Releases page.
+Only the latest release gets security fixes. Update with `claude plugin update amarkum@kompactor`, `pipx upgrade kompactor`, or the newest `.vsix` from the Releases page.
 
 ## What Kompactor can access
 

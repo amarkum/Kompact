@@ -7,7 +7,7 @@
   },
   "plugins": [
     {
-      "name": "stackcone",
+      "name": "amarkum",
       "source": "./",
       "description": "Cut the tokens Claude Code spends on noise: compacted command output (failing runs included), outline-first file reads, a local code graph, terse reply and lean-code rules, and per-turn savings."
     }
