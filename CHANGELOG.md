@@ -2,7 +2,7 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.8.6
 
 - Levels now cut cost where it's spent. Every request re-sends the whole conversation, and in long sessions that is most of the bill, so each level also sets how large the conversation may grow before Claude Code compacts it (Claude Code's `autoCompactWindow`): Max quality leaves Claude Code's default, Quality 780K, Balanced 650K, Savings 430K, Max savings 240K tokens. On 65 real Opus 5.5 sessions replayed with `kompactor estimate`, the levels save about 0, 10, 19, 35 and 50% of cost; trimming output alone saved under 2%. The window is set while Kompactor runs and removed by `kompactor stop` and `uninstall`; a window you set yourself with `/autocompact` or in settings is never changed. New setting: `compact_window`.
 - Changing the level or the reply and code rules now reaches sessions that are already open: Claude gets the new rules with your next message (a `UserPromptSubmit` hook), instead of only in new sessions. Trimming and file-read settings already applied on the next tool call.

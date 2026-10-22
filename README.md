@@ -90,7 +90,7 @@ kompactor start
 ```
 If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.5.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
+**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.6.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
 
 **From source:**
 ```bash
@@ -103,7 +103,7 @@ git clone https://github.com/amarkum/kompactor.git && ./kompactor/install.sh    
 2. **Work as usual.** You don't call Kompactor; it acts on Claude's tool calls by itself. After each reply you'll see a line like `Kompactor: −8.2k tokens this turn`, and the status line shows the running total.
 3. **Check it's on:** run `kompactor` in a terminal (or `/kompactor` in Claude Code):
    ```
-   Kompactor 0.8.5 is on
+   Kompactor 0.8.6 is on
 
      Claude Code   connected
      Level         Balanced (3 of 5)
