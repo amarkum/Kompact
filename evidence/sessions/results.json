@@ -1,0 +1,838 @@
+{
+ "meta": {
+  "kompactor_version": "0.8.6",
+  "reps": 2,
+  "date": "2026-10-22",
+  "claude_version": "2.1.308 (Claude Code)"
+ },
+ "results": [
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "baseline",
+   "tokens": {
+    "input": 4,
+    "output": 360,
+    "cache_read": 62949,
+    "cache_write": 7137,
+    "total": 70450
+   },
+   "cost": 0.0384509,
+   "turns": 2,
+   "wall_s": 18.5,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_zz_planted.py::test_json_sort_keys_default`. The other 494 pass.\n\nThe key error is:\n\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\nThe test creates `Flask(__name__)` and asserts `app.json.sort_keys is False`. Flask's `DefaultJSONProvider.sort_keys` defaults to `True`, so the assertion fails. The test expects JSON key order to be preserved, but Flask sorts keys by default. The assertion message starts with \"PLANTED\", so this looks like a deliberately added test and not a regression in Flask. I didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | tail -60",
+     "result_chars": 4546,
+     "kompactor": false
+    }
+   ],
+   "kompactor": null,
+   "arm": "baseline",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 342,
+    "cache_read": 63701,
+    "cache_write": 5423,
+    "total": 69470
+   },
+   "cost": 0.0314901,
+   "turns": 2,
+   "wall_s": 20.2,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_zz_planted.py::test_json_sort_keys_default`. The other 494 pass.\n\nThe key error is:\n\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\nThe test creates `Flask(__name__)` and asserts that `app.json.sort_keys is False`. It gets `True`. That matches Flask's actual default, since `DefaultJSONProvider.sort_keys` is `True` by default. The test's expectation, not the code under test, looks wrong. Its message says \"PLANTED\", so it appears to be a deliberately added failing test. I didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider",
+     "result_chars": 1396,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 1797,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1797
+     }
+    }
+   },
+   "arm": "trim",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 299,
+    "cache_read": 63926,
+    "cache_write": 5524,
+    "total": 69753
+   },
+   "cost": 0.031486600000000003,
+   "turns": 2,
+   "wall_s": 20.5,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/test_zz_planted.py::test_json_sort_keys_default`\n\n**Error:** `AssertionError: PLANTED: the JSON provider should keep key order`, from `assert app.json.sort_keys is False`, which got `True`.\n\n**Why:** `DefaultJSONProvider.sort_keys` defaults to `True` in Flask, and the test expects `False`. The test is named \"planted\" and sits in a `test_zz_` file, so it looks deliberately added. It doesn't indicate a regression in Flask's own code.\n\nThe other 494 tests passed. I changed no code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider",
+     "result_chars": 1053,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 1926,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1926
+     }
+    }
+   },
+   "arm": "level-5",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 378,
+    "cache_read": 63044,
+    "cache_write": 7260,
+    "total": 70686
+   },
+   "cost": 0.0391324,
+   "turns": 2,
+   "wall_s": 22.0,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_zz_planted.py::test_json_sort_keys_default`. The other 494 pass.\n\nThe key error is:\n\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\n**Why:** The test builds a fresh `Flask(__name__)` and asserts that `app.json.sort_keys` is `False`. The value is `True`, which is the default for `DefaultJSONProvider`. The test expects the opposite default. I didn't change any code.\n\nThe test file's name and its \"PLANTED\" message suggest it was added on purpose as a failing test. I didn't check git history to confirm that.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | tail -60",
+     "result_chars": 4546,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "reads",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 329,
+    "cache_read": 63896,
+    "cache_write": 5598,
+    "total": 69827
+   },
+   "cost": 0.0320796,
+   "turns": 2,
+   "wall_s": 22.2,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/test_zz_planted.py::test_json_sort_keys_default`. It is the only failure: 1 failed, 494 passed.\n\n**Key error:**\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\n**Why:** The test builds `Flask(__name__)` and asserts `app.json.sort_keys is False`. `DefaultJSONProvider.sort_keys` is `True`, which is Flask's actual default, so the assertion fails. The test's expectation is wrong, not Flask. The file name and the \"PLANTED\" message suggest it was added on purpose. I haven't changed any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider",
+     "result_chars": 1396,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 1797,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1797
+     }
+    }
+   },
+   "arm": "level-3",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 294,
+    "cache_read": 63925,
+    "cache_write": 5497,
+    "total": 69720
+   },
+   "cost": 0.0313285,
+   "turns": 2,
+   "wall_s": 22.5,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/test_zz_planted.py::test_json_sort_keys_default` (1 failed, 494 passed)\n\n**Key error:**\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\n**Why:** The test expects `app.json.sort_keys` to be `False`. Flask's `DefaultJSONProvider` defaults `sort_keys` to `True`, so the assertion fails. The test is named \"planted\", so it looks like a deliberately added failing test and not a real regression. I changed no code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider",
+     "result_chars": 1053,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 1926,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1926
+     }
+    }
+   },
+   "arm": "level-4",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 356,
+    "cache_read": 63763,
+    "cache_write": 5486,
+    "total": 69609
+   },
+   "cost": 0.0318883,
+   "turns": 2,
+   "wall_s": 22.6,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_zz_planted.py::test_json_sort_keys_default`. The other 494 pass.\n\n**Key error:**\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider object ...>.sort_keys\n```\n\n**Why:** The test builds `Flask(__name__)` and asserts `app.json.sort_keys is False`. `DefaultJSONProvider.sort_keys` is `True`, which is Flask's default, so the assertion fails. The test expects the opposite of Flask's actual default. Its message calls it \"PLANTED\", so it looks like a deliberately added failing test and not a real regression in Flask.\n\nI didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider",
+     "result_chars": 1396,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 1797,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 1797
+     }
+    }
+   },
+   "arm": "level-2",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 367,
+    "cache_read": 63638,
+    "cache_write": 6672,
+    "total": 70681
+   },
+   "cost": 0.0367298,
+   "turns": 2,
+   "wall_s": 23.3,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_zz_planted.py::test_json_sort_keys_default`. The other 494 pass.\n\nThe test creates a `Flask(__name__)` app and asserts that `app.json.sort_keys is False`. The key error is:\n\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\n`DefaultJSONProvider.sort_keys` is `True`, which is Flask's normal default, but the test expects `False`. The test's own message says \"PLANTED\", so it looks like a deliberately seeded failure rather than a real regression. I didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | tail -60",
+     "result_chars": 4546,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "level-1",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 370,
+    "cache_read": 63635,
+    "cache_write": 6668,
+    "total": 70677
+   },
+   "cost": 0.0367435,
+   "turns": 2,
+   "wall_s": 16.4,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `tests/test_zz_planted.py::test_json_sort_keys_default`. The other 494 pass.\n\nThe key error is:\n\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\nThe test creates `Flask(__name__)` and asserts that `app.json.sort_keys is False`. `DefaultJSONProvider.sort_keys` is `True`, which is Flask's normal default, so the assertion fails. The test's own message says \"PLANTED\", so it looks like a deliberately added failing test. It isn't a regression in Flask's code. I didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | tail -60",
+     "result_chars": 4546,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "graph",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 323,
+    "cache_read": 63718,
+    "cache_write": 6728,
+    "total": 70773
+   },
+   "cost": 0.0365218,
+   "turns": 2,
+   "wall_s": 19.5,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/test_zz_planted.py::test_json_sort_keys_default`\n\n**Key error:**\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\n**Why:** The test asserts that `app.json.sort_keys` is `False`. Flask's `DefaultJSONProvider.sort_keys` defaults to `True`, so the assertion fails. The test is named \"planted\", so it's likely a deliberately injected failure. The other 494 tests pass. I changed no code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | tail -60",
+     "result_chars": 4546,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "terse",
+   "length": "short"
+  },
+  {
+   "task": "short-py",
+   "lang": "python",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 412,
+    "cache_read": 63784,
+    "cache_write": 6817,
+    "total": 71017
+   },
+   "cost": 0.0377744,
+   "turns": 2,
+   "wall_s": 22.7,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/test_zz_planted.py::test_json_sort_keys_default`. It's the only failure: 1 failed, 494 passed.\n\n**Key error:**\n```\nAssertionError: PLANTED: the JSON provider should keep key order\nassert True is False\n +  where True = <flask.json.provider.DefaultJSONProvider ...>.sort_keys\n```\n\n**Why:** The test creates a `Flask(__name__)` app and asserts that `app.json.sort_keys` is `False`. Flask's `DefaultJSONProvider` defaults `sort_keys` to `True`, so the assertion fails. The test expects the opposite of Flask's actual default. The \"PLANTED\" message and the `zz_planted` filename suggest the test was added deliberately and doesn't reflect real Flask behavior.\n\nI changed no code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | tail -60",
+     "result_chars": 4546,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "lean",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "baseline",
+   "tokens": {
+    "input": 4,
+    "output": 416,
+    "cache_read": 62941,
+    "cache_write": 6017,
+    "total": 69378
+   },
+   "cost": 0.0345301,
+   "turns": 2,
+   "wall_s": 93.7,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `keeps the previous state on replace` in `tests/zz-planted.test.ts`. The other 233 tests pass.\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }`\n\n**Why:** The test, at `tests/zz-planted.test.ts:7`, calls `store.setState({ a: 3 }, true)`. The `true` is the replace flag, so zustand replaces the whole state with `{ a: 3 }` instead of merging it. That drops `b`, so the state is `{ a: 3 }`. The assertion expects `{ a: 3, b: 2 }`, which is what a merge would give.\n\nThe test name and its expectation contradict zustand's replace semantics. The test is wrong, and zustand is behaving as designed. I haven't changed any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose 2>&1 | grep -v \"\u2713\" | tail -80",
+     "result_chars": 1233,
+     "kompactor": false
+    }
+   ],
+   "kompactor": null,
+   "arm": "baseline",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 424,
+    "cache_read": 63613,
+    "cache_write": 5523,
+    "total": 69564
+   },
+   "cost": 0.0327013,
+   "turns": 2,
+   "wall_s": 98.6,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: **`keeps the previous state on replace`** in `tests/zz-planted.test.ts` (line 7). The other 233 tests pass.\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }`\n\n**Why:** The test creates a store with an initial state that starts with `a: 1`. The line is cut off in the output, so I can't see whether it also sets `b`. It then calls `store.setState({ a: 3 }, true)`. The `true` is zustand's `replace` flag, so the state is replaced rather than merged, and the result is `{ a: 3 }`. The test expects `b: 2` to survive, which only happens with a merge. Zustand is behaving correctly here, and the assertion contradicts the test's own `replace` semantics. The test is wrong, not the library.\n\nI didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose 2>&1 | grep -v \"\u2713\" | tail -80",
+     "result_chars": 1233,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "level-1",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 326,
+    "cache_read": 63874,
+    "cache_write": 5799,
+    "total": 70003
+   },
+   "cost": 0.0328514,
+   "turns": 2,
+   "wall_s": 100.7,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/zz-planted.test.ts > keeps the previous state on replace` (line 7). It's the only failure: 1 failed, 233 passed.\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }`\n\n**Why:** The test calls `store.setState({ a: 3 }, true)`. The `true` is the `replace` flag, so the state is replaced rather than merged. The store ends up as `{ a: 3 }`, and any previous keys such as `b` are dropped. The test expects `b: 2` to survive, which contradicts what `replace` does. The test's expectation is wrong, not zustand. I didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose",
+     "result_chars": 1348,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 2093,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 2093
+     }
+    }
+   },
+   "arm": "level-3",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 306,
+    "cache_read": 63748,
+    "cache_write": 5639,
+    "total": 69697
+   },
+   "cost": 0.0319988,
+   "turns": 2,
+   "wall_s": 101.0,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/zz-planted.test.ts` \u203a `keeps the previous state on replace` (1 failed, 233 passed).\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }` at `tests/zz-planted.test.ts:7`.\n\n**Why:** The test calls `store.setState({ a: 3 }, true)`. The second argument `true` is zustand's `replace` flag, so the state is replaced rather than merged. The result is `{ a: 3 }` and `b` is gone. The test expects `b: 2` to survive, which contradicts what `replace` does. The store is working as designed, and the assertion is what's wrong.\n\nI didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose",
+     "result_chars": 1334,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 2100,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 2100
+     }
+    }
+   },
+   "arm": "level-2",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 307,
+    "cache_read": 63907,
+    "cache_write": 5583,
+    "total": 69801
+   },
+   "cost": 0.0318007,
+   "turns": 2,
+   "wall_s": 100.8,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**Failing test:** `tests/zz-planted.test.ts` > `keeps the previous state on replace`\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }` (line 7)\n\n**Why:** The test calls `store.setState({ a: 3 }, true)`. The `true` is the `replace` flag, so zustand replaces the whole state with `{ a: 3 }` and drops `b`. The test name and assertion expect the old `b: 2` to survive, which is merge behavior, not replace. The test's expectation is wrong, not the store. The initial state also seems to include `b: 2`, though only part of line 5 was shown.\n\nThe other 233 tests passed. I changed no code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose",
+     "result_chars": 1119,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 2147,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 2147
+     }
+    }
+   },
+   "arm": "level-4",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 286,
+    "cache_read": 63907,
+    "cache_write": 5608,
+    "total": 69805
+   },
+   "cost": 0.0316907,
+   "turns": 2,
+   "wall_s": 92.6,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: `keeps the previous state on replace`, in `tests/zz-planted.test.ts:7`.\n\nThe key error is `expected { a: 3 } to deeply equal { a: 3, b: 2 }`.\n\nThe test calls `store.setState({ a: 3 }, true)`. The `true` is the replace flag, so the state becomes exactly `{ a: 3 }` and the old `b` is dropped. The assertion expects `b: 2` to survive, which contradicts what replace does. The test's expectation is wrong, not the store.\n\nThe other 233 tests pass. I didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose",
+     "result_chars": 1119,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 2171,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 2171
+     }
+    }
+   },
+   "arm": "level-5",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 355,
+    "cache_read": 63689,
+    "cache_write": 5615,
+    "total": 69663
+   },
+   "cost": 0.0323869,
+   "turns": 2,
+   "wall_s": 93.9,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "One test fails: **`keeps the previous state on replace`** in `tests/zz-planted.test.ts` (line 7). The other 233 tests pass.\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }`\n\n**Why:** The test calls `store.setState({ a: 3 }, true)`. In zustand the second argument `true` means replace, so the new object replaces the whole state instead of merging into it. The state is then `{ a: 3 }`, and any other keys, such as `b`, are dropped. The test expects `b: 2` to survive, which contradicts replace semantics. The test's expectation is wrong, not zustand. The test's name also says \"keeps the previous state\", the opposite of what replace does.\n\nI didn't change any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose",
+     "result_chars": 1334,
+     "kompactor": true
+    }
+   ],
+   "kompactor": {
+    "events": 1,
+    "saved": 2087,
+    "by_feature": {
+     "bash": {
+      "count": 1,
+      "saved": 2087
+     }
+    }
+   },
+   "arm": "trim",
+   "length": "short"
+  },
+  {
+   "task": "short-ts",
+   "lang": "typescript",
+   "condition": "kompactor",
+   "tokens": {
+    "input": 4,
+    "output": 478,
+    "cache_read": 63616,
+    "cache_write": 5529,
+    "total": 69627
+   },
+   "cost": 0.0332656,
+   "turns": 2,
+   "wall_s": 92.5,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**One test fails:** `keeps the previous state on replace`, in `tests/zz-planted.test.ts`, line 7. The other 233 tests pass.\n\n**Key error:** `AssertionError: expected { a: 3 } to deeply equal { a: 3, b: 2 }`\n\n**Why:** The test creates a store with `createStore(() => ({ a: 1, \u2026 }))`. The line is cut off in the output, but the expected `b: 2` suggests the initial state includes `b: 2`. It then calls `store.setState({ a: 3 }, true)`. The `true` is zustand's `replace` flag, which swaps out the whole state instead of merging into it. So the state becomes exactly `{ a: 3 }` and `b` is gone. The test expects `b` to survive, which contradicts what `replace` does.\n\nThe test's assertion is wrong, not zustand. The name \"keeps the previous state on replace\" describes the opposite of replace behavior. The file name `zz-planted` also suggests it was added on purpose. I haven't changed any code.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": "npx vitest run --reporter=verbose 2>&1 | grep -v \"\u2713\" | tail -80",
+     "result_chars": 1233,
+     "kompactor": false
+    }
+   ],
+   "kompactor": {
+    "events": 0,
+    "saved": 0,
+    "by_feature": {}
+   },
+   "arm": "reads",
+   "length": "short"
+  },
+  {
+   "task": "medium-py",
+   "lang": "python",
+   "condition": "baseline",
+   "tokens": {
+    "input": 8,
+    "output": 1143,
+    "cache_read": 133001,
+    "cache_write": 7186,
+    "total": 141338
+   },
+   "cost": 0.0534901,
+   "turns": 7,
+   "wall_s": 32.4,
+   "correct": true,
+   "missing": [],
+   "error": false,
+   "subtype": "success",
+   "models": [
+    "claude-sonnet-5-5"
+   ],
+   "answer": "**1. Failing test:** `tests/test_zz_planted.py::test_json_sort_keys_default`. The full run gave 1 failed and 494 passed.\n\n**2. Root cause:** The test builds `Flask(__name__)` and asserts `app.json.sort_keys is False`. It fails with `assert True is False`. `app.json` is a `DefaultJSONProvider`, and `src/flask/json/provider.py:150` sets the class attribute `sort_keys = True`. `dumps` then applies it through `kwargs.setdefault(\"sort_keys\", self.sort_keys)` at line 178, so JSON output has sorted keys by default.\n\nThe test's message says the provider should keep key order, but Flask's documented default is to sort keys. The test file is named `test_zz_planted.py` and its message says \"PLANTED\". It looks like a deliberately added test that contradicts the actual default, so the test is probably what's wrong, not the Flask code. I changed nothing.\n\n**3. Most-changed file under `src/flask` in the last 25 commits:** Two files tie, each touched in 4 commits: `src/flask/app.py` and `src/flask/cli.py`. The next most frequent is `src/flask/helpers.py` with 2.\n\n**4. `tests/test_json.py`:** 31 passed.\n\n**5. `tests/test_basic.py`:** 134 passed.",
+   "tools": [
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests -v -p no:cacheprovider 2>&1 | grep -E \"FAILED|ERROR|passed|failed\" | head -30",
+     "result_chars": 241,
+     "kompactor": false
+    },
+    {
+     "tool": "Bash",
+     "arg": "cat tests/test_zz_planted.py; .venv/bin/pytest tests/test_zz_planted.py -p no:cacheprovider 2>&1 | tail -30",
+     "result_chars": 1424,
+     "kompactor": false
+    },
+    {
+     "tool": "Grep",
+     "arg": "sort_keys",
+     "result_chars": 232,
+     "kompactor": false
+    },
+    {
+     "tool": "Bash",
+     "arg": "git log -n 25 --stat --format='COMMIT %h' | grep -E '^ src/flask' | sed -E 's/^ ([^ ]+) .*/\\1/' | sort | uniq -c | sort -rn | head",
+     "result_chars": 303,
+     "kompactor": false
+    },
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests/test_json.py -v -p no:cacheprovider 2>&1 | tail -3",
+     "result_chars": 161,
+     "kompactor": false
+    },
+    {
+     "tool": "Bash",
+     "arg": ".venv/bin/pytest tests/test_basic.py -v -p no:cacheprovider 2>&1 | tail -3",
+     "result_chars": 161,
+     "kompactor": false
+    }
+   ],
+   "kompactor": null,
+   "arm": "baseline",
+   "length": "medium"
+  }
+ ]
+}
