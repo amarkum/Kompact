@@ -385,15 +385,34 @@ class EstimateTests(unittest.TestCase):
         self.assertEqual(s["saved_billed"], s["saved_tool"] * 4)
         self.assertAlmostEqual(sum(s["cost_by_feature"].values()), s["saved_cost"])  # what each technique saved
 
-    def test_compacting_earlier_reads_less_of_a_growing_conversation(self):
-        # 40 requests, each 20k tokens bigger than the last: 40k to 820k of context
-        calls = [{"input_tokens": 0, "cache_creation_input_tokens": 20_000, "cache_read_input_tokens": 20_000 * i,
-                  "output_tokens": 500} for i in range(1, 41)]
-        full, none = estimate.compact_earlier(calls, 10 ** 9)
-        smaller, added = estimate.compact_earlier(calls, 300_000)
+    def test_compacting_earlier_pays_off_only_when_many_requests_follow(self):
+        def grow(n, step):
+            return [{"input_tokens": 0, "cache_creation_input_tokens": step, "cache_read_input_tokens": step * i,
+                     "output_tokens": 500, "cache_creation": {"ephemeral_1h_input_tokens": step}} for i in range(1, n + 1)]
+        opus = lambda calls: ["claude-opus-5-5"] * len(calls)
+        # 18 requests, 20k tokens each: the session ends 3 requests after compacting at 300k, so the summary
+        # and the cache writes after it cost more than Opus 5.5's cheap cache reads save
+        calls = grow(18, 20_000)
+        full, none = estimate.compact_earlier(calls, 10 ** 9, opus(calls))
+        smaller, added = estimate.compact_earlier(calls, 300_000, opus(calls))
         self.assertEqual(none, 0)
         self.assertGreater(added, 0)
+        self.assertGreater(smaller, full)
+        # 300 requests, 2k tokens each: dozens of cheaper requests follow each compaction
+        calls = grow(300, 2_000)
+        full, _ = estimate.compact_earlier(calls, 10 ** 9, opus(calls))
+        smaller, added = estimate.compact_earlier(calls, 200_000, opus(calls))
+        self.assertGreater(added, 0)
         self.assertLess(smaller, full * 0.8)
+        self.assertAlmostEqual(full, sum(estimate.call_cost(u, "claude-opus-5-5") for u in calls))
+
+    def test_call_cost_uses_the_cache_ttl_and_long_prompt_prices(self):
+        u = {"input_tokens": 1000, "cache_creation_input_tokens": 1000, "cache_read_input_tokens": 1000,
+             "output_tokens": 1000, "cache_creation": {"ephemeral_1h_input_tokens": 1000}}
+        self.assertAlmostEqual(estimate.call_cost(u, "claude-opus-5-5"), (4 + 8 + 0.2 + 20) / 1000)
+        u5 = {**u, "cache_creation": {"ephemeral_5m_input_tokens": 1000}}
+        self.assertAlmostEqual(estimate.call_cost(u5, "claude-opus-5-5"), (4 + 5 + 0.2 + 20) / 1000)
+        self.assertAlmostEqual(estimate.call_cost(u, "claude-haiku-5-5", 150_000), 5 * (0.1 + 0.2 + 0.01 + 0.5) / 1000)
 
 
 PY_TRACE = """Traceback (most recent call last):
@@ -570,9 +589,9 @@ class TurnAndSetupTests(unittest.TestCase):
         for _ in range(5):
             step(store.tick, "usd1")                                  # gone from context: not counted
         s = store.savings(session="usd1")
-        self.assertAlmostEqual(s["session"]["usd"], 10000 * (4.0 * 1.25 + 0.20 * 4) / 1e6)
+        self.assertAlmostEqual(s["session"]["usd"], 10000 * (4.0 * 2 + 0.20 * 4) / 1e6)
         self.assertIn("Opus 5.5", [m["model"] for m in s["pricing"]])
-        self.assertAlmostEqual(store.savings(3.0, session="usd1")["session"]["usd"], 10000 * (3.75 + 0.3 * 4) / 1e6)
+        self.assertAlmostEqual(store.savings(3.0, session="usd1")["session"]["usd"], 10000 * (6.0 + 0.3 * 4) / 1e6)
 
     def test_stop_summarises_turn(self):
         ev = {"session_id": "turn1", "tool_input": {"command": "git log"}, "cwd": TMP,

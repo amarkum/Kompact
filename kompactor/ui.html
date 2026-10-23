@@ -72,7 +72,7 @@ svg.chev { width: 12px; height: 12px; stroke-width: 2; vertical-align: -1px; col
 .dot.on { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
 .dot.off { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); }
 .side-foot .row2 { display: flex; justify-content: space-between; align-items: center; }
-main { min-width: 0; padding: 26px max(16px, 3.2vw) 72px; max-width: 1200px; width: 100%; }
+main { min-width: 0; padding: 26px max(16px, 3.2vw) 72px; width: 100%; }
 .page-head { display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; }
 .page-head h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
 .page-head p { margin: 4px 0 0; color: var(--ink-2); max-width: 64ch; }
@@ -269,7 +269,7 @@ iframe.guide { width: 100%; height: calc(100vh - 150px); min-height: 520px; bord
 /* overview page */
 .theme-btn { position: fixed; top: 14px; right: 16px; z-index: 25; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; color: var(--ink-2); cursor: pointer; padding: 0; }
 .theme-btn:hover { color: var(--ink); background: var(--hover); }
-.page-head { padding-right: 44px; }
+.page-head { min-height: 66px; }  /* its bottom-aligned actions start below the floating theme button */
 .summary { margin: 0; padding: 16px 18px 14px; font-size: 15px; line-height: 1.55; color: var(--ink-2); border-bottom: 1px solid var(--line-2); text-wrap: pretty; }
 .summary b { color: var(--ink); font-weight: 600; }
 .summary .good { color: var(--good); }
@@ -630,9 +630,11 @@ const GROUPS = [
 ];
 /* typical cost saved per level in long sessions on a 1M-context model (65 real sessions replayed), shown when
    this machine has no sessions to replay */
-/* typical share of cost that compacting earlier saves in long sessions, by compaction window (65 real Opus 5.5
-   sessions replayed with `kompactor estimate`); straight lines between the points */
-const COMPACT_TYPICAL = [[240000, 50], [430000, 35], [650000, 19], [780000, 10], [967000, 0]];
+/* typical share of cost that compacting earlier saves in long sessions, by compaction window: 28 real Opus 5.5
+   sessions that passed 250K tokens, replayed with `kompactor estimate`, each request at its API price (1-hour cache
+   writes 2x input, cache reads 0.05x) and each compaction priced as measured in Claude Code; 1 or 2 of the 28 cost
+   more at each size. Straight lines between the points */
+const COMPACT_TYPICAL = [[240000, 32], [330000, 27], [430000, 23], [540000, 15], [650000, 11], [780000, 5.5], [967000, 0]];
 function compactSaving(w) {
   if (!w) return 0;
   const C = COMPACT_TYPICAL;
@@ -682,7 +684,7 @@ $("levels").onkeydown = (e) => {
    level's values, or to Balanced's when the level itself has it off. */
 const PARTS = [
   { id: "compact", name: "Compact the conversation earlier", est: "compact", isOn: (e) => e.compact_window > 0,
-    desc: (e) => `Claude Code summarises the conversation ${e.compact_window ? `once it reaches ${Math.round(e.compact_window / 1000)}K tokens` : "earlier"} instead of letting it grow to the model's limit. Every request re-sends the conversation, so in long sessions this is the biggest saving. Claude keeps a summary of the early part, not every detail.`,
+    desc: (e) => `Claude Code summarises the conversation ${e.compact_window ? `once it reaches ${Math.round(e.compact_window / 1000)}K tokens` : "earlier"} instead of letting it grow to the model's limit. Every request re-sends the conversation, so in long sessions this is the biggest saving. Each compaction costs one request over the whole conversation plus a summary, which takes about 5 to 12 later requests to earn back, so a session that ends soon after compacting costs a little more. Claude keeps a summary of the early part, not every detail.`,
     off: { compact_window: 0 } },
   { id: "trim", name: "Trim command output", tag: "rtk-style", est: "trim", bench: "trim", isOn: (e) => e.bash,
     desc: () => "Long test, build, install, git and search output is shortened before Claude reads it. Failures, errors and summaries are always kept.",
@@ -749,7 +751,7 @@ function renderParts() {
   $("partsTotal").innerHTML = `
     <div><div class="k">Your settings, approximately (from the benchmark)</div><div class="v">≈${E.total}%<span> lower cost in long sessions</span></div><div class="f">trimming &amp; rules ≈${E.tech}% · ${eff.compact_window ? `compacting at ${Math.round(eff.compact_window / 1000)}K ≈${E.compact}%` : "compacting earlier is off"}</div></div>`;
   const D = S.techniques || {};
-  $("partsNote").innerHTML = B ? `All figures are approximate, from Kompactor's benchmark: ${Object.values(benchLengths()).reduce((a, L) => a + L.sessions, 0)} real Claude Code sessions without Kompactor on ${esc(D.repos || "")} (running tests, reading git history and diffs, looking code up), and the same sessions at each level and with each technique switched on by itself; ${esc(D.model || "")}, ${esc(D.date || "")}. Techniques use the long and very long sessions (14 to 27 turns). Compacting earlier uses what it saved in 65 long real sessions at each size. Your own sessions may save more or less. Full results: evidence/sessions in the Kompactor repository.` : "";
+  $("partsNote").innerHTML = B ? `All figures are approximate, from Kompactor's benchmark: ${Object.values(benchLengths()).reduce((a, L) => a + L.sessions, 0)} real Claude Code sessions without Kompactor on ${esc(D.repos || "")} (running tests, reading git history and diffs, looking code up), and the same sessions at each level and with each technique switched on by itself; ${esc(D.model || "")}, ${esc(D.date || "")}. Techniques use the long and very long sessions (14 to 27 turns). Compacting earlier uses what it saved in 28 long real sessions at each size, with each request at its API price and each compaction priced as measured in Claude Code (1 or 2 of the 28 cost more). Your own sessions may save more or less. Full results: evidence/sessions in the Kompactor repository.` : "";
   renderLevels();
 }
 function setPart(P, on) {

@@ -307,10 +307,14 @@ def cmd_estimate(a):
         for _, cmd, r, k in sorted(s["top_cmds"], reverse=True)[:6]:
             print(f"    {_fmt(r):>6} › {_fmt(k):<6} {cmd}")
     print("\n  Method: Bash/Read results replayed through Kompactor's filters; savings weighted by how many later API"
-          "\n  calls would re-send them (cache reads at 0.1×, writes 1.25×, output 5× input price). Read-outline"
-          f"\n  assumes {int(estimate.OUTLINE_FOLLOWUP * 100)}% of the file is still read afterwards. Compacting earlier is simulated from"
-          f"\n  each request's context size, with a {estimate.SUMMARY_TOKENS // 1000}K-token summary per compaction; it doesn't count files Claude"
-          "\n  re-reads after a compaction. Output-style savings are an assumption, not measured.")
+          "\n  calls would re-send them, each call at its model's API prices (cache writes 2× input with Claude Code's"
+          "\n  1-hour cache, cache reads 0.025–0.1× by model, output 5×, Haiku 5.5's higher price above 100K tokens)."
+          f"\n  Read-outline assumes {int(estimate.OUTLINE_FOLLOWUP * 100)}% of the file is still read afterwards. Compacting earlier is simulated"
+          "\n  from each request's context size and priced as measured in Claude Code: the compaction request reads the"
+          "\n  conversation from the cache except its newest part (sent again uncached), writes a"
+          f"\n  {estimate.SUMMARY_TOKENS // 1000}K-token summary, and the next request writes {estimate.POST_COMPACT_TOKENS // 1000}K tokens (summary and restored files) to"
+          "\n  the cache. It doesn't count files Claude re-reads after a compaction. Output-style savings are an"
+          "\n  assumption, not measured.")
     return 0
 
 

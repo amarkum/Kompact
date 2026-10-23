@@ -360,7 +360,7 @@ async function choosePreset() {
   }
   const items = Object.entries(data.presets).map(([n, p]) => ({
     label: `${Number(n) === data.current ? "$(check) " : "      "}${n} · ${p.name}`,
-    description: `≈${data.savings[n]}% fewer tokens on samples`,
+    description: data.savings[n] == null ? "no outputs recorded yet" : `≈${data.savings[n]}% fewer tokens on your recent outputs`,
     detail: p.blurb,
     n,
   }));

@@ -237,8 +237,8 @@ def session_totals(session: str) -> dict:
             "context": last[2] if last else 0, "last_turn_saved": (last[0] - last[1]) if last else 0}
 
 
-# API list prices in USD per million tokens: (input, cache read). A prompt-cache write costs 1.25x the input
-# price (5-minute TTL, what Claude Code uses). Matched by prefix, most specific first.
+# API list prices in USD per million tokens: (input, cache read). Output costs 5x the input price, a prompt-cache
+# write 2x with the 1-hour TTL Claude Code uses (1.25x with the 5-minute one). Matched by prefix, most specific first.
 PRICES = [
     ("claude-fable-5-1", 10.0, 0.25), ("claude-mythos-5-1", 10.0, 0.25),
     ("claude-fable-5", 10.0, 1.0), ("claude-mythos-5", 10.0, 1.0),
@@ -248,15 +248,46 @@ PRICES = [
     ("claude-sonnet-5", 2.0, 0.20), ("claude-sonnet-4", 3.0, 0.30), ("claude-3-7-sonnet", 3.0, 0.30),
     ("claude-haiku-5-5", 0.10, 0.01), ("claude-haiku-4-5", 1.0, 0.10), ("claude-3-5-haiku", 0.80, 0.08),
 ]
+# Models whose every token costs more once the prompt passes a size: (prefix, prompt tokens, multiplier).
+LONG_PROMPT = [("claude-haiku-5-5", 100_000, 5.0)]
 ALIASES = {"fable": "claude-fable-5-1", "opus": "claude-opus-5-5", "sonnet": "claude-sonnet-5-5",
            "haiku": "claude-haiku-5-5"}
-CACHE_WRITE = 1.25
+CACHE_WRITE, CACHE_WRITE_5M, OUTPUT = 2.0, 1.25, 5.0
+
+
+def _model_id(model: str) -> str:
+    m = (model or "").lower().split("[")[0].strip()
+    return m[m.find("claude-"):] if "claude-" in m else next((v for k, v in ALIASES.items() if m.startswith(k)), m)
+
+
+def rates(model: str, prompt_tokens: int = 0):
+    """(input, cache read) in USD per million tokens for one request of `prompt_tokens`, long-prompt prices
+    included; the model in ~/.claude/settings.json, else Opus 5.5, when `model` is unknown."""
+    _, inp, read = model_price(model) or _fallback_price()
+    m = _model_id(model)
+    for prefix, above, mult in LONG_PROMPT:
+        if m.startswith(prefix) and prompt_tokens > above:
+            return inp * mult, read * mult
+    return inp, read
+
+
+def _fallback_price():
+    """The price of the model in ~/.claude/settings.json, else Opus 5.5; re-read only when that file changes."""
+    try:
+        mtime = (Path.home() / ".claude" / "settings.json").stat().st_mtime
+    except OSError:
+        mtime = 0
+    if _fallback.get("mtime") != mtime:
+        _fallback.update(mtime=mtime, price=model_price(_settings_model()) or model_price("opus"))
+    return _fallback["price"]
+
+
+_fallback = {}
 
 
 def model_price(model: str):
     """(name, input, cache read) for a model id or alias as Claude Code reports it, or None if unknown."""
-    m = (model or "").lower().split("[")[0].strip()
-    m = m[m.find("claude-"):] if "claude-" in m else next((v for k, v in ALIASES.items() if m.startswith(k)), m)
+    m = _model_id(model)
     for prefix, inp, read in PRICES:
         if m.startswith(prefix):
             parts = [p for p in m.split("@")[0].split("-")[1:] if not (p.isdigit() and len(p) > 2)]  # no dates
@@ -379,7 +410,7 @@ def turn_list(since: float, project: str = "", q: str = "", feature: str = "", s
 def savings(price_per_mtok: float = None, session: str = "", project: str = "") -> dict:
     """Tokens kept out of Claude's context and what they would have cost. Each saving is priced at the API
     rates of the model its session ran on (from the status line): its tokens would have been written to the
-    prompt cache once (1.25x input) and re-read by every later request until the session compacted (one per
+    prompt cache once (2x input, Claude Code's 1-hour cache) and re-read by every later request until the session compacted (one per
     tool call and one per new prompt, at the cache-read price). The model comes from the SessionStart hook and
     the status line. `price_per_mtok` overrides the input price (cache reads at 0.1x); sessions whose model is
     unknown use the model in ~/.claude/settings.json, else $3."""

@@ -87,8 +87,10 @@ KNOB_INFO = {
     "subagent_rules": ("Apply rules to subagents", "Subagents get the same prose and code rules.", "bool"),
     "compact_window": ("Compact the conversation at", "Claude Code summarises the conversation once it reaches "
                        "this many tokens (its `autoCompactWindow` setting). Every request re-sends the whole "
-                       "conversation, so in long sessions this is the biggest saving; the trade-off is that details "
-                       "from early on survive only as a summary. 0 = Claude Code's default (about 967K on 1M-context "
+                       "conversation, so in long sessions this is the biggest saving. Each compaction costs one request "
+                       "over the whole conversation plus a summary, earned back after about 5 to 12 later requests, so "
+                       "a session that ends soon after compacting costs a little more; and details from early on "
+                       "survive only as a summary. 0 = Claude Code's default (about 967K on 1M-context "
                        "models, the window's end on others). Claude Code caps it at each model's window, a window you "
                        "set with `/autocompact` always wins, and it's removed when Kompactor is stopped.",
                        "int", 0, 1000000, 10000),

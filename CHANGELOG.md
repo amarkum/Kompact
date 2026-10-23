@@ -2,6 +2,12 @@
 
 All notable changes to Kompactor. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- Costs are calculated as Claude Code is billed. Every request is priced at its model's API rates: prompt-cache writes at 2× input (Claude Code uses the 1-hour cache; before, Kompactor assumed 1.25×), cache reads at each model's own rate (0.05× on Opus 5.5, 0.025× on Fable 5.1; before, 0.1× for all), and Haiku 5.5's 5× price above 100K tokens. Dollar savings on the dashboard rise accordingly, since each token kept out would also have been written to the cache at 2×.
+- Compacting earlier is priced as measured in a real Claude Code `/compact`: the compaction request reads the conversation from the prompt cache except its newest part, which is sent again uncached; Claude writes a summary; and the next request writes about 25K tokens (summary and restored files) to the cache. On 28 real long Opus 5.5 sessions it saves about 32, 23, 11 and 5.5% of cost at 240K, 430K, 650K and 780K, not the 50, 35, 19 and 10% shown before, and 1 or 2 of the 28 sessions cost more at each size because they ended soon after compacting. The level cards (now about 7, 18, 25, 35 and 43% lower cost), the "Compact the conversation earlier" switch and the README show the corrected figures and the trade-off.
+- The dashboard uses the full width of the window.
+
 ## 0.8.8
 
 - Configuration: switch and setting changes apply to every level card, so switching compaction off lowers them all and they stay in order from Max quality to Max savings. Before, only the selected card changed.

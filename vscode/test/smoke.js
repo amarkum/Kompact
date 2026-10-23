@@ -80,6 +80,12 @@ const get = (url) => new Promise((res, rej) => http.get(url, (r) => { let b = ""
   for (const id of ["kompactor.openDashboard", "kompactor.choosePreset", "kompactor.enable", "kompactor.disable", "kompactor.menu"])
     assert.ok(commands[id], `command ${id} registered`);
 
+  // level picker before any output is recorded: no "null %"
+  let picked;
+  quickPickAnswer = (items) => { picked = items; return undefined; };
+  await commands["kompactor.choosePreset"]();
+  assert.ok(picked.every((i) => !/null|undefined/.test(i.description)), "level picker never shows null %");
+
   // enable -> hooks in ~/.claude/settings.json pointing at this repo's launcher
   await commands["kompactor.enable"]();
   const settings = JSON.parse(fs.readFileSync(path.join(tmp, ".claude", "settings.json"), "utf8"));
