@@ -90,7 +90,7 @@ kompactor start
 ```
 If your shell says `kompactor: command not found` (pip put the command in a folder that isn't on your PATH), run `python3 -m kompactor start` once. It links `kompactor` into a folder that is already on your PATH, such as `~/.local/bin`, so the command works in every terminal from then on.
 
-**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.7.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
+**VS Code and Cursor.** `kompactor start` adds the Kompactor extension to VS Code and Cursor automatically when they're installed (skip it with `--no-editor`); reload the window and a **Kompactor** icon appears in the activity bar. To install it by hand, download `kompactor-0.8.8.vsix` from [Releases](https://github.com/amarkum/kompactor/releases) and use Extensions › `⋯` › *Install from VSIX…*.
 
 **From source:**
 ```bash
